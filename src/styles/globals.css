@@ -1,0 +1,424 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 基本トークン / 背景・共通UI ===== */
+:root{
+  --ink:#e8eeff;
+  --muted:#9fb0d8;
+  --accent:#2563eb;
+  --accent2:#7c3aed;
+  --line:rgba(120,144,240,.22);
+
+  /* === Manabi風サイドメニュー配色・寸法（既定） === */
+  --sb-bg:#1f2a44;         /* 濃紺ベース */
+  --sb-bg-2:#243252;       /* セクション分割の濃淡 */
+  --sb-text:#e9eef9;       /* ラベル文字色（白寄り） */
+  --sb-muted:#b9c5de;      /* サブテキスト */
+  --sb-active:#e9f3ff;     /* アクティブ背景の薄水色 */
+  --sb-active-text:#192339;/* アクティブ時テキスト（濃紺） */
+  --sb-accent:#2c7be5;     /* アクティブ左バー／リンク色 */
+  --sb-border:#2e3b5f;     /* 枠線 */
+  --sb-width:256px;        /* ★ Sidebar幅 変数 */
+}
+
+.text-ink{ color:var(--ink) }
+.text-muted{ color:var(--muted) }
+
+/* ★ 追加/修正: ブラウザ既定の余白を排除 + 100%高さを保証 */
+html, body { height:100%; }
+body { margin:0; background:transparent; color:var(--ink); }
+
+/* 背景 */
+.tiara-bg{
+  position:fixed; inset:0; z-index:-1; background:
+    radial-gradient(1300px 800px at 20% 20%, rgba(37,99,235,.18), transparent 60%),
+    radial-gradient(1100px 700px at 80% 30%, rgba(124,58,237,.18), transparent 60%),
+    radial-gradient(900px 700px at 50% 90%, rgba(16,185,129,.16), transparent 60%),
+    linear-gradient(180deg, #0b1120, #0a0f1f 60%, #0b1226);
+  filter:saturate(1.18);
+}
+
+/* パネル/入力/ボタン */
+.tiara-panel{
+  background:linear-gradient(180deg, rgba(16,24,56,.70), rgba(10,14,36,.65));
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border:1px solid var(--line); border-radius:16px; box-shadow:0 18px 60px rgba(0,0,0,.35);
+}
+.tiara-input{
+  @apply w-full rounded-xl px-3 py-2.5 outline-none;
+  border:1px solid rgba(128,145,230,.32);
+  background:rgba(8,12,34,.75); color:var(--ink)
+}
+.tiara-input:focus{ border-color:#5f7bff; box-shadow:0 0 0 3px rgba(95,123,255,.18) }
+.tiara-btn{
+  border:1px solid #3b82f6; background:linear-gradient(180deg,#2563eb,#1d4ed8);
+  color:#fff; font-weight:800; letter-spacing:.02em;
+  @apply rounded-xl px-4 py-2.5 active:scale-95 transition
+}
+.tiara-btn:disabled{ opacity:.55; cursor:not-allowed }
+
+/* ===== ZIP準拠 サイドメニュー（参考） ===== */
+.zip-side{
+  width:260px; height:100dvh; border-radius:18px;
+  background:linear-gradient(180deg, rgba(14,18,28,.78), rgba(14,18,28,.78));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 24px 80px rgba(0,0,0,.35) inset, 0 16px 40px rgba(0,0,0,.35);
+  display:grid; grid-template-rows:auto 1fr auto;
+  padding:10px 8px; color:var(--ink);
+}
+.zip-side__brand{ padding:6px 8px 10px; }
+.zip-side__brandLink{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+.zip-side__brandLogo{ width:28px; height:28px; border-radius:50%; background:#fff0; }
+.zip-side__brandText{ font-weight:900; letter-spacing:.06em; }
+.zip-side__nav{ overflow:hidden auto; padding:4px; }
+.zip-side__section{ margin:8px 0 12px; }
+.zip-side__sectionTitle{
+  font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  color: color-mix(in srgb, var(--muted) 90%, #fff 10%);
+  padding:8px 12px;
+}
+.zip-side__list{ display:grid; gap:6px; padding:4px; }
+.zip-side__item{
+  position:relative; display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:12px; text-decoration:none; color:var(--muted);
+  transition: background .18s ease, color .18s ease, transform .06s ease;
+  outline: none;
+}
+.zip-side__item:hover{ background:rgba(255,255,255,.06); color:var(--ink); }
+.zip-side__item:active{ transform:translateY(1px); }
+.zip-side__item.is-active{
+  background:rgba(255,255,255,.12); color:var(--ink);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.zip-side__item.is-active::before{
+  content:""; position:absolute; left:-7px; top:8px; bottom:8px; width:3px; border-radius:2px;
+  background:linear-gradient(180deg,#6d28d9,#2563eb);
+}
+.zip-side__dot{
+  width:14px; height:14px; border-radius:4px; flex:0 0 auto;
+  background:linear-gradient(135deg,#6d28d9,#2563eb);
+}
+.zip-side__label{ font-size:13px; font-weight:700; letter-spacing:.02em; }
+.zip-side__foot{
+  padding:8px 12px; font-size:12px; color:var(--muted);
+  border-top:1px solid rgba(255,255,255,.08); opacity:.9;
+}
+
+/* === Manabi風サイドメニュー（本番採用） === */
+.side--manabi{
+  width: var(--sb-width); /* ★ 変数で制御 */
+  height:100dvh;
+  display:grid; grid-template-rows:auto 1fr auto;
+  background:var(--sb-bg); color:var(--sb-text);
+  border-right:1px solid var(--sb-border);
+  border-radius:0; /* 画面端までベタ付け */
+  position: sticky;            /* ★ 固定 */
+  top: 0;                      /* ★ 固定位置 */
+  overflow: hidden;            /* ★ サイドバー自身にスクロールバーを出さない */
+  overscroll-behavior: none;   /* ★ 慣性スクロールの引きずりを抑止 */
+}
+/* ★ スリムモード（半幅相当） */
+.side--manabi.slim{ --sb-width:146px; }
+.side--manabi.slim .side__brand{ padding:12px 10px; }
+.side--manabi.slim .brand__logo-img{ width:56px; height:56px; }
+.side--manabi.slim .side__nav{ padding:8px; }
+.side--manabi.slim .nav__list{ padding:0 4px; gap:6px; }
+.side--manabi.slim .nav__item{ padding:9px 16px 9px 16px; }  /* ★ 左余白を16pxに */
+.side--manabi.slim .nav__label{
+  font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+/* slim時のバー位置も0起点（横スク抑止） */
+.side--manabi.slim .nav__item.is-active::before{ left:0; width:3px; }
+
+/* ヘッダ（ロゴ帯） */
+.side--manabi .side__brand{
+  display:flex; align-items:center; justify-content:center; /* 横軸センター */
+  gap:10px; padding:14px 16px; background:var(--sb-bg-2);
+  border-bottom:1px solid var(--sb-border);
+}
+/* Next/Image 用ロゴ（サイズはここで調整） */
+.brand__logo-img{ width:82px; height:82px; border-radius:10px; }
+/* ロゴ横テキストは使わない */
+.side--manabi .brand__name{ display:none; }
+
+/* ナビ本体（★ 非スクロールに変更） */
+.side--manabi .side__nav{
+  overflow: visible;  /* ← 以前の auto を無効化してスクロールバーを隠す */
+  padding:8px;
+}
+.side--manabi .nav__section{ margin:8px 0 12px; }
+.side--manabi .nav__title{
+  font-size:13px; font-weight:800; color:var(--sb-muted);
+  padding:10px 8px; text-transform:none;
+}
+.side--manabi .nav__list{
+  display:grid; gap:6px; padding:0 6px;
+  list-style:none; margin:0;
+}
+.side--manabi .nav__item{
+  position:relative; display:flex; align-items:center; gap:10px;
+  padding:10px 16px 10px 16px;   /* ★ 左を16pxにしてアクティブバー分を確保 */
+  border-radius:8px; color:var(--sb-text);
+  text-decoration:none; transition:background .15s ease,color .15s ease;
+}
+.side--manabi .nav__item:hover{ background:rgba(255,255,255,.06); }
+/* 先頭の四角アイコンは使わない */
+.side--manabi .nav__ico{ display:none; }
+.side--manabi .nav__item.no-ico{ gap:0; padding-left:16px; } /* ★ 12px → 16px */
+.side--manabi .nav__label{ font-size:13px; font-weight:700; letter-spacing:.01em; }
+/* アクティブ（★ バーを 0 起点にして横スク要因を排除） */
+.side--manabi .nav__item.is-active{
+  background:var(--sb-active); color:var(--sb-active-text);
+}
+.side--manabi .nav__item.is-active::before{
+  content:""; position:absolute; left:0;  /* ★ -8px → 0 */
+  top:8px; bottom:8px; width:4px;
+  border-radius:4px; background:var(--sb-accent);
+}
+/* フッタ */
+.side--manabi .side__foot{
+  border-top:1px solid var(--sb-border);
+  padding:10px 14px; font-size:12px; color:var(--sb-muted);
+}
+
+/* ★ 保険：WebKit系のスクロールバーを強制的に非表示 */
+.side--manabi::-webkit-scrollbar,
+.side--manabi *::-webkit-scrollbar{
+  width:0; height:0;
+}
+
+/* ==== Light Theme – コントラスト最適化 ==== */
+html[data-theme="light"]{
+  --ink:#101624;
+  --muted:#5b6a86;
+  --line:rgba(15,25,45,.12);
+}
+/* 背景：白寄りグラデ */
+html[data-theme="light"] .tiara-bg{
+  background:
+    radial-gradient(1200px 720px at 20% 18%, rgba(37,99,235,.10), transparent 60%),
+    radial-gradient(1000px 640px at 80% 24%, rgba(124,58,237,.10), transparent 60%),
+    radial-gradient(800px 560px  at 48% 86%, rgba(16,185,129,.07), transparent 60%),
+    linear-gradient(180deg, #f7f9ff, #f3f6ff 60%, #eef3ff);
+  filter:saturate(1.0);
+}
+/* パネル */
+html[data-theme="light"] .tiara-panel{
+  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.96));
+  border-color:#dde6f4;
+  box-shadow:0 10px 28px rgba(16,30,54,.10), 0 1px 0 rgba(255,255,255,.8) inset;
+}
+/* ボタン */
+html[data-theme="light"] .tiara-btn{ border-color:#2b6eea; }
+/* テキスト */
+html[data-theme="light"] .text-ink{ color:var(--ink) }
+html[data-theme="light"] .text-muted{ color:var(--muted) }
+
+/* サイドメニュー（Light配色） */
+html[data-theme="light"] .side--manabi{
+  background:#f5f7fd; color:#27324a; border-right:1px solid #d6def5;
+}
+html[data-theme="light"] .side--manabi .side__brand{
+  background:#eaf0ff; border-bottom:1px solid #d6def5;
+}
+html[data-theme="light"] .side--manabi .nav__title{ color:#6a7a98; }
+html[data-theme="light"] .side--manabi .nav__item{ color:#2a3550; }
+html[data-theme="light"] .side--manabi .nav__item:hover{ background:#eef4ff; }
+html[data-theme="light"] .side--manabi .nav__item.is-active{
+  background:#e6f0ff; color:#192339; box-shadow:none;
+}
+html[data-theme="light"] .side--manabi .nav__item.is-active::before{ background:#2c7be5; }
+
+/* ダッシュボードのリンク行（ライトでの視認性） */
+html[data-theme="light"] a.block.rounded-xl{
+  background:#ffffff; border-color:#dce5f5;
+}
+html[data-theme="light"] a.block.rounded-xl:hover{
+  background:#f3f6ff; border-color:#cdd9f0;
+}
+
+/* テーマトグルの読みやすさ */
+html[data-theme="light"] button[aria-label="テーマ切替"]{
+  border-color:#d9e3f4; background:#ffffffcc; color:#21304a;
+}
+
+/* ==== Dashboard strips & summary =============================== */
+/* 角丸・外側余白を除去（帯エリア） */
+.menu-strip,
+.summary-strip{
+  border-radius:0;
+  margin:0;
+}
+
+/* Menu strip（上段・メニューセクション） */
+html[data-theme="light"] .menu-strip{
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(246,249,255,.95));
+  border: 1px solid rgba(15,25,45,.10);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 10px 24px rgba(16,30,54,.06) inset;
+}
+html[data-theme="dark"] .menu-strip{
+  background: linear-gradient(180deg, rgba(28,36,66,.55), rgba(22,28,56,.55));
+  border: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 12px 36px rgba(0,0,0,.24) inset;
+}
+
+/* Summary strip（下段・サマリーセクション）
+   フッターに被らず、カードを帯の“中央高さ”に配置 */
+.summary-strip{
+  display:flex;                                /* 子(.summary-grid)を並べる */
+  align-items:center;                          /* カード群を帯の中央に */
+  min-height:36vh;                             /* 必要なら 34~40vh で微調整 */
+  padding-top:12px;
+  padding-bottom:calc(max(env(safe-area-inset-bottom), 16px) + 48px);
+}
+html[data-theme="dark"] .summary-strip{
+  background: linear-gradient(180deg, rgba(248,250,255,.10), rgba(255,255,255,.08));
+  border: 1px solid rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.28) inset;
+}
+/* 反転：Lightではサマリー側をやや濃い帯に */
+html[data-theme="light"] .summary-strip{
+  background: linear-gradient(180deg, rgba(28,36,66,.10), rgba(22,28,56,.12));
+  border: 1px solid rgba(15,25,45,.10);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 6px 18px rgba(16,30,54,.06) inset;
+}
+
+/* Summary グリッド（4列固定 & 帯の幅いっぱい） */
+.summary-grid{
+  flex:1;                                      /* 帯の残り幅を使用 */
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  align-items:stretch;                          /* 各カードの高さを揃える */
+  gap:12px;
+  width:100%;
+}
+
+/* サマリーカード：上下余白を均等、縦の長さを短めに */
+.summary-card{
+  min-height:260px;
+  display:flex;
+  flex-direction:column;
+  padding-top:16px;
+  padding-bottom:16px;
+}
+
+/* AppShell の左右パディングを相殺して帯を端まで広げるユーティリティ */
+.strip-edge { margin-left:-0.75rem; margin-right:-0.75rem; } /* AppShellの p-3 前提 */
+.strip-edge-4 { margin-left:-1rem;  margin-right:-1rem; }
+.strip-edge-6 { margin-left:-1.5rem; margin-right:-1.5rem; }
+
+/* ==== StatCard 行スタイル（tone別の視認性向上） ================== */
+.stat-row{
+  display:flex; align-items:center; justify-content:space-between;
+  border:1px solid rgba(220,230,245,.22);
+  background:rgba(255,255,255,.03);
+  border-radius:12px;
+  padding:8px 12px;
+}
+.stat-label{ opacity:.92; }
+.stat-value{ font-weight:800; letter-spacing:.02em; }
+
+/* tone: OK */
+.stat--ok{}
+
+/* tone: WARN（黄系） */
+.stat--warn{
+  background:rgba(250,204,21,.14);
+  border-color:rgba(234,179,8,.40);
+}
+
+/* tone: DANGER（赤系） */
+.stat--danger{
+  background:rgba(239,68,68,.16);
+  border-color:rgba(239,68,68,.48);
+}
+.stat--danger .stat-value{ color:#fecaca; }
+
+/* Light テーマの最適化 */
+html[data-theme="light"] .stat-row{
+  background:#ffffff; border-color:#dce5f5;
+}
+html[data-theme="light"] .stat--warn{
+  background:rgba(252,211,77,.22);
+  border-color:rgba(202,138,4,.38);
+}
+html[data-theme="light"] .stat--danger{
+  background:rgba(248,113,113,.24);
+  border-color:rgba(220,38,38,.40);
+}
+html[data-theme="light"] .stat--danger .stat-value{
+  color:#dc2626;
+}
+/* ===== App-like Icon Menu (centered) ============================= */
+.app-icons-wrap{
+  display:flex;
+  justify-content:center; /* グリッド全体を中央寄せ */
+  width:100%;
+}
+.app-icons{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); /* 自動折返し */
+  gap: 18px;
+  width:100%;
+  max-width: 1160px;   /* 行幅を制御して“中央に塊”として見せる */
+  justify-items:center; /* 各カードも中央基準で */
+}
+
+.app-icon{
+  width: 220px; /* 1カードの視認性を確保 */
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; text-align:center; text-decoration:none;
+  border:1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border-radius:22px;
+  padding:18px 12px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .08s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+  color: var(--ink);
+}
+.app-icon:hover{
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 16px 36px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.app-icon:active{ transform: translateY(0); }
+
+.app-icon__badge{
+  width:72px; height:72px; border-radius:20px;
+  display:grid; place-items:center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 10px 22px rgba(0,0,0,.30);
+  border: 1px solid rgba(255,255,255,.18);
+}
+.app-icon__svg{ width:34px; height:34px; color:#fff; opacity:.95; }
+.app-icon__label{ font-size:13px; font-weight:800; letter-spacing:.02em; line-height:1.35; color:var(--ink); }
+
+/* 個別色（今風グラデ） */
+.badge-assign   { background: linear-gradient(145deg, #22d3ee, #3b82f6); } /* シアン→青 */
+.badge-matching { background: linear-gradient(145deg, #60a5fa, #7c3aed); } /* 空色→紫 */
+.badge-assets   { background: linear-gradient(145deg, #10b981, #0ea5e9); } /* 緑→ティール */
+.badge-chat     { background: linear-gradient(145deg, #a855f7, #ec4899); } /* 紫→ピンク */
+.badge-ride     { background: linear-gradient(145deg, #f59e0b, #ef4444); } /* アンバー→赤 */
+
+/* Light theme 調整 */
+html[data-theme="light"] .app-icon{
+  border-color:#dbe5f6;
+  background: linear-gradient(180deg, #ffffff, #f7f9ff);
+  box-shadow: 0 10px 22px rgba(16,30,54,.10), inset 0 1px 0 rgba(255,255,255,1);
+  color:#1d2740;
+}
+html[data-theme="light"] .app-icon:hover{
+  background: linear-gradient(180deg, #ffffff, #eef3ff);
+  border-color:#cfdaf0;
+  box-shadow: 0 14px 28px rgba(16,30,54,.14), inset 0 1px 0 rgba(255,255,255,1);
+}
+html[data-theme="light"] .app-icon__label{ color:#21304a; }
+/* バッジは同色のままでOK（白背景でも映える発色） */
+

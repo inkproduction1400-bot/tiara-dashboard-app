@@ -1,34 +1,24 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",                  // Next が最適化してくれるので preserve のままでOK
     "strict": true,
-    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },     // `@/` エイリアスを src/ に解決
     "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "allowJs": true,                   // JS/TS 混在を許可（不要なら false に）
+    "incremental": true,               // 増分ビルド
+    "resolveJsonModule": true,         // JSON import を許可
+    "isolatedModules": true,           // SWC/Babel 要件
+
+    "plugins": [{ "name": "next" }]    // Next 公式プラグイン（診断向上）
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
+  "include": ["next-env.d.ts", "src/**/*", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

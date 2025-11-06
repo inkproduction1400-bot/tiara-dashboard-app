@@ -1,0 +1,140 @@
+'use client';
+import React, { useMemo, useState } from 'react';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
+import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Plus } from 'lucide-react';
+import ShortcutCard from './ShortcutCard';
+import ShortcutEditorModal from './ShortcutEditorModal';
+import { useShortcuts } from '@/hooks/useShortcuts';
+import type { Shortcut } from '@/types/shortcut';
+import { renderIcon, type IconName } from '@/components/ui/IconPicker';
+
+function SortableItem({
+  item, onEdit, onDelete, badgeClass,
+}: {
+  item: Shortcut;
+  onEdit: () => void;
+  onDelete: () => void;
+  badgeClass: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ShortcutCard
+        label={item.label}
+        href={item.href}
+        icon={renderIcon(item.icon as IconName, 'h-6 w-6')}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        // ← ハンドルへドラッグイベントを集約
+        dragHandleProps={{ ...attributes, ...listeners }}
+        badgeClass={badgeClass}
+      />
+    </div>
+  );
+}
+
+function iconBg(icon: string): string {
+  const map: Record<string, string> = {
+    Home:          'bg-gradient-to-br from-zinc-600 to-neutral-800',
+    Users:         'bg-gradient-to-br from-sky-500 to-cyan-500',
+    ClipboardList: 'bg-gradient-to-br from-emerald-500 to-teal-500',
+    ListChecks:    'bg-gradient-to-br from-cyan-500 to-blue-500',
+    Calendar:      'bg-gradient-to-br from-indigo-500 to-blue-600',
+    Building2:     'bg-gradient-to-br from-amber-500 to-orange-600',
+    Box:           'bg-gradient-to-br from-rose-500 to-red-600',
+    Car:           'bg-gradient-to-br from-lime-500 to-green-600',
+    MessageSquare: 'bg-gradient-to-br from-fuchsia-500 to-pink-600',
+    Phone:         'bg-gradient-to-br from-purple-500 to-violet-600',
+    BadgeCheck:    'bg-gradient-to-br from-yellow-500 to-amber-600',
+    Settings:      'bg-gradient-to-br from-slate-500 to-gray-600',
+  };
+  return (map[icon] ?? 'bg-gradient-to-br from-slate-500 to-gray-600') + ' text-white';
+}
+
+export default function ShortcutGrid({ userId, defaults }: { userId: string; defaults: Shortcut[]; }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor)
+  );
+  const { items, loaded, reorder, add, update, remove, reset } = useShortcuts({ userId, defaults });
+  const ids = useMemo(() => items.map(s => s.id), [items]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Shortcut | null>(null);
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = ids.indexOf(active.id as string);
+    const to = ids.indexOf(over.id as string);
+    await reorder(from, to);
+  };
+
+  if (!loaded) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-28 rounded-2xl bg-white/5 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 hover:bg-white/10"
+          onClick={() => { setEditTarget(null); setModalOpen(true); }}
+        >
+          <Plus className="h-4 w-4" /> ショートカット追加
+        </button>
+        <button className="rounded-xl border border-white/10 px-3 py-2 hover:bg-white/10" onClick={() => reset()}>
+          初期配置にリセット
+        </button>
+      </div>
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={ids} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {items.map(item => (
+              <SortableItem
+                key={item.id}
+                item={item}
+                onEdit={() => { setEditTarget(item); setModalOpen(true); }}
+                onDelete={() => remove(item.id)}
+                badgeClass={iconBg(item.icon)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      <ShortcutEditorModal
+        open={modalOpen}
+        initial={editTarget ? { label: editTarget.label, href: itemHrefSafe(editTarget.href), icon: itemIconSafe(editTarget.icon) } : undefined}
+        onClose={() => setModalOpen(false)}
+        onSubmit={(data) => {
+          if (editTarget) {
+            update(editTarget.id, { ...data, updatedAt: new Date().toISOString() });
+          } else {
+            const id = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
+            add({ id, ...data, createdAt: new Date().toISOString() });
+          }
+          setModalOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
+function itemIconSafe(icon: string): IconName {
+  const allow: Record<string, 1> = { Home:1, Users:1, ClipboardList:1, ListChecks:1, Calendar:1, Building2:1, Box:1, Car:1, MessageSquare:1, Phone:1, BadgeCheck:1, Settings:1 };
+  return (icon in allow ? (icon as IconName) : 'Home');
+}
+function itemHrefSafe(href: string): string {
+  return typeof href === 'string' && href.startsWith('/') ? href : '/dashboard';
+}

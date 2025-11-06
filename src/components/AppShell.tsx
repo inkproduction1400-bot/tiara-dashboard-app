@@ -33,7 +33,7 @@ export default function AppShell({ children, title, subtitle }: Props) {
   const fallback = PATH_TITLE_MAP[base] || PATH_TITLE_MAP[pathname] || { title: "" };
 
   return (
-    <main className="h-[100dvh] overflow-hidden">
+    <main className="min-w-[1024px] max-w-[1600px] mx-auto px-4 lg:px-6 min-w-[1024px] max-w-[1600px] mx-auto px-4 lg:px-6 h-[100dvh] overflow-hidden">
       <div className="h-full flex">
         <Sidebar />
         <div className="flex-1 p-3 overflow-hidden">

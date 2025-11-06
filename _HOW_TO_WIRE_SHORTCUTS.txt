@@ -1,0 +1,28 @@
+[使い方]
+1) app/dashboard/page.tsx で下記を追記してください（既存UIの上部など適当な位置）。
+
+import ShortcutGrid from '@/components/dashboard/ShortcutGrid';
+import type { Shortcut } from '@/types/shortcut';
+
+const DEFAULT_SHORTCUTS: Shortcut[] = [
+  { id: 'casts', label: 'キャスト管理', href: '/casts', icon: 'Users' },
+  { id: 'applications', label: '応募管理', href: '/applications', icon: 'ClipboardList' },
+  { id: 'schedule', label: 'スケジュール', href: '/schedule', icon: 'Calendar' },
+  { id: 'chat', label: 'チャット', href: '/chat', icon: 'MessageSquare' },
+  { id: 'shops', label: '店舗', href: '/shops', icon: 'Building2' },
+  { id: 'approvals', label: '承認', href: '/approvals', icon: 'BadgeCheck' },
+  { id: 'settings', label: '設定', href: '/settings', icon: 'Settings' },
+];
+
+export default function DashboardPage() {
+  const userId = 'demo-user-1'; // 実装時は useAuth() 等からログインユーザーIDを取得
+  return (
+    <div className="space-y-6">
+      <ShortcutGrid userId={userId} defaults={DEFAULT_SHORTCUTS} />
+      {/* 既存の統計カード等はこの下に続けてください */}
+    </div>
+  );
+}
+
+2) 開発サーバを再起動:
+   npm run dev

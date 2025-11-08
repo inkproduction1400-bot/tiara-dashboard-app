@@ -101,7 +101,7 @@ export default function LoginForm() {
         </div>
 
         <div className="sm:col-start-2">
-          <p className="text-xs text-muted">デモ：任意のID/パスワードでログインできます</p>
+          {DEMO_MODE && <p className="text-xs text-muted">デモ：任意のID/パスワードでログインできます</p>}
           {err && <p className="mt-1 text-xs text-rose-200">{err}</p>}
           <div className="mt-2 flex justify-end">
             <button className="tiara-btn" disabled={loading}>

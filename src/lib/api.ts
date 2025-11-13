@@ -7,7 +7,7 @@ const RAW_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1";
 
 // 末尾スラッシュを除去しておく（結合時に二重 / を避ける）
-const API_BASE = RAW_BASE.replace(/\/+$/, "");
+export const API_BASE = RAW_BASE.replace(/\/+$/, "");
 
 export type LoginOk = { status: "ok"; token: string };
 export type LoginChallenge = {
@@ -31,14 +31,22 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-export async function login(email: string, password: string, device_id: string) {
+export async function login(
+  email: string,
+  password: string,
+  device_id: string
+) {
   return apiFetch<LoginRes>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password, device_id }),
   });
 }
 
-export async function verifyChallenge(tx_id: string, code: string, device_id: string) {
+export async function verifyChallenge(
+  tx_id: string,
+  code: string,
+  device_id: string
+) {
   return apiFetch<LoginOk>("/auth/challenge/verify", {
     method: "POST",
     body: JSON.stringify({ tx_id, code, device_id }),

@@ -22,7 +22,7 @@ type Props = {
   showDetail?: boolean;
 };
 
-export default function StatCard({
+export default function ShortcutCard({
   title,
   stats,
   className,
@@ -39,6 +39,7 @@ export default function StatCard({
           <Link
             href={href}
             className="text-sm font-semibold text-ink/80 hover:underline"
+            aria-label={`${title} の詳細を見る`}
             prefetch={false}
           >
             詳細
@@ -63,11 +64,11 @@ export default function StatCard({
           );
 
           return link ? (
-            <Link key={i} href={link} className={rowCls} prefetch={false}>
+            <Link key={`${s.label}-${i}`} href={link} className={rowCls} prefetch={false}>
               {content}
             </Link>
           ) : (
-            <div key={i} className={rowCls}>
+            <div key={`${s.label}-${i}`} className={rowCls}>
               {content}
             </div>
           );

@@ -4,20 +4,22 @@
     "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "jsx": "preserve",                  // Next が最適化してくれるので preserve のままでOK
+    "jsx": "preserve",
     "strict": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] },     // `@/` エイリアスを src/ に解決
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-
-    "allowJs": true,                   // JS/TS 混在を許可（不要なら false に）
-    "incremental": true,               // 増分ビルド
-    "resolveJsonModule": true,         // JSON import を許可
-    "isolatedModules": true,           // SWC/Babel 要件
-
-    "plugins": [{ "name": "next" }]    // Next 公式プラグイン（診断向上）
+    "allowJs": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "plugins": [
+      { "name": "next" }
+    ]
   },
   "include": ["next-env.d.ts", "src/**/*", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

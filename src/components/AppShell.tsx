@@ -1,3 +1,4 @@
+// src/components/dashboard/AppShell.tsx
 "use client";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
@@ -29,16 +30,27 @@ const PATH_TITLE_MAP: Record<string, { title: string; subtitle?: string }> = {
 
 export default function AppShell({ children, title, subtitle }: Props) {
   const pathname = usePathname() || "/";
-  const base = "/" + (pathname.split("/").slice(0, 3).join("/") || ""); // 2階層までを基準に
+  const base = "/" + (pathname.split("/").slice(0, 3).join("/") || "");
   const fallback = PATH_TITLE_MAP[base] || PATH_TITLE_MAP[pathname] || { title: "" };
 
   return (
-    <main className="min-w-[1024px] max-w-[1600px] mx-auto px-4 lg:px-6 min-w-[1024px] max-w-[1600px] mx-auto px-4 lg:px-6 h-[100dvh] overflow-hidden">
+    <main className="h-[100dvh] overflow-hidden">
       <div className="h-full flex">
-        <Sidebar />
-        <div className="flex-1 p-3 overflow-hidden">
-          <Header title={title ?? fallback.title ?? ""} subtitle={subtitle ?? fallback.subtitle} />
-          {children}
+        {/* 左：サイドバー（幅固定・縮まない） */}
+        <aside className="side-nav flex-shrink-0">
+          <Sidebar />
+        </aside>
+
+        {/* 右：コンテンツ（縦スク有効・横スク抑止） */}
+        <div className="flex-1 min-w-0 min-h-0 overflow-auto">
+          {/* 中央寄せ・最大幅2XL・レスポンシブ余白 */}
+          <div className="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6">
+            <Header
+              title={title ?? fallback.title ?? ""}
+              subtitle={subtitle ?? fallback.subtitle}
+            />
+            {children}
+          </div>
         </div>
       </div>
     </main>

@@ -1,3 +1,4 @@
+// src/app/login/LoginForm.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -6,7 +7,8 @@ import OtpDialog from "./OtpDialog";
 import { getDeviceId, saveToken } from "@/lib/device";
 import { login, verifyChallenge } from "@/lib/api";
 
-const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
+// ⬇ デモ判定を api.ts と同じ環境変数名に統一
+const DEMO = process.env.NEXT_PUBLIC_DEMO_LOGIN === "1";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -30,22 +32,37 @@ export default function LoginForm() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!uid || !pw) { setErr("ID とパスワードを入力してください"); return; }
+    if (!uid || !pw) {
+      setErr("ID とパスワードを入力してください");
+      return;
+    }
     setLoading(true);
-
     const device_id = getDeviceId();
 
     try {
-      if (DEMO_MODE) {
-        const first = !localStorage.getItem("demo_device_verified");
-        if (first) { setTxId("demo-tx"); setOtpOpen(true); return; }
-        router.replace("/dashboard"); return;
+      // ---- デモモード：即時成功（トークン保存して遷移）----
+      if (DEMO) {
+        saveToken("demo-token");
+        router.replace("/dashboard");
+        return;
       }
 
+      // ---- 本番モード：APIへ問い合わせ ----
       const res = await login(uid, pw, device_id);
-      if (res.status === "ok") { saveToken(res.token); router.replace("/dashboard"); return; }
-      if (res.status === "challenge") { setTxId(res.tx_id); setOtpOpen(true); return; }
-      if (res.status === "denied") { setErr("この端末は未許可です。管理者の承認をお待ちください。"); return; }
+      if (res.status === "ok") {
+        saveToken(res.token);
+        router.replace("/dashboard");
+        return;
+      }
+      if (res.status === "challenge") {
+        setTxId(res.tx_id);
+        setOtpOpen(true);
+        return;
+      }
+      if (res.status === "denied") {
+        setErr("この端末は未許可です。管理者の承認をお待ちください。");
+        return;
+      }
       setErr("不明な応答です");
     } catch (ex: any) {
       setErr(ex?.message ?? "ログインに失敗しました");
@@ -57,15 +74,19 @@ export default function LoginForm() {
   async function handleOtp(code: string) {
     const device_id = getDeviceId();
 
-    if (DEMO_MODE) {
-      localStorage.setItem("demo_device_verified", "1");
-      setOtpOpen(false); setLoading(false); router.replace("/dashboard"); return;
-    }
-
     try {
+      if (DEMO) {
+        // デモ時に OTP ダイアログを開くことは想定外だが、開いた場合も成功扱いにする
+        saveToken("demo-token");
+        setOtpOpen(false);
+        router.replace("/dashboard");
+        return;
+      }
       if (!txId) throw new Error("tx_id が取得できていません");
       const v = await verifyChallenge(txId, code, device_id);
-      saveToken(v.token); setOtpOpen(false); router.replace("/dashboard");
+      saveToken(v.token);
+      setOtpOpen(false);
+      router.replace("/dashboard");
     } catch (ex: any) {
       setErr(ex?.message ?? "確認コードが正しくありません");
     } finally {
@@ -101,7 +122,11 @@ export default function LoginForm() {
         </div>
 
         <div className="sm:col-start-2">
-          {DEMO_MODE && <p className="text-xs text-muted">デモ：任意のID/パスワードでログインできます</p>}
+          {DEMO && (
+            <p className="text-xs text-muted">
+              デモ：任意のID/パスワードでログインできます
+            </p>
+          )}
           {err && <p className="mt-1 text-xs text-rose-200">{err}</p>}
           <div className="mt-2 flex justify-end">
             <button className="tiara-btn" disabled={loading}>
@@ -113,7 +138,10 @@ export default function LoginForm() {
 
       <OtpDialog
         open={otpOpen}
-        onClose={() => { setOtpOpen(false); setLoading(false); }}
+        onClose={() => {
+          setOtpOpen(false);
+          setLoading(false);
+        }}
         onSubmit={handleOtp}
       />
     </>

@@ -48,28 +48,15 @@ export async function apiFetch<T>(
   init?: RequestInit
 ): Promise<T> {
   const token = getToken();
-  const userId = resolveUserId();
-
   // 認証系エンドポイントかどうか
   const isAuthPath = path.startsWith('/auth/');
 
   // 基本ヘッダ
-  const baseHeaders: HeadersInit = {
+  const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(init?.headers ?? {}),
-  };
-
-  // /auth/* のときは Authorization / X-User-Id を付けない
-  const authHeaders: HeadersInit = isAuthPath
-    ? {}
-    : {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(userId ? { 'X-User-Id': userId } : {}),
-      };
-
-  const headers: HeadersInit = {
-    ...baseHeaders,
-    ...authHeaders,
+    // /auth/* のときは Authorization を付けない
+    ...(!isAuthPath && token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -81,7 +68,6 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
-
 
 export async function login(
   email: string,

@@ -43,19 +43,37 @@ function resolveUserId(): string | undefined {
   return undefined;
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
   const token = getToken();
   const userId = resolveUserId();
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(userId ? { "x-user-id": userId } : {}),
+  // 認証系エンドポイントかどうか
+  const isAuthPath = path.startsWith('/auth/');
+
+  // 基本ヘッダ
+  const baseHeaders: HeadersInit = {
+    'Content-Type': 'application/json',
     ...(init?.headers ?? {}),
   };
 
-  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
-  const res = await fetch(url, { ...init, headers, cache: "no-store" });
+  // /auth/* のときは Authorization / X-User-Id を付けない
+  const authHeaders: HeadersInit = isAuthPath
+    ? {}
+    : {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(userId ? { 'X-User-Id': userId } : {}),
+      };
+
+  const headers: HeadersInit = {
+    ...baseHeaders,
+    ...authHeaders,
+  };
+
+  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const res = await fetch(url, { ...init, headers, cache: 'no-store' });
 
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText}`);
@@ -63,6 +81,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   return res.json() as Promise<T>;
 }
+
 
 export async function login(
   email: string,

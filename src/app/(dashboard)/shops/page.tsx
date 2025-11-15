@@ -322,25 +322,36 @@ function ShopEditDrawer({
   onClose,
   onSaved,
 }: ShopEditDrawerProps) {
-  // ---- 必須8項目の state ----
+  // ---- 必須 1〜8項目＋追加項目の state ----
   const [shopNumber, setShopNumber] = useState(initial.shopNumber ?? ""); // ①店舗番号
-  const [name, setName] = useState(initial.name);                         // ②店名
-  const [nameKana, setNameKana] = useState("");                           // ③カナ（API未連携）
-  const [rank, setRank] = useState("");                                   // ④ランク（API未連携）
-  const [shopAddress, setShopAddress] = useState(initial.addressLine ?? ""); // ⑤店住所（addressLineにマップ）
-  const [buildingName, setBuildingName] = useState("");                   // ⑥ビル名（API未連携）
-  const [wageRange, setWageRange] = useState("");                         // ⑦時給レンジ（API未連携）
-  const [phone, setPhone] = useState(initial.phone ?? "");                // ⑧電話
-  const [phoneChecked, setPhoneChecked] = useState(false);                // 電話チェック（API未連携）
+  const [name, setName] = useState(initial.name); // ②店名
+  const [kana, setKana] = useState(""); // ③カナ
+  const [rank, setRank] = useState<string>(""); // ④ランク
+
+  const [addressLine, setAddressLine] = useState(initial.addressLine ?? ""); // ⑤店住所
+  const [buildingName, setBuildingName] = useState(""); // ⑥ビル名
+
+  const [hourlyRate, setHourlyRate] = useState<string>(""); // ⑦時給カテゴリ
+  const [phone, setPhone] = useState(initial.phone ?? ""); // ⑧電話
+  const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック
 
   // 既存項目：ジャンル
   const [genre, setGenre] = useState(initial.genre ?? "");
+
+  // 新規：専属指名キャスト / NG キャスト
+  const [exclusiveCast, setExclusiveCast] = useState<string>("");
+  const [ngCasts, setNgCasts] = useState<string>("");
+
+  // 新規：飲酒の希望 / 身分証 / 希望年齢 / 担当
+  const [drinkPreference, setDrinkPreference] = useState<string>("");
+  const [idDocument, setIdDocument] = useState<string>("");
+  const [preferredAge, setPreferredAge] = useState<string>("");
+  const [ownerStaff, setOwnerStaff] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [shopNumberError, setShopNumberError] = useState<string | null>(null);
 
-  // 時給ドロップダウンの選択肢
   const wageOptions = [
     "2500円",
     "2500円〜3000円",
@@ -374,7 +385,7 @@ function ShopEditDrawer({
       return;
     }
 
-    // updateShop の型に合わせて、null は使わず string のみ
+    // 現時点では API 側に存在するフィールドだけ送る
     const payload: Partial<{
       name: string;
       shopNumber: string;
@@ -384,7 +395,7 @@ function ShopEditDrawer({
     }> = {
       name: name.trim(),
       phone: phone.trim(),
-      addressLine: shopAddress.trim(),
+      addressLine: addressLine.trim(),
     };
 
     if (trimmedNumber) {
@@ -396,8 +407,10 @@ function ShopEditDrawer({
 
     try {
       await updateShop(initial.id, payload);
-      // カナ / ランク / ビル名 / 時給 / 電話チェックは
-      // 現時点では API 側に項目が無いため保存対象外（UI先行）。
+      // 以下の項目は UI 先行。API 拡張後に payload に追加予定：
+      // kana, rank, buildingName, hourlyRate, phoneChecked,
+      // exclusiveCast, ngCasts, drinkPreference, idDocument,
+      // preferredAge, ownerStaff
       await onSaved();
     } catch (e: any) {
       setErr(e?.message ?? "更新に失敗しました");
@@ -409,162 +422,265 @@ function ShopEditDrawer({
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-lg bg-slate-900 shadow-2xl p-6 overflow-y-auto">
+      <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4">店舗編集</h2>
 
-        <div className="space-y-4 text-sm">
-          {/* ① 店舗番号 */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">
-              店舗番号{" "}
-              <span className="text-xs text-slate-400">(3〜4桁の半角数字)</span>
-            </div>
-            <input
-              value={shopNumber}
-              onChange={(e) => {
-                setShopNumber(e.target.value);
-                setShopNumberError(null);
-              }}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono"
-              placeholder="001 / 0701 など"
-            />
-            {shopNumberError && (
-              <div className="mt-1 text-xs text-red-400">{shopNumberError}</div>
-            )}
-          </label>
-
-          {/* ② 店名 */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">店名</div>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-            />
-          </label>
-
-          {/* ③ カナ */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">カナ（読み方）</div>
-            <input
-              value={nameKana}
-              onChange={(e) => setNameKana(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              placeholder="クラブ ティアラ など"
-            />
-            <div className="mt-1 text-xs text-slate-400">
-              ※ 現時点では表示のみ先行。API拡張後に保存連携予定。
-            </div>
-          </label>
-
-          {/* ④ ランク */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">ランク</div>
-            <select
-              value={rank}
-              onChange={(e) => setRank(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-            >
-              <option value="">（未設定）</option>
-              <option value="S">S</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-            </select>
-            <div className="mt-1 text-xs text-slate-400">
-              ※ 現時点ではUIのみ。API拡張後に保存連携予定。
-            </div>
-          </label>
-
-          {/* ⑤ 店住所 */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">店住所</div>
-            <input
-              value={shopAddress}
-              onChange={(e) => setShopAddress(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              placeholder="福岡県福岡市博多区中洲1-2-3 など"
-            />
-          </label>
-
-          {/* ⑥ ビル名 */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">ビル名</div>
-            <input
-              value={buildingName}
-              onChange={(e) => setBuildingName(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              placeholder="○○ビル 3F など"
-            />
-            <div className="mt-1 text-xs text-slate-400">
-              ※ 現時点ではUIのみ。API拡張後に保存連携予定。
-            </div>
-          </label>
-
-          {/* ⑦ 時給（ドロップダウン） */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">時給</div>
-            <select
-              value={wageRange}
-              onChange={(e) => setWageRange(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-            >
-              <option value="">（未設定）</option>
-              {wageOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <div className="mt-1 text-xs text-slate-400">
-              ※ 現時点ではUIのみ。API拡張後に保存連携予定。
-            </div>
-          </label>
-
-          {/* ⑧ 電話 ＋ 電話チェック */}
-          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3">
+        <div className="space-y-6 text-sm">
+          {/* 基本情報 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 店舗番号 */}
             <label className="block">
-              <div className="text-slate-300 mb-1">電話</div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-slate-300 text-sm">店舗番号</span>
+                <span className="text-[11px] text-slate-500">
+                  3〜4桁の半角数字
+                </span>
+              </div>
               <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={shopNumber}
+                onChange={(e) => {
+                  setShopNumber(e.target.value);
+                  setShopNumberError(null);
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono"
+                placeholder="657 など"
+              />
+              {shopNumberError && (
+                <div className="mt-1 text-xs text-red-400">
+                  {shopNumberError}
+                </div>
+              )}
+            </label>
+
+            {/* 店舗名 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">店舗名</div>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="090-xxxx-xxxx"
+                placeholder="クラブ ○○ など"
               />
             </label>
 
-            <label className="flex items-center gap-2 mt-6 text-slate-200">
+            {/* カナ */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">カナ（読み方）</div>
               <input
-                type="checkbox"
-                checked={phoneChecked}
-                onChange={(e) => setPhoneChecked(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-500 bg-slate-800"
+                value={kana}
+                onChange={(e) => setKana(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                placeholder="クラブ アリア など"
               />
-              <span className="text-xs">電話チェック済み</span>
+              <p className="mt-1 text-[11px] text-slate-500">
+                ※ 現時点では表示用。API拡張後に保存予定。
+              </p>
+            </label>
+
+            {/* ランク */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">ランク</div>
+              <select
+                value={rank}
+                onChange={(e) => setRank(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                <option value="S">S</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                ※ 現時点では UI のみ。API拡張後に保存予定。
+              </p>
             </label>
           </div>
 
-          {/* ジャンル（既存） */}
-          <label className="block">
-            <div className="text-slate-300 mb-1">ジャンル</div>
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-            >
-              <option value="">（未設定）</option>
-              <option value="club">club</option>
-              <option value="cabaret">cabaret</option>
-              <option value="snack">snack</option>
-              <option value="gb">gb</option>
-            </select>
-          </label>
+          {/* 住所系 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">店住所</div>
+              <input
+                value={addressLine}
+                onChange={(e) => setAddressLine(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                placeholder="福岡県福岡市博多区中洲1-2-3 など"
+              />
+            </label>
 
-          {/* エラー表示 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">ビル名</div>
+              <input
+                value={buildingName}
+                onChange={(e) => setBuildingName(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                placeholder="○○ビル 3F など"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                ※ 現時点では UI のみ。API拡張後に保存予定。
+              </p>
+            </label>
+          </div>
+
+          {/* 時給・電話・ジャンル */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 時給 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">時給</div>
+              <select
+                value={hourlyRate}
+                onChange={(e) => setHourlyRate(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                {wageOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500">
+                ※ 現時点では UI のみ。細かい条件は別途メモ管理想定。
+              </p>
+            </label>
+
+            {/* 電話 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">電話</div>
+              <div className="flex gap-2 items-center">
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                  placeholder="090-xxxx-xxxx"
+                />
+                <label className="flex items-center gap-1 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={phoneChecked}
+                    onChange={(e) => setPhoneChecked(e.target.checked)}
+                  />
+                  <span>電話チェック済み</span>
+                </label>
+              </div>
+            </label>
+
+            {/* ジャンル */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">ジャンル</div>
+              <select
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                <option value="club">club</option>
+                <option value="cabaret">cabaret</option>
+                <option value="snack">snack</option>
+                <option value="gb">gb</option>
+              </select>
+            </label>
+          </div>
+
+          {/* キャスト関連 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 専属指名キャスト */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">
+                専属指名キャスト
+              </div>
+              <input
+                value={exclusiveCast}
+                onChange={(e) => setExclusiveCast(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                placeholder="キャスト名 または キャストID"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                例: &quot;山田花子&quot; / &quot;cast_1234&quot;。将来検索UIに差し替え予定。
+              </p>
+            </label>
+
+            {/* NGキャスト */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">NGキャスト</div>
+              <textarea
+                value={ngCasts}
+                onChange={(e) => setNgCasts(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white min-h-[72px]"
+                placeholder="キャスト名 or ID をカンマ区切りで入力（例: 山田花子, cast_0001, ...）"
+              />
+            </label>
+          </div>
+
+          {/* 条件系：飲酒・身分証・年齢・担当 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 飲酒の希望 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">飲酒の希望</div>
+              <select
+                value={drinkPreference}
+                onChange={(e) => setDrinkPreference(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                <option value="飲めない">飲めない</option>
+                <option value="弱い">弱い</option>
+                <option value="普通">普通</option>
+                <option value="強い">強い</option>
+              </select>
+            </label>
+
+            {/* 身分証 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">身分証</div>
+              <select
+                value={idDocument}
+                onChange={(e) => setIdDocument(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                <option value="顔写真のみ">顔写真のみ</option>
+                <option value="住民票のみ">住民票のみ</option>
+                <option value="どちらも必要">どちらも必要</option>
+              </select>
+            </label>
+
+            {/* 希望年齢 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">希望年齢</div>
+              <select
+                value={preferredAge}
+                onChange={(e) => setPreferredAge(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+              >
+                <option value="">（未設定）</option>
+                <option value="18-19">18〜19</option>
+                <option value="20-24">20〜24</option>
+                <option value="25-30">25〜30</option>
+                <option value="30-50">30〜50</option>
+              </select>
+            </label>
+
+            {/* 担当 */}
+            <label className="block">
+              <div className="text-sm text-slate-300 mb-1">担当</div>
+              <input
+                value={ownerStaff}
+                onChange={(e) => setOwnerStaff(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                placeholder="ログインできるスタッフ名を入力"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                将来的にスタッフマスタからのドロップダウンに差し替え予定。
+              </p>
+            </label>
+          </div>
+
           {err && <div className="text-red-400 text-sm">{err}</div>}
 
-          {/* アクションボタン */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 justify-end">
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl bg-slate-700 text-white"

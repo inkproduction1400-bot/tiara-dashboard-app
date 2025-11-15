@@ -18,16 +18,49 @@ export type LoginChallenge = {
 export type LoginDenied = { status: "denied" };
 export type LoginRes = LoginOk | LoginChallenge | LoginDenied;
 
+// 固定 DEMO ユーザー（.env.local）
+// NEXT_PUBLIC_USER_ID を優先し、なければ NEXT_PUBLIC_DEMO_USER_ID を使う
+const ENV_USER_ID =
+  process.env.NEXT_PUBLIC_USER_ID ?? process.env.NEXT_PUBLIC_DEMO_USER_ID ?? "";
+
+/**
+ * リクエストに載せる x-user-id を解決する
+ * 1. .env.local の固定ユーザー（ENV_USER_ID）があればそれを最優先
+ * 2. 将来ログイン実装されたとき用に localStorage("tiara:user_id") も見る
+ */
+function resolveUserId(): string | undefined {
+  if (ENV_USER_ID && ENV_USER_ID.trim() !== "") {
+    return ENV_USER_ID.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem("tiara:user_id");
+    if (stored && stored.trim() !== "") {
+      return stored.trim();
+    }
+  }
+
+  return undefined;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
+  const userId = resolveUserId();
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "x-user-id": userId } : {}),
     ...(init?.headers ?? {}),
   };
+
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   const res = await fetch(url, { ...init, headers, cache: "no-store" });
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
+
+  if (!res.ok) {
+    throw new Error(`API ${res.status} ${res.statusText}`);
+  }
+
   return res.json() as Promise<T>;
 }
 

@@ -21,6 +21,11 @@ function withUser(init?: RequestInit): RequestInit {
 export type ShopListItem = {
   id: string;
   name: string;
+
+  // ← ここを追加（API から返ってきているので型として受けておく）
+  nameKana?: string | null;
+  kana?: string | null;
+
   shopNumber?: string | null;
   phone?: string | null;
   genre?: string | null; // API は string/null 想定にしておく
@@ -28,7 +33,9 @@ export type ShopListItem = {
   city?: string | null;
   addressLine?: string | null;
   createdAt: string;
-  updatedAt: string;
+
+  // コントローラの select に含めていないケースもあるので optional に変更
+  updatedAt?: string;
 };
 
 export type ShopListResponse = {

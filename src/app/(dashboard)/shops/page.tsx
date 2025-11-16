@@ -83,6 +83,7 @@ export default function ShopsPage() {
       });
       const nextItems = res.items ?? [];
       setItems(nextItems);
+      // API から受けた件数（= 全件）を保持
       setTotal(nextItems.length);
       setMessage(null);
     } catch (e: any) {
@@ -218,7 +219,8 @@ export default function ShopsPage() {
       <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700/60">
         <div className="flex items-center justify-between px-4 py-2 text-sm text-slate-300 bg-slate-800/60">
           <div>
-            全 {total} 件中{" "}
+            {/* 表示件数は現在のフィルタ結果に合わせる */}
+            全 {filteredItems.length} 件中{" "}
             {startIndex === 0 ? 0 : startIndex} - {endIndex} 件を表示
           </div>
           <div className="flex items-center gap-2">
@@ -325,7 +327,12 @@ function ShopEditDrawer({
   // ---- 必須 1〜8項目＋追加項目の state ----
   const [shopNumber, setShopNumber] = useState(initial.shopNumber ?? ""); // ①店舗番号
   const [name, setName] = useState(initial.name); // ②店名
-  const [kana, setKana] = useState(""); // ③カナ
+
+  // ★ API から来ている nameKana / kana を初期表示する
+  const [kana, setKana] = useState(
+    initial.nameKana ?? initial.kana ?? "",
+  ); // ③カナ
+
   const [rank, setRank] = useState<string>(""); // ④ランク
 
   const [addressLine, setAddressLine] = useState(initial.addressLine ?? ""); // ⑤店住所

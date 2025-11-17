@@ -425,8 +425,13 @@ function ShopEditDrawer({
       payload.buildingName = buildingName.trim();
     }
 
-    // ★ ジャンルは「未設定」に戻す場合もあるので必ず送る（空文字なら API 側で null に変換）
-    (payload as any).genre = genre || "";
+    // ★ ジャンルは「未設定」に戻す場合もあるので必ず送る
+    //   → 空のときは null を送る（"" は Enum validation で 400 になるため）
+    if (!genre) {
+      payload.genre = null;
+    } else {
+      payload.genre = genre as ShopGenre;
+    }
 
     if (rank) {
       payload.rank = rank as ShopRank;
@@ -719,7 +724,7 @@ function ShopEditDrawer({
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 placeholder="ログインできるスタッフ名を入力"
               />
-              <p className="mt1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-slate-500">
                 将来的にスタッフマスタからのドロップダウンに差し替え予定。
               </p>
             </label>

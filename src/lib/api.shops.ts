@@ -37,7 +37,7 @@ export type ShopListItem = {
   id: string;
   name: string;
 
-  // ← ここを追加（API から返ってきているので型として受けておく）
+  // API から返却される拡張フィールド
   nameKana?: string | null;
   kana?: string | null;
 
@@ -108,11 +108,11 @@ export type UpdateShopPayload = Partial<{
   addressLine: string;
   buildingName: string;
   phone: string;
-  genre: ShopGenre;
-  rank: ShopRank;
-  drinkPreference: ShopDrinkPreference;
-  idDocumentRequirement: ShopIdRequirement;
-  preferredAgeRange: ShopPreferredAgeRange;
+  genre: ShopGenre | null;
+  rank: ShopRank | null;
+  drinkPreference: ShopDrinkPreference | null;
+  idDocumentRequirement: ShopIdRequirement | null;
+  preferredAgeRange: ShopPreferredAgeRange | null;
   wageLabel: string;
   reqKeywords: string[];
 }>;

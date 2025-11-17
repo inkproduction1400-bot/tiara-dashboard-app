@@ -23,44 +23,19 @@ type CastRow = {
   ownerStaffName: string;
 };
 
-const MOCK_ROWS: CastRow[] = [
-  {
-    id: "c1",
-    managementNumber: "0001",
-    name: "あい",
-    age: 25,
-    desiredHourly: 4300,
-    castCode: "A001",
-    ownerStaffName: "佐藤",
-  },
-  {
-    id: "c2",
-    managementNumber: "0002",
-    name: "えみ",
-    age: 22,
-    desiredHourly: 3500,
-    castCode: "A002",
-    ownerStaffName: "佐藤",
-  },
-  {
-    id: "c3",
-    managementNumber: "0003",
-    name: "かりん",
-    age: 28,
-    desiredHourly: 5000,
-    castCode: "B010",
-    ownerStaffName: "田中",
-  },
-  {
-    id: "c4",
-    managementNumber: "0004",
-    name: "さくら",
-    age: 21,
-    desiredHourly: 3800,
-    castCode: "C003",
-    ownerStaffName: "田中",
-  },
-];
+// とりあえず 50 件のモックデータを自動生成
+const MOCK_ROWS: CastRow[] = Array.from({ length: 50 }, (_, i) => {
+  const n = i + 1;
+  return {
+    id: `c${n}`,
+    managementNumber: String(n).padStart(4, "0"),
+    name: `キャスト${n}`,
+    age: null,
+    desiredHourly: null,
+    castCode: `A${String(n).padStart(3, "0")}`,
+    ownerStaffName: n % 2 === 0 ? "佐藤" : "田中",
+  };
+});
 
 type SortMode = "kana" | "hourly";
 
@@ -257,7 +232,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
       />
 
       {/* 本体：ほぼフルスクリーンサイズで中央表示 */}
-      <div className="relative z-50 w-full max-w-6xl h-full max-h-full bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+      <div className="relative z-50 w-full max-w-6xl h-full max-h-full min-h-[70vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">

@@ -5,182 +5,182 @@ import { useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 
 /**
- * キャスト一覧用の最小情報
- * （後でAPIと接続するときは、この形に合わせて CastListItem を返す想定）
+ * 一覧用キャスト行
+ * - 管理番号（4桁数字）
+ * - 名前
+ * - 年齢
+ * - 希望時給
+ * - キャストID（A001 など）
+ * - 担当者名
  */
 type CastRow = {
   id: string;
-  managementNumber: string;     // 管理番号（0001〜の数字）
-  displayName: string;         // 氏名
-  kana?: string;               // ふりがな（50音ソート用）
-  age?: number;                // 年齢
-  desiredHourly?: number;      // 希望時給
-  ownerStaffName?: string;     // 担当スタッフ名
+  managementNumber: string; // 管理番号（4桁など）
+  name: string;
+  age: number | null;
+  desiredHourly: number | null;
+  castCode: string;
+  ownerStaffName: string;
 };
-
-type SortKey = "staff" | "kana" | "wage" | "age";
 
 const MOCK_ROWS: CastRow[] = [
   {
     id: "c1",
     managementNumber: "0001",
-    displayName: "りさ",
-    kana: "リサ",
-    age: 24,
-    desiredHourly: 3500,
-    ownerStaffName: "山田",
+    name: "あい",
+    age: 25,
+    desiredHourly: 4300,
+    castCode: "A001",
+    ownerStaffName: "佐藤",
   },
   {
     id: "c2",
     managementNumber: "0002",
-    displayName: "みゆ",
-    kana: "ミユ",
+    name: "えみ",
     age: 22,
-    desiredHourly: 3000,
+    desiredHourly: 3500,
+    castCode: "A002",
     ownerStaffName: "佐藤",
   },
   {
     id: "c3",
     managementNumber: "0003",
-    displayName: "はる",
-    kana: "ハル",
-    age: 25,
-    desiredHourly: 4000,
-    ownerStaffName: "山田",
+    name: "かりん",
+    age: 28,
+    desiredHourly: 5000,
+    castCode: "B010",
+    ownerStaffName: "田中",
   },
   {
     id: "c4",
     managementNumber: "0004",
-    displayName: "ゆい",
-    kana: "ユイ",
-    age: 27,
-    desiredHourly: 4500,
-    ownerStaffName: "高橋",
+    name: "さくら",
+    age: 21,
+    desiredHourly: 3800,
+    castCode: "C003",
+    ownerStaffName: "田中",
   },
 ];
 
-export default function Page() {
-  // 検索・ソート関連
-  const [q, setQ] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("kana");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+type SortMode = "kana" | "hourly";
 
-  // モーダル表示用
+export default function Page() {
+  const [q, setQ] = useState("");
+  const [staffFilter, setStaffFilter] = useState<string>("");
+  const [sortMode, setSortMode] = useState<SortMode>("kana");
   const [selected, setSelected] = useState<CastRow | null>(null);
 
-  // フィルタ（名前＋管理番号で検索）
-  const filtered = useMemo(() => {
-    const text = q.trim();
-    if (!text) return MOCK_ROWS;
-
-    const lower = text.toLowerCase();
-    return MOCK_ROWS.filter((r) => {
-      const nameHit =
-        r.displayName.toLowerCase().includes(lower) ||
-        (r.kana ?? "").includes(text);
-      const mgmtHit = r.managementNumber.includes(text);
-      return nameHit || mgmtHit;
+  // 担当者ドロップダウン用の一覧
+  const staffOptions = useMemo(() => {
+    const set = new Set<string>();
+    MOCK_ROWS.forEach((r) => {
+      if (r.ownerStaffName) set.add(r.ownerStaffName);
     });
-  }, [q]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
+  }, []);
 
-  // ソート
+  // 検索＋担当者フィルタ＋ソート
   const rows = useMemo(() => {
-    const arr = [...filtered];
+    const query = q.trim();
+    let result = MOCK_ROWS.filter((r) => {
+      if (staffFilter && r.ownerStaffName !== staffFilter) return false;
+      if (!query) return true;
+      // 管理番号 or 名前 に含まれていればヒット
+      const hay = `${r.managementNumber} ${r.name}`;
+      return hay.includes(query);
+    });
 
-    arr.sort((a, b) => {
-      const dir = sortOrder === "asc" ? 1 : -1;
-
-      if (sortKey === "staff") {
-        const av = a.ownerStaffName ?? "";
-        const bv = b.ownerStaffName ?? "";
-        return av.localeCompare(bv, "ja") * dir;
-      }
-
-      if (sortKey === "kana") {
-        const av = a.kana ?? a.displayName ?? "";
-        const bv = b.kana ?? b.displayName ?? "";
-        return av.localeCompare(bv, "ja") * dir;
-      }
-
-      if (sortKey === "wage") {
+    result = result.slice().sort((a, b) => {
+      if (sortMode === "hourly") {
         const av = a.desiredHourly ?? 0;
         const bv = b.desiredHourly ?? 0;
-        if (av === bv) return 0;
-        return av > bv ? dir : -dir;
+        // 希望時給の高い順
+        if (av !== bv) return bv - av;
+        // 同額なら名前の50音順
+        return a.name.localeCompare(b.name, "ja");
       }
-
-      if (sortKey === "age") {
-        const av = a.age ?? 0;
-        const bv = b.age ?? 0;
-        if (av === bv) return 0;
-        return av > bv ? dir : -dir;
-      }
-
-      return 0;
+      // 50音順（名前）
+      const cmp = a.name.localeCompare(b.name, "ja");
+      if (cmp !== 0) return cmp;
+      // 同名なら管理番号昇順
+      return a.managementNumber.localeCompare(b.managementNumber, "ja");
     });
 
-    return arr;
-  }, [filtered, sortKey, sortOrder]);
+    return result;
+  }, [q, staffFilter, sortMode]);
 
   return (
     <AppShell>
       <section className="tiara-panel h-full flex flex-col p-3">
-        <header className="pb-2 border-b border-white/10 flex items-center justify-between gap-3">
+        <header className="pb-2 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-extrabold">キャスト管理</h2>
             <p className="text-xs text-muted">
-              管理番号・名前・希望時給・担当者を一覧表示します（後でAPI接続）
+              管理番号・名前で検索／担当者と並び替えでソート
             </p>
-          </div>
-          <div className="text-xs text-muted">
-            全 <span className="font-semibold">{rows.length}</span> 件
           </div>
         </header>
 
         {/* フィルタ行 */}
-        <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-2">
-          {/* テキスト検索（名前・管理番号） */}
-          <input
-            className="tiara-input"
-            placeholder="検索（名前・管理番号）"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-
-          {/* 並び替え */}
-          <div className="flex items-center gap-2">
-            <select
+        <div className="mt-3 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)] gap-3">
+          {/* 左：キーワード検索 */}
+          <div className="flex flex-col gap-2">
+            <input
               className="tiara-input"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-            >
-              <option value="kana">50音順（名前）</option>
-              <option value="wage">希望時給</option>
-              <option value="age">年齢</option>
-              <option value="staff">担当者</option>
-            </select>
-            <button
-              className="rounded-xl border border-white/15 bg-white/5 text-ink px-3 py-2 text-xs"
-              onClick={() =>
-                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-              }
-            >
-              {sortOrder === "asc" ? "昇順" : "降順"}
-            </button>
+              placeholder="管理番号・名前で検索"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
 
-          {/* クリアボタン */}
-          <div className="flex items-center justify-end">
-            <button
-              className="rounded-xl border border-white/15 bg-white/5 text-ink px-4 py-2.5 text-sm"
-              onClick={() => {
-                setQ("");
-                setSortKey("kana");
-                setSortOrder("asc");
-              }}
-            >
-              条件クリア
-            </button>
+          {/* 右：担当者＆並び替え */}
+          <div className="flex flex-col md:flex-row gap-2 md:items-center justify-end">
+            {/* 担当者ドロップダウン */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted">担当者</span>
+              <select
+                className="tiara-input min-w-[120px]"
+                value={staffFilter}
+                onChange={(e) => setStaffFilter(e.target.value)}
+              >
+                <option value="">（すべて）</option>
+                {staffOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 並び替え：チェックボタン風（実際はラジオ的な挙動） */}
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={sortMode === "kana"}
+                  onChange={() => setSortMode("kana")}
+                />
+                50音順
+              </label>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={sortMode === "hourly"}
+                  onChange={() => setSortMode("hourly")}
+                />
+                時給順
+              </label>
+              <button
+                className="rounded-xl border border-white/15 bg-white/5 text-ink px-3 py-2 text-xs"
+                onClick={() => {
+                  setQ("");
+                  setStaffFilter("");
+                  setSortMode("kana");
+                }}
+              >
+                クリア
+              </button>
+            </div>
           </div>
         </div>
 
@@ -191,9 +191,10 @@ export default function Page() {
               <tr>
                 <th className="text-left px-3 py-2 w-28">管理番号</th>
                 <th className="text-left px-3 py-2">名前</th>
-                <th className="text-left px-3 py-2 w-32">希望時給</th>
+                <th className="text-left px-3 py-2 w-16">年齢</th>
+                <th className="text-left px-3 py-2 w-24">希望時給</th>
+                <th className="text-left px-3 py-2 w-24">キャストID</th>
                 <th className="text-left px-3 py-2 w-32">担当者</th>
-                <th className="text-left px-3 py-2 w-20">年齢</th>
               </tr>
             </thead>
             <tbody>
@@ -204,26 +205,18 @@ export default function Page() {
                   onClick={() => setSelected(r)}
                 >
                   <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col">
-                      <span>{r.displayName}</span>
-                      {r.kana && (
-                        <span className="text-[11px] text-muted">{r.kana}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.desiredHourly != null
-                      ? `${r.desiredHourly.toLocaleString()} 円`
-                      : "-"}
-                  </td>
-                  <td className="px-3 py-2">{r.ownerStaffName ?? "-"}</td>
+                  <td className="px-3 py-2">{r.name}</td>
                   <td className="px-3 py-2">{r.age ?? "-"}</td>
+                  <td className="px-3 py-2">
+                    {r.desiredHourly ? `¥${r.desiredHourly.toLocaleString()}` : "-"}
+                  </td>
+                  <td className="px-3 py-2 font-mono">{r.castCode}</td>
+                  <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-6 text-center text-muted" colSpan={5}>
+                  <td className="px-3 py-6 text-center text-muted" colSpan={6}>
                     該当データがありません
                   </td>
                 </tr>
@@ -232,6 +225,7 @@ export default function Page() {
           </table>
         </div>
 
+        {/* キャスト詳細モーダル（UIはスクショ準拠）、データは簡易版 */}
         {selected && (
           <CastDetailModal cast={selected} onClose={() => setSelected(null)} />
         )}
@@ -240,140 +234,192 @@ export default function Page() {
   );
 }
 
-/**
- * 詳細モーダル
- * （今は MOCK_ROWS の情報で表示。後でAPIと連携して項目を増やす前提）
- */
 type CastDetailModalProps = {
   cast: CastRow;
   onClose: () => void;
 };
 
+/**
+ * キャスト詳細モーダル
+ * レイアウトは、送ってもらったスクショの構成に寄せている
+ * （左：プロフィール／登録情報①、右：登録情報②）
+ */
 function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
-  // ここではまだ持っていない項目は "-" でプレースホルダ
-  const displayName = cast.displayName;
-  const kana = cast.kana ?? "";
-  const managementNumber = cast.managementNumber;
-  const age = cast.age != null ? `${cast.age}歳` : "-";
-  const desiredHourly =
-    cast.desiredHourly != null
-      ? `${cast.desiredHourly.toLocaleString()} 円`
-      : "-";
-  const ownerStaffName = cast.ownerStaffName ?? "-";
-
-  // 将来APIから持ってくる予定の項目（今は全部 "-"）
-  const phone = "-";
-  const email = "-";
-  const address = "-";
-  const preferredArea = "-";
-  const preferredDays = "-";
-  const preferredTimeBand = "-";
-  const ngShopNotes = "-";
-  const notes = "-";
-
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-4xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-40 flex items-center justify-center">
+      {/* オーバーレイ */}
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={onClose}
+      />
+
+      {/* 本体 */}
+      <div className="relative z-50 max-w-6xl w-[95%] max-h-[90vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <div className="text-xs text-muted">
-              管理番号 {managementNumber}
-            </div>
-            <h2 className="text-xl font-semibold text-ink mt-1">
-              {displayName}
-            </h2>
-            {kana && (
-              <div className="text-sm text-muted mt-0.5">{kana}</div>
-            )}
-            <div className="flex flex-wrap gap-2 mt-2 text-xs">
-              <span className="inline-flex px-2 py-1 rounded-full bg-white/5 text-ink">
-                年齢: {age}
-              </span>
-              {ownerStaffName !== "-" && (
-                <span className="inline-flex px-2 py-1 rounded-full bg-white/5 text-ink">
-                  担当: {ownerStaffName}
-                </span>
-              )}
-            </div>
+        <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-slate-900/80">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold">キャスト詳細（{cast.name}）</h3>
+            <span className="text-xs text-muted">
+              管理番号: {cast.managementNumber} / キャストID: {cast.castCode}
+            </span>
           </div>
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-xl border border-white/15 bg-white/5 text-sm text-ink"
-          >
-            閉じる
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1.5 rounded-xl text-xs border border-white/15 bg-white/5">
+              LINEで連絡
+            </button>
+            <button
+              className="px-3 py-1.5 rounded-xl text-xs border border-white/20 bg-red-500/80 text-white"
+              onClick={onClose}
+            >
+              × 閉じる
+            </button>
+          </div>
         </div>
 
-        {/* 本文：スクショ意識の2カラム構成 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
-          {/* 左カラム：基本情報 */}
-          <div className="space-y-4">
-            <section className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-ink font-semibold mb-3">基本情報</h3>
-              <dl className="grid grid-cols-[96px,1fr] gap-x-3 gap-y-2">
-                <dt className="text-muted">名前</dt>
-                <dd className="text-ink">{displayName}</dd>
+        {/* コンテンツ */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 bg-slate-950">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1.6fr] gap-4">
+            {/* 左カラム：登録情報①・プロフィール・希望条件など */}
+            <div className="space-y-4">
+              {/* 登録情報① */}
+              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5">
+                <h4 className="text-sm font-semibold mb-3">
+                  登録情報①（プロフィール・希望・確認）
+                </h4>
 
-                <dt className="text-muted">ふりがな</dt>
-                <dd className="text-ink">{kana || "-"}</dd>
+                <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-4">
+                  {/* 写真 */}
+                  <div>
+                    <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-xs text-muted">
+                      写真
+                    </div>
+                  </div>
 
-                <dt className="text-muted">管理番号</dt>
-                <dd className="text-ink">{managementNumber}</dd>
+                  {/* 氏名など */}
+                  <div className="space-y-2 text-xs">
+                    <InfoRow label="ふりがな" value={cast.name} />
+                    <InfoRow label="氏名" value={cast.name} />
+                    <InfoRow label="生年月日" value="2000-03-11（25歳）" />
+                    <InfoRow label="現住所" value="東京都サンプル区1丁目 1-1-2" />
+                    <InfoRow label="TEL" value="090-xxxx-xxxx" />
+                    <InfoRow label="アドレス" value="cast11@example.com" />
+                  </div>
+                </div>
+              </section>
 
-                <dt className="text-muted">年齢</dt>
-                <dd className="text-ink">{age}</dd>
+              {/* プロフィール ＋ 希望条件 */}
+              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {/* プロフィール */}
+                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                    <div className="font-semibold mb-2 text-[13px]">
+                      プロフィール
+                    </div>
+                    <InfoRow label="身長" value="165 cm" />
+                    <InfoRow label="服のサイズ" value="M サイズ" />
+                    <InfoRow label="靴のサイズ" value="25 cm" />
+                  </div>
 
-                <dt className="text-muted">電話番号</dt>
-                <dd className="text-ink">{phone}</dd>
+                  {/* 希望条件 */}
+                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                    <div className="font-semibold mb-2 text-[13px]">
+                      希望条件
+                    </div>
+                    <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
+                    <InfoRow label="時間帯" value="19:00〜20:30" />
+                    <InfoRow label="時給・月給" value="¥4,300以上 / 30万円以上" />
+                  </div>
+                </div>
 
-                <dt className="text-muted">メール</dt>
-                <dd className="text-ink">{email}</dd>
+                {/* 就業可否など */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                    <div className="font-semibold mb-2 text-[13px]">
+                      就業可否
+                    </div>
+                    <InfoRow label="タトゥー" value="有" />
+                    <InfoRow label="送迎の要否" value="無" />
+                    <InfoRow label="飲酒" value="普通" />
+                  </div>
 
-                <dt className="text-muted">住所</dt>
-                <dd className="text-ink">{address}</dd>
-              </dl>
-            </section>
+                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 col-span-2">
+                    <div className="font-semibold mb-2 text-[13px]">
+                      水商売の経験 / NG店舗
+                    </div>
+                    <InfoRow label="経験" value="—" />
+                    <InfoRow label="勤務歴" value="—" />
+                    <InfoRow label="NG店舗" value="—" />
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 text-xs">
+                  <InfoRow label="備考" value="特記事項なし" />
+                </div>
+
+                {/* 身分証 */}
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 text-xs space-y-2">
+                  <div className="font-semibold text-[13px]">
+                    身分証明書確認 / 申告
+                  </div>
+                  <InfoRow label="身分証種類" value="運転免許証" />
+                  <InfoRow label="住民票・郵便物" value="◯" />
+                  <InfoRow label="宣誓（身分証のない・更新時）" value="◯" />
+                </div>
+              </section>
+            </div>
+
+            {/* 右カラム：登録情報②（動機・比較・選定理由など） */}
+            <div className="space-y-4">
+              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
+                <h4 className="text-sm font-semibold">
+                  登録情報②（動機・比較・選定理由）
+                </h4>
+
+                <InfoRow label="知った経路" value="女の子紹介" />
+                <InfoRow label="紹介者名 / サイト名" value="紹介者A1" />
+                <InfoRow
+                  label="お仕事を始めるきっかけ"
+                  value="学生・生活費のため、接客経験を活かしたい。"
+                />
+                <InfoRow
+                  label="他の派遣会社との比較"
+                  value="対応が早く、条件の交渉力が高いと感じたため。"
+                />
+                <InfoRow label="比較状況" value="1〜3社" />
+                <InfoRow label="派遣会社名" value="派遣A / 派遣B" />
+
+                <div className="h-px bg-white/5 my-2" />
+
+                <InfoRow
+                  label="ティアラを選んだ理由"
+                  value="時給と勤務希望日、エリア、在籍年齢層、客層が合致。"
+                />
+                <InfoRow
+                  label="派遣先のお店選びで重要なポイント"
+                  value="時給 / 勤務時間 / エリア / 在籍年齢 / 客層 / キャバ / ラウンジ / 他"
+                />
+                <InfoRow label="その他（備考）" value="—" />
+
+                <div className="h-px bg-white/5 my-2" />
+
+                <InfoRow label="30,000円到達への所感" value="制度がわかりやすくモチベーションになる。" />
+              </section>
+            </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {/* 右カラム：希望条件＋メモ */}
-          <div className="space-y-4">
-            <section className="bg-white/5 rounded-xl p-4">
-              <h3 className="text-ink font-semibold mb-3">希望条件</h3>
-              <dl className="grid grid-cols-[96px,1fr] gap-x-3 gap-y-2">
-                <dt className="text-muted">希望時給</dt>
-                <dd className="text-ink">{desiredHourly}</dd>
-
-                <dt className="text-muted">希望エリア</dt>
-                <dd className="text-ink">{preferredArea}</dd>
-
-                <dt className="text-muted">希望出勤日</dt>
-                <dd className="text-ink">{preferredDays}</dd>
-
-                <dt className="text-muted">希望時間帯</dt>
-                <dd className="text-ink">{preferredTimeBand}</dd>
-              </dl>
-            </section>
-
-            <section className="bg-white/5 rounded-xl p-4 space-y-3">
-              <div>
-                <h3 className="text-ink font-semibold mb-1">
-                  NG店舗・条件メモ
-                </h3>
-                <p className="text-ink whitespace-pre-wrap text-xs">
-                  {ngShopNotes}
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-ink font-semibold mb-1">備考メモ</h3>
-                <p className="text-ink whitespace-pre-wrap text-xs">
-                  {notes}
-                </p>
-              </div>
-            </section>
-          </div>
+/** ラベル＋値（1行）の小さい行パーツ */
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1.5">
+      <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
+      <div className="flex-1 min-w-0">
+        <div className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 truncate">
+          {value || "—"}
         </div>
       </div>
     </div>

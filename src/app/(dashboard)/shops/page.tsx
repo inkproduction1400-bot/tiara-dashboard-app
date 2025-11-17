@@ -8,6 +8,12 @@ import {
   listShops,
   updateShop,
   type ShopListItem,
+  type UpdateShopPayload,
+  type ShopGenre,
+  type ShopRank,
+  type ShopDrinkPreference,
+  type ShopIdRequirement,
+  type ShopPreferredAgeRange,
 } from "@/lib/api.shops";
 
 type PerPage = number | "all";
@@ -328,31 +334,39 @@ function ShopEditDrawer({
   const [shopNumber, setShopNumber] = useState(initial.shopNumber ?? ""); // ①店舗番号
   const [name, setName] = useState(initial.name); // ②店名
 
-  // ★ API から来ている nameKana / kana を初期表示する
+  // API から来ている nameKana / kana を初期表示
   const [kana, setKana] = useState(
     initial.nameKana ?? initial.kana ?? "",
   ); // ③カナ
 
-  const [rank, setRank] = useState<string>(""); // ④ランク
+  const [rank, setRank] = useState<ShopRank | "">(initial.rank ?? ""); // ④ランク
 
   const [addressLine, setAddressLine] = useState(initial.addressLine ?? ""); // ⑤店住所
-  const [buildingName, setBuildingName] = useState(""); // ⑥ビル名
+  const [buildingName, setBuildingName] = useState(
+    initial.buildingName ?? "",
+  ); // ⑥ビル名
 
-  const [hourlyRate, setHourlyRate] = useState<string>(""); // ⑦時給カテゴリ
+  const [hourlyRate, setHourlyRate] = useState(initial.wageLabel ?? ""); // ⑦時給カテゴリ
   const [phone, setPhone] = useState(initial.phone ?? ""); // ⑧電話
-  const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック
+  const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック（現状はUIのみ）
 
   // 既存項目：ジャンル
-  const [genre, setGenre] = useState(initial.genre ?? "");
+  const [genre, setGenre] = useState<ShopGenre | "">(initial.genre ?? "");
 
-  // 新規：専属指名キャスト / NG キャスト
+  // 新規：専属指名キャスト / NG キャスト（現状はUIのみ）
   const [exclusiveCast, setExclusiveCast] = useState<string>("");
   const [ngCasts, setNgCasts] = useState<string>("");
 
   // 新規：飲酒の希望 / 身分証 / 希望年齢 / 担当
-  const [drinkPreference, setDrinkPreference] = useState<string>("");
-  const [idDocument, setIdDocument] = useState<string>("");
-  const [preferredAge, setPreferredAge] = useState<string>("");
+  const [drinkPreference, setDrinkPreference] = useState<
+    ShopDrinkPreference | ""
+  >(initial.drinkPreference ?? "");
+  const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
+    initial.idDocumentRequirement ?? "",
+  );
+  const [preferredAge, setPreferredAge] = useState<
+    ShopPreferredAgeRange | ""
+  >(initial.preferredAgeRange ?? "");
   const [ownerStaff, setOwnerStaff] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
@@ -392,32 +406,51 @@ function ShopEditDrawer({
       return;
     }
 
-    // 現時点では API 側に存在するフィールドだけ送る
-    const payload: Partial<{
-      name: string;
-      shopNumber: string;
-      addressLine: string;
-      phone: string;
-      genre: string;
-    }> = {
+    const payload: UpdateShopPayload = {
       name: name.trim(),
-      phone: phone.trim(),
       addressLine: addressLine.trim(),
+      phone: phone.trim(),
     };
 
     if (trimmedNumber) {
       payload.shopNumber = trimmedNumber;
     }
-    if (genre.trim()) {
-      payload.genre = genre.trim();
+
+    const kanaTrimmed = kana.trim();
+    if (kanaTrimmed) {
+      payload.nameKana = kanaTrimmed;
+    }
+
+    if (buildingName.trim()) {
+      payload.buildingName = buildingName.trim();
+    }
+
+    if (genre) {
+      payload.genre = genre as ShopGenre;
+    }
+
+    if (rank) {
+      payload.rank = rank as ShopRank;
+    }
+
+    if (hourlyRate.trim()) {
+      payload.wageLabel = hourlyRate.trim();
+    }
+
+    if (drinkPreference) {
+      payload.drinkPreference = drinkPreference as ShopDrinkPreference;
+    }
+
+    if (idDocument) {
+      payload.idDocumentRequirement = idDocument as ShopIdRequirement;
+    }
+
+    if (preferredAge) {
+      payload.preferredAgeRange = preferredAge as ShopPreferredAgeRange;
     }
 
     try {
       await updateShop(initial.id, payload);
-      // 以下の項目は UI 先行。API 拡張後に payload に追加予定：
-      // kana, rank, buildingName, hourlyRate, phoneChecked,
-      // exclusiveCast, ngCasts, drinkPreference, idDocument,
-      // preferredAge, ownerStaff
       await onSaved();
     } catch (e: any) {
       setErr(e?.message ?? "更新に失敗しました");
@@ -479,9 +512,6 @@ function ShopEditDrawer({
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 placeholder="クラブ アリア など"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
-                ※ 現時点では表示用。API拡張後に保存予定。
-              </p>
             </label>
 
             {/* ランク */}
@@ -489,7 +519,9 @@ function ShopEditDrawer({
               <div className="text-sm text-slate-300 mb-1">ランク</div>
               <select
                 value={rank}
-                onChange={(e) => setRank(e.target.value)}
+                onChange={(e) =>
+                  setRank((e.target.value || "") as ShopRank | "")
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
               >
                 <option value="">（未設定）</option>
@@ -498,9 +530,6 @@ function ShopEditDrawer({
                 <option value="B">B</option>
                 <option value="C">C</option>
               </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                ※ 現時点では UI のみ。API拡張後に保存予定。
-              </p>
             </label>
           </div>
 
@@ -524,9 +553,6 @@ function ShopEditDrawer({
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 placeholder="○○ビル 3F など"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
-                ※ 現時点では UI のみ。API拡張後に保存予定。
-              </p>
             </label>
           </div>
 
@@ -547,9 +573,6 @@ function ShopEditDrawer({
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] text-slate-500">
-                ※ 現時点では UI のみ。細かい条件は別途メモ管理想定。
-              </p>
             </label>
 
             {/* 電話 */}
@@ -579,7 +602,9 @@ function ShopEditDrawer({
               <div className="text-sm text-slate-300 mb-1">ジャンル</div>
               <select
                 value={genre}
-                onChange={(e) => setGenre(e.target.value)}
+                onChange={(e) =>
+                  setGenre((e.target.value || "") as ShopGenre | "")
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
               >
                 <option value="">（未設定）</option>
@@ -591,7 +616,7 @@ function ShopEditDrawer({
             </label>
           </div>
 
-          {/* キャスト関連 */}
+          {/* キャスト関連（今はUIのみ） */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 専属指名キャスト */}
             <label className="block">
@@ -628,14 +653,18 @@ function ShopEditDrawer({
               <div className="text-sm text-slate-300 mb-1">飲酒の希望</div>
               <select
                 value={drinkPreference}
-                onChange={(e) => setDrinkPreference(e.target.value)}
+                onChange={(e) =>
+                  setDrinkPreference(
+                    (e.target.value || "") as ShopDrinkPreference | "",
+                  )
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
               >
                 <option value="">（未設定）</option>
-                <option value="飲めない">飲めない</option>
-                <option value="弱い">弱い</option>
-                <option value="普通">普通</option>
-                <option value="強い">強い</option>
+                <option value="none">飲めない</option>
+                <option value="weak">弱い</option>
+                <option value="normal">普通</option>
+                <option value="strong">強い</option>
               </select>
             </label>
 
@@ -644,13 +673,18 @@ function ShopEditDrawer({
               <div className="text-sm text-slate-300 mb-1">身分証</div>
               <select
                 value={idDocument}
-                onChange={(e) => setIdDocument(e.target.value)}
+                onChange={(e) =>
+                  setIdDocument(
+                    (e.target.value || "") as ShopIdRequirement | "",
+                  )
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
               >
                 <option value="">（未設定）</option>
-                <option value="顔写真のみ">顔写真のみ</option>
-                <option value="住民票のみ">住民票のみ</option>
-                <option value="どちらも必要">どちらも必要</option>
+                <option value="none">条件なし</option>
+                <option value="photo_only">顔写真付きのみ</option>
+                <option value="address_only">住所系のみ</option>
+                <option value="both">どちらも必要</option>
               </select>
             </label>
 
@@ -659,18 +693,25 @@ function ShopEditDrawer({
               <div className="text-sm text-slate-300 mb-1">希望年齢</div>
               <select
                 value={preferredAge}
-                onChange={(e) => setPreferredAge(e.target.value)}
+                onChange={(e) =>
+                  setPreferredAge(
+                    (e.target.value || "") as ShopPreferredAgeRange | "",
+                  )
+                }
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
               >
                 <option value="">（未設定）</option>
-                <option value="18-19">18〜19</option>
-                <option value="20-24">20〜24</option>
-                <option value="25-30">25〜30</option>
-                <option value="30-50">30〜50</option>
+                <option value="age_18_19">18〜19</option>
+                <option value="age_20_24">20〜24</option>
+                <option value="age_25_29">25〜29</option>
+                <option value="age_30_34">30〜34</option>
+                <option value="age_35_39">35〜39</option>
+                <option value="age_40_49">40〜49</option>
+                <option value="age_50_plus">50歳以上</option>
               </select>
             </label>
 
-            {/* 担当 */}
+            {/* 担当（今はUIのみ） */}
             <label className="block">
               <div className="text-sm text-slate-300 mb-1">担当</div>
               <input

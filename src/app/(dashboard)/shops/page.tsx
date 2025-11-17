@@ -410,8 +410,6 @@ function ShopEditDrawer({
       name: name.trim(),
       addressLine: addressLine.trim(),
       phone: phone.trim(),
-      // ★ 時給は「未設定」に戻す場合もあるので必ず送る
-      wageLabel: hourlyRate.trim(),
     };
 
     if (trimmedNumber) {
@@ -428,18 +426,43 @@ function ShopEditDrawer({
     }
 
     // ★ ジャンルは「未設定」に戻す場合もあるので必ず送る
-    //   → 空文字なら API 側で null に変換される
-    (payload as any).genre = genre || "";
+    //   → 空のときは null を送る
+    if (!genre) {
+      payload.genre = null;
+    } else {
+      payload.genre = genre as ShopGenre;
+    }
 
-    // ★ ランクは未設定のときは送らない（null クリア要件がないため従来どおり）
-    if (rank) {
+    // ★ ランクも「未設定」に戻すことを想定し、必ず送る
+    if (!rank) {
+      payload.rank = null;
+    } else {
       payload.rank = rank as ShopRank;
     }
 
-    // ★ 飲酒の希望・身分証・希望年齢も「未設定」に戻すことがあるので必ず送る
-    (payload as any).drinkPreference = drinkPreference || "";
-    (payload as any).idDocumentRequirement = idDocument || "";
-    (payload as any).preferredAgeRange = preferredAge || "";
+    // ★ 時給は「未設定」に戻す場合もあるので必ず送る（空は null）
+    payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
+
+    // ★ 飲酒の希望：未設定は null
+    if (!drinkPreference) {
+      payload.drinkPreference = null;
+    } else {
+      payload.drinkPreference = drinkPreference as ShopDrinkPreference;
+    }
+
+    // ★ 身分証：未設定は null
+    if (!idDocument) {
+      payload.idDocumentRequirement = null;
+    } else {
+      payload.idDocumentRequirement = idDocument as ShopIdRequirement;
+    }
+
+    // ★ 希望年齢：未設定は null
+    if (!preferredAge) {
+      payload.preferredAgeRange = null;
+    } else {
+      payload.preferredAgeRange = preferredAge as ShopPreferredAgeRange;
+    }
 
     try {
       await updateShop(initial.id, payload);

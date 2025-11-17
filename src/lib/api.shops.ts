@@ -100,22 +100,22 @@ export async function getShop(id: string) {
 
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
 export type UpdateShopPayload = Partial<{
-  name: string;
-  nameKana: string;
-  shopNumber: string;
-  prefecture: string;
-  city: string;
-  addressLine: string;
-  buildingName: string;
-  phone: string;
-  genre: ShopGenre | null;
-  rank: ShopRank | null;
-  drinkPreference: ShopDrinkPreference | null;
-  idDocumentRequirement: ShopIdRequirement | null;
-  preferredAgeRange: ShopPreferredAgeRange | null;
-  wageLabel: string;
-  reqKeywords: string[];
-}>;
+    name: string;
+    nameKana: string;
+    shopNumber: string;
+    prefecture: string;
+    city: string;
+    addressLine: string;
+    buildingName: string;
+    phone: string;
+    genre: ShopGenre | null;
+    rank: ShopRank | null;
+    drinkPreference: ShopDrinkPreference | null;
+    idDocumentRequirement: ShopIdRequirement | null;
+    preferredAgeRange: ShopPreferredAgeRange | null;
+    wageLabel: string | null;
+    reqKeywords: string[];
+  }>;
 
 export async function updateShop(id: string, payload: UpdateShopPayload) {
   return apiFetch<any>(

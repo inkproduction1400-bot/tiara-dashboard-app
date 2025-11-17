@@ -410,6 +410,8 @@ function ShopEditDrawer({
       name: name.trim(),
       addressLine: addressLine.trim(),
       phone: phone.trim(),
+      // ★ 時給は「未設定」に戻す場合もあるので必ず送る
+      wageLabel: hourlyRate.trim(),
     };
 
     if (trimmedNumber) {
@@ -426,32 +428,18 @@ function ShopEditDrawer({
     }
 
     // ★ ジャンルは「未設定」に戻す場合もあるので必ず送る
-    //   → 空のときは null を送る（"" は Enum validation で 400 になるため）
-    if (!genre) {
-      payload.genre = null;
-    } else {
-      payload.genre = genre as ShopGenre;
-    }
+    //   → 空文字なら API 側で null に変換される
+    (payload as any).genre = genre || "";
 
+    // ★ ランクは未設定のときは送らない（null クリア要件がないため従来どおり）
     if (rank) {
       payload.rank = rank as ShopRank;
     }
 
-    if (hourlyRate.trim()) {
-      payload.wageLabel = hourlyRate.trim();
-    }
-
-    if (drinkPreference) {
-      payload.drinkPreference = drinkPreference as ShopDrinkPreference;
-    }
-
-    if (idDocument) {
-      payload.idDocumentRequirement = idDocument as ShopIdRequirement;
-    }
-
-    if (preferredAge) {
-      payload.preferredAgeRange = preferredAge as ShopPreferredAgeRange;
-    }
+    // ★ 飲酒の希望・身分証・希望年齢も「未設定」に戻すことがあるので必ず送る
+    (payload as any).drinkPreference = drinkPreference || "";
+    (payload as any).idDocumentRequirement = idDocument || "";
+    (payload as any).preferredAgeRange = preferredAge || "";
 
     try {
       await updateShop(initial.id, payload);

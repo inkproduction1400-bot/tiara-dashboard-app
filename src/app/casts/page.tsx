@@ -208,7 +208,9 @@ export default function Page() {
                   <td className="px-3 py-2">{r.name}</td>
                   <td className="px-3 py-2">{r.age ?? "-"}</td>
                   <td className="px-3 py-2">
-                    {r.desiredHourly ? `¥${r.desiredHourly.toLocaleString()}` : "-"}
+                    {r.desiredHourly
+                      ? `¥${r.desiredHourly.toLocaleString()}`
+                      : "-"}
                   </td>
                   <td className="px-3 py-2 font-mono">{r.castCode}</td>
                   <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
@@ -225,7 +227,7 @@ export default function Page() {
           </table>
         </div>
 
-        {/* キャスト詳細モーダル（UIはスクショ準拠）、データは簡易版 */}
+        {/* キャスト詳細モーダル */}
         {selected && (
           <CastDetailModal cast={selected} onClose={() => setSelected(null)} />
         )}
@@ -246,15 +248,16 @@ type CastDetailModalProps = {
  */
 function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center">
+    // 画面中央に大きく表示（上下左右に余白 p-4）
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       {/* オーバーレイ */}
       <div
         className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
 
-      {/* 本体 */}
-      <div className="relative z-50 max-w-6xl w-[95%] max-h-[90vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+      {/* 本体：ほぼフルスクリーンサイズで中央表示 */}
+      <div className="relative z-50 w-full max-w-6xl h-full max-h-full bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
@@ -276,7 +279,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ */}
+        {/* コンテンツ：モーダル内部だけスクロール */}
         <div className="flex-1 overflow-y-auto px-6 py-4 bg-slate-950">
           <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1.6fr] gap-4">
             {/* 左カラム：登録情報①・プロフィール・希望条件など */}
@@ -327,7 +330,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                     </div>
                     <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
                     <InfoRow label="時間帯" value="19:00〜20:30" />
-                    <InfoRow label="時給・月給" value="¥4,300以上 / 30万円以上" />
+                    <InfoRow
+                      label="時給・月給"
+                      value="¥4,300以上 / 30万円以上"
+                    />
                   </div>
                 </div>
 
@@ -402,7 +408,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 
                 <div className="h-px bg-white/5 my-2" />
 
-                <InfoRow label="30,000円到達への所感" value="制度がわかりやすくモチベーションになる。" />
+                <InfoRow
+                  label="30,000円到達への所感"
+                  value="制度がわかりやすくモチベーションになる。"
+                />
               </section>
             </div>
           </div>

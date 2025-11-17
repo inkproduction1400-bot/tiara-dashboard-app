@@ -18,6 +18,21 @@ function withUser(init?: RequestInit): RequestInit {
   };
 }
 
+// ==== Shops 型定義（API/DB/DTO と揃える）====
+
+export type ShopGenre = "club" | "cabaret" | "snack" | "gb";
+export type ShopRank = "S" | "A" | "B" | "C";
+export type ShopDrinkPreference = "none" | "weak" | "normal" | "strong";
+export type ShopIdRequirement = "none" | "photo_only" | "address_only" | "both";
+export type ShopPreferredAgeRange =
+  | "age_18_19"
+  | "age_20_24"
+  | "age_25_29"
+  | "age_30_34"
+  | "age_35_39"
+  | "age_40_49"
+  | "age_50_plus";
+
 export type ShopListItem = {
   id: string;
   name: string;
@@ -28,10 +43,20 @@ export type ShopListItem = {
 
   shopNumber?: string | null;
   phone?: string | null;
-  genre?: string | null; // API は string/null 想定にしておく
+  genre?: ShopGenre | null;
+
   prefecture?: string | null;
   city?: string | null;
   addressLine?: string | null;
+  buildingName?: string | null;
+
+  // ランク・飲酒・身分証・希望年齢・時給ラベル
+  rank?: ShopRank | null;
+  drinkPreference?: ShopDrinkPreference | null;
+  idDocumentRequirement?: ShopIdRequirement | null;
+  preferredAgeRange?: ShopPreferredAgeRange | null;
+  wageLabel?: string | null;
+
   createdAt: string;
 
   // コントローラの select に含めていないケースもあるので optional に変更
@@ -73,10 +98,26 @@ export async function getShop(id: string) {
   return apiFetch<any>(`/shops/${id}`, withUser());
 }
 
-export async function updateShop(
-  id: string,
-  payload: Partial<{ name: string; phone: string; genre: string }>,
-) {
+// PATCH 用 payload 型（DTO/Prisma に合わせる）
+export type UpdateShopPayload = Partial<{
+  name: string;
+  nameKana: string;
+  shopNumber: string;
+  prefecture: string;
+  city: string;
+  addressLine: string;
+  buildingName: string;
+  phone: string;
+  genre: ShopGenre;
+  rank: ShopRank;
+  drinkPreference: ShopDrinkPreference;
+  idDocumentRequirement: ShopIdRequirement;
+  preferredAgeRange: ShopPreferredAgeRange;
+  wageLabel: string;
+  reqKeywords: string[];
+}>;
+
+export async function updateShop(id: string, payload: UpdateShopPayload) {
   return apiFetch<any>(
     `/shops/${id}`,
     withUser({

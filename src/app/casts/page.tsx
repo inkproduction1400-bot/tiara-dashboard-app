@@ -1,8 +1,9 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
+import { createPortal } from "react-dom";
 
 /**
  * 一覧用キャスト行
@@ -38,6 +39,19 @@ const MOCK_ROWS: CastRow[] = Array.from({ length: 50 }, (_, i) => {
 });
 
 type SortMode = "kana" | "hourly";
+
+/** モーダルを document.body 直下に出すためのポータル */
+function ModalPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
 
 export default function Page() {
   const [q, setQ] = useState("");
@@ -202,9 +216,14 @@ export default function Page() {
           </table>
         </div>
 
-        {/* キャスト詳細モーダル */}
+        {/* キャスト詳細モーダル（ポータル経由で body 直下に出す） */}
         {selected && (
-          <CastDetailModal cast={selected} onClose={() => setSelected(null)} />
+          <ModalPortal>
+            <CastDetailModal
+              cast={selected}
+              onClose={() => setSelected(null)}
+            />
+          </ModalPortal>
         )}
       </section>
     </AppShell>
@@ -221,16 +240,17 @@ type CastDetailModalProps = {
  * 左：登録情報① ＋ プロフィール／希望条件／就業可否＋水商売
  * 右：登録情報② ＋ 身分証＆備考
  * → 2x2 の4カードが上下揃うレイアウト
+ * かつ、ポータル＋fixed で「常に画面中央」に固定
  */
 function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   return (
-    // 画面中央に大きく表示（上下左右に余白 p-4）
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-      {/* オーバーレイ（画面全体を覆う・常にビューポート基準） */}
+    // 画面中央に大きく表示（viewport 基準で固定）
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {/* オーバーレイ（背景を暗く・クリックで閉じる） */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       {/* 本体：画面内に収まるよう高さ制限（内容が溢れたらモーダル内だけスクロール） */}
-      <div className="relative z-50 w-full max-w-6xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+      <div className="relative z-10 w-full max-w-6xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
@@ -254,7 +274,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：モーダル内だけスクロール可。通常の画面サイズならスクロール無しで収まる想定 */}
+        {/* コンテンツ：モーダル内だけスクロール可 */}
         <div className="flex-1 px-5 py-3 bg-slate-950 overflow-y-auto">
           {/* 2x2 グリッド。各カードの上下を揃えるため auto-rows-fr */}
           <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-3">
@@ -408,7 +428,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm	w-32 text-[12px] text-muted shrink-0">{label}</div>
+      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
           {value || "—"}

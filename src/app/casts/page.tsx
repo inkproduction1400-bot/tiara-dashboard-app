@@ -218,9 +218,9 @@ type CastDetailModalProps = {
 
 /**
  * キャスト詳細モーダル
- * 左：登録情報① ＋ プロフィール／希望条件／就業可否＋水商売（1カード）
- * 右：登録情報② ＋ 身分証＆備考（1カード）
- * → 全体として4カード構成
+ * 左：登録情報① ＋ プロフィール／希望条件／就業可否＋水商売
+ * 右：登録情報② ＋ 身分証＆備考
+ * → 2x2 の4カードが上下揃うレイアウト
  */
 function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   return (
@@ -254,149 +254,147 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 
         {/* コンテンツ：モーダル内部だけスクロール */}
         <div className="flex-1 overflow-y-auto px-6 py-4 bg-slate-950">
-          <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1.6fr] gap-4">
-            {/* 左カラム：登録情報① ＋ プロフィール等（2カード） */}
-            <div className="space-y-4">
-              {/* 登録情報① */}
-              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5">
-                <h4 className="text-sm font-semibold mb-3">
-                  登録情報①（プロフィール・希望・確認）
-                </h4>
+          {/* 2x2 グリッド。各カードの上下を揃えるため auto-rows-fr */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-4">
+            {/* 左上：登録情報①（メイン情報・文字大きめ） */}
+            <section className="bg-slate-900/80 rounded-2xl p-5 border border-white/5 flex flex-col">
+              <h4 className="text-sm font-semibold mb-4">
+                登録情報①（プロフィール・希望・確認）
+              </h4>
 
-                <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-4">
-                  {/* 写真 */}
-                  <div>
-                    <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-xs text-muted">
-                      写真
-                    </div>
-                  </div>
-
-                  {/* 氏名など */}
-                  <div className="space-y-2 text-xs">
-                    <InfoRow label="ふりがな" value={cast.name} />
-                    <InfoRow label="氏名" value={cast.name} />
-                    <InfoRow label="生年月日" value="2000-03-11（25歳）" />
-                    <InfoRow label="現住所" value="東京都サンプル区1丁目 1-1-2" />
-                    <InfoRow label="TEL" value="090-xxxx-xxxx" />
-                    <InfoRow label="アドレス" value="cast11@example.com" />
-                  </div>
-                </div>
-              </section>
-
-              {/* プロフィール ＋ 希望条件 ＋ 就業可否＋水商売（1カード内に4ブロック） */}
-              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3">
-                {/* 上段：プロフィール & 希望条件 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {/* プロフィール */}
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                    <div className="font-semibold mb-2 text-[13px]">
-                      プロフィール
-                    </div>
-                    <InfoRow label="身長" value="165 cm" />
-                    <InfoRow label="服のサイズ" value="M サイズ" />
-                    <InfoRow label="靴のサイズ" value="25 cm" />
-                  </div>
-
-                  {/* 希望条件 */}
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                    <div className="font-semibold mb-2 text-[13px]">
-                      希望条件
-                    </div>
-                    <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
-                    <InfoRow label="時間帯" value="19:00〜20:30" />
-                    <InfoRow
-                      label="時給・月給"
-                      value="¥4,300以上 / 30万円以上"
-                    />
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-4 flex-1">
+                {/* 写真 */}
+                <div>
+                  <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-xs text-muted">
+                    写真
                   </div>
                 </div>
 
-                {/* 下段：就業可否 & 水商売の経験/NG店舗（2カラムに分割） */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                    <div className="font-semibold mb-2 text-[13px]">
-                      就業可否
-                    </div>
-                    <InfoRow label="タトゥー" value="有" />
-                    <InfoRow label="送迎の要否" value="無" />
-                    <InfoRow label="飲酒" value="普通" />
-                  </div>
-
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                    <div className="font-semibold mb-2 text-[13px]">
-                      水商売の経験 / NG店舗
-                    </div>
-                    <InfoRow label="経験" value="—" />
-                    <InfoRow label="勤務歴" value="—" />
-                    <InfoRow label="NG店舗" value="—" />
-                  </div>
+                {/* 氏名など：他カードより大きめの文字でメイン情報を強調 */}
+                <div className="space-y-3 text-sm">
+                  <MainInfoRow label="ふりがな" value={cast.name} />
+                  <MainInfoRow label="氏名" value={cast.name} />
+                  <MainInfoRow label="生年月日" value="2000-03-11（25歳）" />
+                  <MainInfoRow
+                    label="現住所"
+                    value="東京都サンプル区1丁目 1-1-2"
+                  />
+                  <MainInfoRow label="TEL" value="090-xxxx-xxxx" />
+                  <MainInfoRow label="アドレス" value="cast11@example.com" />
                 </div>
-              </section>
-            </div>
+              </div>
+            </section>
 
-            {/* 右カラム：登録情報② ＋ 身分証＆備考（2カード） */}
-            <div className="space-y-4">
-              {/* 登録情報② */}
-              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
-                <h4 className="text-sm font-semibold">
-                  登録情報②（動機・比較・選定理由）
-                </h4>
+            {/* 右上：登録情報②（動機・比較・選定理由） */}
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
+              <h4 className="text-sm font-semibold">
+                登録情報②（動機・比較・選定理由）
+              </h4>
 
-                <InfoRow label="知った経路" value="女の子紹介" />
-                <InfoRow label="紹介者名 / サイト名" value="紹介者A1" />
-                <InfoRow
-                  label="お仕事を始めるきっかけ"
-                  value="学生・生活費のため、接客経験を活かしたい。"
-                />
-                <InfoRow
-                  label="他の派遣会社との比較"
-                  value="対応が早く、条件の交渉力が高いと感じたため。"
-                />
-                <InfoRow label="比較状況" value="1〜3社" />
-                <InfoRow label="派遣会社名" value="派遣A / 派遣B" />
+              <InfoRow label="知った経路" value="女の子紹介" />
+              <InfoRow label="紹介者名 / サイト名" value="紹介者A1" />
+              <InfoRow
+                label="お仕事を始めるきっかけ"
+                value="学生・生活費のため、接客経験を活かしたい。"
+              />
+              <InfoRow
+                label="他の派遣会社との比較"
+                value="対応が早く、条件の交渉力が高いと感じたため。"
+              />
+              <InfoRow label="比較状況" value="1〜3社" />
+              <InfoRow label="派遣会社名" value="派遣A / 派遣B" />
 
-                <div className="h-px bg-white/5 my-2" />
+              <div className="h-px bg-white/5 my-2" />
 
-                <InfoRow
-                  label="ティアラを選んだ理由"
-                  value="時給と勤務希望日、エリア、在籍年齢層、客層が合致。"
-                />
-                <InfoRow
-                  label="派遣先のお店選びで重要なポイント"
-                  value="時給 / 勤務時間 / エリア / 在籍年齢 / 客層 / キャバ / ラウンジ / 他"
-                />
-                <InfoRow label="その他（備考）" value="—" />
+              <InfoRow
+                label="ティアラを選んだ理由"
+                value="時給と勤務希望日、エリア、在籍年齢層、客層が合致。"
+              />
+              <InfoRow
+                label="派遣先のお店選びで重要なポイント"
+                value="時給 / 勤務時間 / エリア / 在籍年齢 / 客層 / キャバ / ラウンジ / 他"
+              />
+              <InfoRow label="その他（備考）" value="—" />
 
-                <div className="h-px bg-white/5 my-2" />
+              <div className="h-px bg-white/5 my-2" />
 
-                <InfoRow
-                  label="30,000円到達への所感"
-                  value="制度がわかりやすくモチベーションになる。"
-                />
-              </section>
+              <InfoRow
+                label="30,000円到達への所感"
+                value="制度がわかりやすくモチベーションになる。"
+              />
+            </section>
 
-              {/* 身分証＋備考カード（右下） */}
-              <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
-                <h4 className="text-sm font-semibold">
-                  身分証明書確認 / 申告・備考
-                </h4>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 space-y-2">
-                    <InfoRow label="身分証種類" value="運転免許証" />
-                    <InfoRow label="住民票・郵便物" value="◯" />
-                    <InfoRow
-                      label="宣誓（身分証のない・更新時）"
-                      value="◯"
-                    />
+            {/* 左下：プロフィール＋希望条件＋就業可否＆水商売（1カード） */}
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3 text-xs">
+              {/* 上段：プロフィール & 希望条件 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* プロフィール */}
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                  <div className="font-semibold mb-2 text-[13px]">
+                    プロフィール
                   </div>
-
-                  <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                    <InfoRow label="備考" value="特記事項なし" />
-                  </div>
+                  <InfoRow label="身長" value="165 cm" />
+                  <InfoRow label="服のサイズ" value="M サイズ" />
+                  <InfoRow label="靴のサイズ" value="25 cm" />
                 </div>
-              </section>
-            </div>
+
+                {/* 希望条件 */}
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                  <div className="font-semibold mb-2 text-[13px]">
+                    希望条件
+                  </div>
+                  <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
+                  <InfoRow label="時間帯" value="19:00〜20:30" />
+                  <InfoRow
+                    label="時給・月給"
+                    value="¥4,300以上 / 30万円以上"
+                  />
+                </div>
+              </div>
+
+              {/* 下段：就業可否 & 水商売の経験/NG店舗（2カラム） */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                  <div className="font-semibold mb-2 text-[13px]">
+                    就業可否
+                  </div>
+                  <InfoRow label="タトゥー" value="有" />
+                  <InfoRow label="送迎の要否" value="無" />
+                  <InfoRow label="飲酒" value="普通" />
+                </div>
+
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                  <div className="font-semibold mb-2 text-[13px]">
+                    水商売の経験 / NG店舗
+                  </div>
+                  <InfoRow label="経験" value="—" />
+                  <InfoRow label="勤務歴" value="—" />
+                  <InfoRow label="NG店舗" value="—" />
+                </div>
+              </div>
+            </section>
+
+            {/* 右下：身分証＋備考 */}
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
+              <h4 className="text-sm font-semibold">
+                身分証明書確認 / 申告・備考
+              </h4>
+
+              <div className="grid grid-cols-1 gap-3 h-full">
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 space-y-2">
+                  <InfoRow label="身分証種類" value="運転免許証" />
+                  <InfoRow label="住民票・郵便物" value="◯" />
+                  <InfoRow
+                    label="宣誓（身分証のない・更新時）"
+                    value="◯"
+                  />
+                </div>
+
+                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                  <InfoRow label="備考" value="特記事項なし" />
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -404,7 +402,21 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   );
 }
 
-/** ラベル＋値（1行）の小さい行パーツ */
+/** 登録情報①用：文字を大きくしてメイン情報を強調する行 */
+function MainInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
+      <div className="flex-1 min-w-0">
+        <div className="w-full text-[13px] px-3 py-2 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
+          {value || "—"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** ラベル＋値（1行）の小さい行パーツ（サブ情報用） */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1.5">

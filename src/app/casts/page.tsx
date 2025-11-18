@@ -284,16 +284,17 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 登録情報①（プロフィール・希望・確認）
               </h4>
 
-              <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 flex-1">
+              {/* ★ 写真列を広げて、右側の情報を右に寄せる */}
+              <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 flex-1">
                 {/* 写真 */}
                 <div>
-                  <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                  <div className="w-full aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-[11px] text-muted">
                     写真
                   </div>
                 </div>
 
                 {/* 氏名など */}
-                <div className="space-y-2 text-[13px]">
+                <div className="space-y-2 text-[13px] pr-1">
                   <MainInfoRow label="ふりがな" value={cast.name} />
                   <MainInfoRow label="氏名" value={cast.name} />
                   <MainInfoRow label="生年月日" value="2000-03-11（25歳）" />
@@ -432,7 +433,8 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
+      {/* ★ ラベル幅を少し狭めて、値を右に寄せる */}
+      <div className="sm:w-28 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
           {value || "—"}

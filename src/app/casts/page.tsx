@@ -4,15 +4,20 @@
 import { useMemo, useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
+import {
+  listCasts,
+  getCast,
+  type CastDetail,
+} from "@/lib/api.casts";
 
 /**
- * 一覧用キャスト行
+ * 一覧用キャスト行（API からの view model）
  * - 管理番号（4桁数字）
  * - 名前
  * - 年齢
  * - 希望時給
- * - キャストID（A001 など）
- * - 担当者名
+ * - キャストID（A001 など）※現状はプレースホルダ
+ * - 担当者名 ※現状はプレースホルダ
  */
 type CastRow = {
   id: string;
@@ -23,20 +28,6 @@ type CastRow = {
   castCode: string;
   ownerStaffName: string;
 };
-
-// とりあえず 50 件のモックデータを自動生成
-const MOCK_ROWS: CastRow[] = Array.from({ length: 50 }, (_, i) => {
-  const n = i + 1;
-  return {
-    id: `c${n}`,
-    managementNumber: String(n).padStart(4, "0"),
-    name: `キャスト${n}`,
-    age: null,
-    desiredHourly: null,
-    castCode: `A${String(n).padStart(3, "0")}`,
-    ownerStaffName: n % 2 === 0 ? "佐藤" : "田中",
-  };
-});
 
 type SortMode = "kana" | "hourly";
 
@@ -57,21 +48,73 @@ export default function Page() {
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
   const [sortMode, setSortMode] = useState<SortMode>("kana");
+
+  const [baseRows, setBaseRows] = useState<CastRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<CastRow | null>(null);
+  const [detail, setDetail] = useState<CastDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  // 一覧取得（q でサーバー側検索）
+  useEffect(() => {
+    let canceled = false;
+
+    async function run() {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await listCasts({
+          q: q.trim() || undefined,
+        });
+
+        if (canceled) return;
+
+        const mapped: CastRow[] = (res.items ?? []).map((c) => ({
+          id: c.userId,
+          managementNumber: c.managementNumber ?? "----",
+          name: c.displayName ?? "(名前未設定)",
+          age: null, // 年齢は詳細 API からのみ取得できるのでここでは null
+          desiredHourly: null, // 希望時給も詳細 API 側の preferences から取る
+          castCode: "-", // 仕様確定後に API フィールドと紐付け
+          ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
+        }));
+
+        setBaseRows(mapped);
+      } catch (e: any) {
+        console.error(e);
+        if (!canceled) {
+          setLoadError(e?.message ?? "キャスト一覧の取得に失敗しました");
+        }
+      } finally {
+        if (!canceled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    run();
+
+    return () => {
+      canceled = true;
+    };
+  }, [q]);
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
     const set = new Set<string>();
-    MOCK_ROWS.forEach((r) => {
-      if (r.ownerStaffName) set.add(r.ownerStaffName);
+    baseRows.forEach((r) => {
+      if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
-  }, []);
+  }, [baseRows]);
 
   // 検索＋担当者フィルタ＋ソート
   const rows = useMemo(() => {
     const query = q.trim();
-    let result = MOCK_ROWS.filter((r) => {
+    let result = baseRows.filter((r) => {
       if (staffFilter && r.ownerStaffName !== staffFilter) return false;
       if (!query) return true;
       // 管理番号 or 名前 に含まれていればヒット
@@ -96,7 +139,45 @@ export default function Page() {
     });
 
     return result;
-  }, [q, staffFilter, sortMode]);
+  }, [q, staffFilter, sortMode, baseRows]);
+
+  // 行クリック → 詳細 API 取得
+  const handleRowClick = (r: CastRow) => {
+    setSelected(r);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    let canceled = false;
+
+    (async () => {
+      try {
+        const d = await getCast(r.id);
+        if (canceled) return;
+        setDetail(d);
+      } catch (e: any) {
+        console.error(e);
+        if (!canceled) {
+          setDetailError(e?.message ?? "キャスト詳細の取得に失敗しました");
+        }
+      } finally {
+        if (!canceled) {
+          setDetailLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      canceled = true;
+    };
+  };
+
+  const handleCloseModal = () => {
+    setSelected(null);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
+  };
 
   return (
     <AppShell>
@@ -107,6 +188,16 @@ export default function Page() {
             <p className="text-xs text-muted">
               管理番号・名前で検索／担当者と並び替えでソート
             </p>
+          </div>
+          <div className="text-[11px] text-muted">
+            {loading
+              ? "一覧を読み込み中…"
+              : `${rows.length.toLocaleString()} 件表示中`}
+            {loadError && (
+              <span className="ml-2 text-red-400">
+                （{loadError}）
+              </span>
+            )}
           </div>
         </header>
 
@@ -191,7 +282,7 @@ export default function Page() {
                 <tr
                   key={r.id}
                   className="border-t border-white/10 hover:bg-white/5 cursor-pointer"
-                  onClick={() => setSelected(r)}
+                  onClick={() => handleRowClick(r)}
                 >
                   <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
                   <td className="px-3 py-2">{r.name}</td>
@@ -205,7 +296,7 @@ export default function Page() {
                   <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <tr>
                   <td className="px-3 py-6 text-center text-muted" colSpan={6}>
                     該当データがありません
@@ -221,7 +312,10 @@ export default function Page() {
           <ModalPortal>
             <CastDetailModal
               cast={selected}
-              onClose={() => setSelected(null)}
+              detail={detail}
+              detailLoading={detailLoading}
+              detailError={detailError}
+              onClose={handleCloseModal}
             />
           </ModalPortal>
         )}
@@ -232,6 +326,9 @@ export default function Page() {
 
 type CastDetailModalProps = {
   cast: CastRow;
+  detail: CastDetail | null;
+  detailLoading: boolean;
+  detailError: string | null;
   onClose: () => void;
 };
 
@@ -306,10 +403,16 @@ function buildMonthDays(year: number, month: number): ShiftDay[] {
 /**
  * キャスト詳細モーダル
  */
-function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
+function CastDetailModal({
+  cast,
+  detail,
+  detailLoading,
+  detailError,
+  onClose,
+}: CastDetailModalProps) {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
 
-  // 直近2日のダミーシフト（DB連携時に置き換え）
+  // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
@@ -326,6 +429,21 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
     return slot;
   };
 
+  const displayName = detail?.displayName ?? cast.name;
+  const managementNumber = detail?.managementNumber ?? cast.managementNumber;
+  const birth = detail?.birthdate
+    ? detail.age != null
+      ? `${detail.birthdate}（${detail.age}歳）`
+      : detail.birthdate
+    : "—";
+  const address = detail?.address ?? "—";
+  const phone = detail?.phone ?? "—";
+  const email = detail?.email ?? "—";
+  const tiaraHourly =
+    detail?.preferences?.desiredHourly != null
+      ? `¥${detail.preferences.desiredHourly.toLocaleString()}`
+      : "—";
+
   return (
     <>
       {/* viewport 基準で中央固定 */}
@@ -339,18 +457,28 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           <div className="flex items-center justify-between px-5 py-1.5 border-b border-white/10 bg-slate-900/80">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">
-                キャスト詳細（{cast.name}）
+                キャスト詳細（{displayName}）
               </h3>
               <span className="text-[10px] text-muted">
-                管理番号: {cast.managementNumber} / キャストID: {cast.castCode}
+                管理番号: {managementNumber} / キャストID: {cast.castCode}
               </span>
+              {detailLoading && (
+                <span className="text-[10px] text-emerald-300">
+                  詳細読み込み中…
+                </span>
+              )}
+              {!detailLoading && detailError && (
+                <span className="text-[10px] text-red-400">
+                  {detailError}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {/* ① 文言変更：LINE → チャット */}
               <button className="px-3 py-1 rounded-xl text-[11px] border border-white/15 bg-white/5">
                 チャットで連絡
               </button>
-              {/* ② 保存ボタン */}
+              {/* ② 保存ボタン（API連携は後続タスクで updateCast を紐付け） */}
               <button className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white">
                 保存
               </button>
@@ -384,21 +512,28 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 
                   {/* 氏名など */}
                   <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow label="ふりがな" value={cast.name} />
-                    <MainInfoRow label="氏名" value={cast.name} />
-                    <MainInfoRow label="生年月日" value="2000-03-11（25歳）" />
                     <MainInfoRow
-                      label="現住所"
-                      value="東京都サンプル区1丁目 1-1-2"
+                      label="ふりがな"
+                      value={displayName}
                     />
-                    <MainInfoRow label="TEL" value="090-xxxx-xxxx" />
-                    <MainInfoRow label="アドレス" value="cast11@example.com" />
+                    <MainInfoRow label="氏名" value={displayName} />
+                    <MainInfoRow label="生年月日" value={birth} />
+                    <MainInfoRow label="現住所" value={address} />
+                    <MainInfoRow label="TEL" value={phone} />
+                    <MainInfoRow label="アドレス" value={email} />
                     {/* ティアラ査定時給 */}
-                    <MainInfoRow label="ティアラ査定時給" value="¥4,000" />
+                    <MainInfoRow
+                      label="ティアラ査定時給"
+                      value={tiaraHourly}
+                    />
                     {/* NG店舗（複数登録可） */}
                     <MainInfoRow
                       label="NG店舗（複数登録可）"
-                      value="—"
+                      value={
+                        detail?.ngShops
+                          ? `${detail.ngShops.length}件登録`
+                          : "—"
+                      }
                     />
 
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
@@ -424,46 +559,58 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
               </section>
 
-              {/* 右上：登録情報② */}
+              {/* 右上：登録情報②（まだダミー。後続で detail.background を反映） */}
               <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold mb-1">
                   登録情報②（動機・比較・選定理由）
                 </h4>
 
-                <InfoRow label="知った経路" value="女の子紹介" />
-                <InfoRow label="紹介者名 / サイト名" value="紹介者A1" />
+                <InfoRow
+                  label="知った経路"
+                  value={detail?.background?.howFound ?? "—"}
+                />
+                <InfoRow
+                  label="紹介者名 / サイト名"
+                  value="（今後 detail.background 拡張で対応）"
+                />
                 <InfoRow
                   label="お仕事を始めるきっかけ"
-                  value="学生・生活費のため、接客経験を活かしたい。"
+                  value={detail?.background?.motivation ?? "—"}
                 />
                 <InfoRow
                   label="他の派遣会社との比較"
-                  value="対応が早く、条件の交渉力が高いと感じたため。"
+                  value="（今後 detail.background 拡張で対応）"
                 />
-                <InfoRow label="比較状況" value="1〜3社" />
-                <InfoRow label="派遣会社名" value="派遣A / 派遣B" />
+                <InfoRow
+                  label="比較状況"
+                  value={detail?.background?.otherAgencies ?? "—"}
+                />
+                <InfoRow
+                  label="派遣会社名"
+                  value="（今後 detail.background 拡張で対応）"
+                />
 
                 <div className="h-px bg-white/5 my-1" />
 
                 <InfoRow
                   label="ティアラを選んだ理由"
-                  value="時給と勤務希望日、エリア、在籍年齢層、客層が合致。"
+                  value={detail?.background?.reasonChoose ?? "—"}
                 />
                 <InfoRow
                   label="派遣先のお店選びで重要なポイント"
-                  value="時給 / 勤務時間 / エリア / 在籍年齢 / 客層 / キャバ / ラウンジ / 他"
+                  value={detail?.background?.shopSelectionPoints ?? "—"}
                 />
                 <InfoRow label="その他（備考）" value="—" />
 
-                <div className="h-px bg-white/5 my-1" />
+                <div className="h-px bg白/5 my-1" />
 
                 <InfoRow
                   label="30,000円到達への所感"
-                  value="制度がわかりやすくモチベーションになる。"
+                  value="（今後アンケート項目などで対応）"
                 />
               </section>
 
-              {/* 左下：基本情報 */}
+              {/* 左下：基本情報（プロフィール・希望条件・就業可否） */}
               <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 space-y-1.5 text-[11px]">
                 <h4 className="text-[11px] font-semibold mb-1">
                   基本情報（プロフィール・希望条件・就業可否）
@@ -474,20 +621,65 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                     <div className="font-semibold mb-1.5 text-[12px]">
                       プロフィール
                     </div>
-                    <InfoRow label="身長" value="165 cm" />
-                    <InfoRow label="服のサイズ" value="M サイズ" />
-                    <InfoRow label="靴のサイズ" value="25 cm" />
+                    <InfoRow
+                      label="身長"
+                      value={
+                        detail?.attributes?.heightCm != null
+                          ? `${detail.attributes.heightCm} cm`
+                          : "—"
+                      }
+                    />
+                    <InfoRow
+                      label="服のサイズ"
+                      value={detail?.attributes?.clothingSize ?? "—"}
+                    />
+                    <InfoRow
+                      label="靴のサイズ"
+                      value={
+                        detail?.attributes?.shoeSizeCm != null
+                          ? `${detail.attributes.shoeSizeCm} cm`
+                          : "—"
+                      }
+                    />
                   </div>
 
                   <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       希望条件
                     </div>
-                    <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
-                    <InfoRow label="時間帯" value="19:00〜20:30" />
+                    <InfoRow
+                      label="出勤希望"
+                      value={
+                        detail?.preferences?.preferredDays?.length
+                          ? detail.preferences.preferredDays.join(" / ")
+                          : "—"
+                      }
+                    />
+                    <InfoRow
+                      label="時間帯"
+                      value={
+                        detail?.preferences?.preferredTimeFrom &&
+                        detail.preferences.preferredTimeTo
+                          ? `${detail.preferences.preferredTimeFrom}〜${detail.preferences.preferredTimeTo}`
+                          : "—"
+                      }
+                    />
                     <InfoRow
                       label="時給・月給"
-                      value="¥4,300以上 / 30万円以上"
+                      value={
+                        detail?.preferences
+                          ? [
+                              detail.preferences.desiredHourly != null
+                                ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
+                                : null,
+                              detail.preferences.desiredMonthly != null
+                                ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ") || "—"
+                          : "—"
+                      }
                     />
                   </div>
                 </div>
@@ -497,9 +689,37 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                     <div className="font-semibold mb-1.5 text-[12px]">
                       就業可否
                     </div>
-                    <InfoRow label="タトゥー" value="有" />
-                    <InfoRow label="送迎の要否" value="無" />
-                    <InfoRow label="飲酒" value="普通" />
+                    <InfoRow
+                      label="タトゥー"
+                      value={
+                        detail?.attributes?.tattoo == null
+                          ? "—"
+                          : detail.attributes.tattoo
+                          ? "有"
+                          : "無"
+                      }
+                    />
+                    <InfoRow
+                      label="送迎の要否"
+                      value={
+                        detail?.attributes?.needPickup == null
+                          ? "—"
+                          : detail.attributes.needPickup
+                          ? "要"
+                          : "不要"
+                      }
+                    />
+                    <InfoRow
+                      label="飲酒"
+                      value={
+                        detail?.attributes?.drinkLevel ??
+                        (detail?.drinkOk == null
+                          ? "—"
+                          : detail.drinkOk
+                          ? "普通"
+                          : "NG")
+                      }
+                    />
                   </div>
 
                   <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
@@ -507,13 +727,22 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                     <div className="font-semibold mb-1.5 text-[12px]">
                       水商売の経験
                     </div>
-                    <InfoRow label="経験" value="—" />
+                    <InfoRow
+                      label="経験"
+                      value={
+                        detail?.hasExperience == null
+                          ? "—"
+                          : detail.hasExperience
+                          ? "あり"
+                          : "なし"
+                      }
+                    />
                     <InfoRow label="勤務歴" value="—" />
                   </div>
                 </div>
               </section>
 
-              {/* 右下：身分証＋備考 */}
+              {/* 右下：身分証＋備考（現時点はダミー） */}
               <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold">
                   身分証明書確認 / 申告・備考
@@ -529,7 +758,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-slate-950/40 rounded-xl p-2 border border白/5">
                     <InfoRow label="備考" value="特記事項なし" />
                   </div>
                 </div>
@@ -543,7 +772,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
       {shiftModalOpen && (
         <ShiftEditModal
           onClose={() => setShiftModalOpen(false)}
-          castName={cast.name}
+          castName={displayName}
         />
       )}
     </>
@@ -616,7 +845,7 @@ function ShiftEditModal({
             </button>
             <span className="text-[13px] font-semibold">{monthLabel}</span>
             <button
-              className="px-2 py-1 rounded-md border border-white/15 text-[11px]"
+              className="px-2 py-1 rounded-md border border白/15 text-[11px]"
               onClick={nextMonth}
             >
               次月 →
@@ -629,12 +858,12 @@ function ShiftEditModal({
         </div>
 
         {/* カレンダー */}
-        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-slate-950/80">
+        <div className="flex-1 overflow-auto rounded-xl border border白/10 bg-slate-950/80">
           <table className="w-full text-[11px]">
             <thead>
               <tr className="bg-slate-900/80">
                 {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
-                  <th key={w} className="py-1 border-b border-white/10">
+                  <th key={w} className="py-1 border-b border白/10">
                     {w}
                   </th>
                 ))}
@@ -642,7 +871,7 @@ function ShiftEditModal({
             </thead>
             <tbody>
               {Array.from({ length: 6 }).map((_, rowIdx) => (
-                <tr key={rowIdx} className="border-t border-white/5">
+                <tr key={rowIdx} className="border-t border白/5">
                   {days.slice(rowIdx * 7, rowIdx * 7 + 7).map((d, i) => {
                     const dayNum = d.date.getDate();
                     const isToday =
@@ -650,7 +879,7 @@ function ShiftEditModal({
                     return (
                       <td
                         key={i}
-                        className={`align-top h-20 px-1.5 py-1 border-l border-white/5 ${
+                        className={`align-top h-20 px-1.5 py-1 border-l border白/5 ${
                           d.inCurrentMonth ? "" : "opacity-40"
                         }`}
                       >
@@ -663,7 +892,7 @@ function ShiftEditModal({
                             {dayNum}
                           </span>
                           {/* ここに将来 slot（free/21:00 等）をバッジ表示 */}
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800/80 border border-white/10">
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800/80 border border白/10">
                             -
                           </span>
                         </div>
@@ -681,10 +910,10 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-white/20 bg-white/5">
+          <button className="px-3 py-1 rounded-lg border border白/20 bg-white/5">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
             保存して閉じる
           </button>
         </div>
@@ -702,7 +931,7 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
         <input
           type="text"
           defaultValue={value}
-          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border白/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
         />
       </div>
     </div>
@@ -718,7 +947,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         <input
           type="text"
           defaultValue={value}
-          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border白/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
         />
       </div>
     </div>

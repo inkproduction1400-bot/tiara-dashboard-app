@@ -310,10 +310,12 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                   />
                   <MainInfoRow label="TEL" value="090-xxxx-xxxx" />
                   <MainInfoRow label="アドレス" value="cast11@example.com" />
-                  {/* ★ 追加：ティアラ査定時給 */}
+                  {/* ティアラ査定時給 */}
+                  <MainInfoRow label="ティアラ査定時給" value="¥4,000" />
+                  {/* ★ 移動：NG店舗（複数登録可） */}
                   <MainInfoRow
-                    label="ティアラ査定時給"
-                    value="¥4,000"
+                    label="NG店舗（複数登録可）"
+                    value="—"
                   />
                 </div>
               </div>
@@ -390,7 +392,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
               </div>
 
-              {/* 下段：就業可否 & 水商売 */}
+              {/* 下段：就業可否 & 水商売の経験 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                   <div className="font-semibold mb-1.5 text-[12px]">
@@ -402,12 +404,13 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
 
                 <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  {/* ★ タイトル変更：水商売の経験 / NG店舗 → 水商売の経験 */}
                   <div className="font-semibold mb-1.5 text-[12px]">
-                    水商売の経験 / NG店舗
+                    水商売の経験
                   </div>
                   <InfoRow label="経験" value="—" />
                   <InfoRow label="勤務歴" value="—" />
-                  <InfoRow label="NG店舗" value="—" />
+                  {/* NG店舗 行はここから削除（登録情報①側へ移動） */}
                 </div>
               </div>
             </section>
@@ -444,7 +447,6 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      {/* ラベル幅を少し狭めて、値を右に寄せる */}
       <div className="sm:w-28 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">

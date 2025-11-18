@@ -693,29 +693,33 @@ function ShiftEditModal({
   );
 }
 
-/** 登録情報①用：文字を大きくしてメイン情報を強調する行 */
+/** 登録情報①用：文字を大きくしてメイン情報を強調する行（編集可） */
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm:w-28 text-[12px] text-muted shrink-0">{label}</div>
+      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
-        <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
-          {value || "—"}
-        </div>
+        <input
+          type="text"
+          defaultValue={value}
+          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+        />
       </div>
     </div>
   );
 }
 
-/** ラベル＋値（1行）の小さい行パーツ（サブ情報用） */
+/** ラベル＋値（1行）の小さい行パーツ（サブ情報用・編集可） */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-0.5">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
       <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
-        <div className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 truncate">
-          {value || "—"}
-        </div>
+        <input
+          type="text"
+          defaultValue={value}
+          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+        />
       </div>
     </div>
   );

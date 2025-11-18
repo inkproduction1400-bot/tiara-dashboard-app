@@ -226,10 +226,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   return (
     // 画面中央に大きく表示（上下左右に余白 p-4）
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-      {/* オーバーレイ */}
+      {/* オーバーレイ（画面全体を覆う・常にビューポート基準） */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* 本体：画面内に収まるよう高さ制限（内部は基本スクロール無し） */}
+      {/* 本体：画面内に収まるよう高さ制限（内容が溢れたらモーダル内だけスクロール） */}
       <div className="relative z-50 w-full max-w-6xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/10 bg-slate-900/80">
@@ -254,10 +254,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：高さを詰めて、通常はスクロール無しで収まるように */}
-        <div className="flex-1 px-5 py-3 bg-slate-950 overflow-hidden">
+        {/* コンテンツ：モーダル内だけスクロール可。通常の画面サイズならスクロール無しで収まる想定 */}
+        <div className="flex-1 px-5 py-3 bg-slate-950 overflow-y-auto">
           {/* 2x2 グリッド。各カードの上下を揃えるため auto-rows-fr */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-3 h-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-3">
             {/* 左上：登録情報①（メイン情報・文字大きめ） */}
             <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 flex flex-col">
               <h4 className="text-xs font-semibold mb-3">
@@ -318,7 +318,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               />
               <InfoRow label="その他（備考）" value="—" />
 
-              <div className="h-px bg白/5 my-1" />
+              <div className="h-px bg-white/5 my-1" />
 
               <InfoRow
                 label="30,000円到達への所感"
@@ -408,7 +408,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
+      <div className="sm	w-32 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
           {value || "—"}

@@ -249,9 +249,9 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
       {/* オーバーレイ */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* 本体：横幅拡大・高さは 90vh に収める */}
+      {/* 本体：横幅広め・高さは 90vh に収める */}
       <div className="relative z-10 w-[96vw] max-w-7xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
-        {/* ヘッダー（高さを少し抑える） */}
+        {/* ヘッダー */}
         <div className="flex items-center justify-between px-5 py-2 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-semibold">
@@ -274,11 +274,11 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：モーダル内はスクロール無し（overflow-y を付けない） */}
+        {/* コンテンツ：モーダル内はスクロール無し */}
         <div className="flex-1 px-4 py-3 bg-slate-950">
-          {/* 2x2 グリッド。余白を少し詰める */}
+          {/* 2x2 グリッド */}
           <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2.5 h-full">
-            {/* 左上：登録情報①（メイン情報・文字大きめ） */}
+            {/* 左上：登録情報① */}
             <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 flex flex-col">
               <h4 className="text-[11px] font-semibold mb-2">
                 登録情報①（プロフィール・希望・確認）
@@ -292,7 +292,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                   </div>
                 </div>
 
-                {/* 氏名など：メイン情報 */}
+                {/* 氏名など */}
                 <div className="space-y-2 text-[13px]">
                   <MainInfoRow label="ふりがな" value={cast.name} />
                   <MainInfoRow label="氏名" value={cast.name} />
@@ -396,14 +396,15 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               </div>
             </section>
 
-            {/* 右下：身分証＋備考 */}
-            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 text-[11px] space-y-2">
+            {/* 右下：身分証＋備考（ここを圧縮） */}
+            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 text-[11px] space-y-1.5">
               <h4 className="text-[11px] font-semibold">
                 身分証明書確認 / 申告・備考
               </h4>
 
-              <div className="grid grid-cols-1 gap-2.5 h-full">
-                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 space-y-2">
+              {/* h-full を削除し、内側の余白を少し減らす */}
+              <div className="grid grid-cols-1 gap-2">
+                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5 space-y-1.5">
                   <InfoRow label="身分証種類" value="運転免許証" />
                   <InfoRow label="住民票・郵便物" value="◯" />
                   <InfoRow
@@ -412,7 +413,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                   />
                 </div>
 
-                <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
+                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
                   <InfoRow label="備考" value="特記事項なし" />
                 </div>
               </div>

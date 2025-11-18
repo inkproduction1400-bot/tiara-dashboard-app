@@ -249,10 +249,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
       {/* オーバーレイ */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* 本体：横幅広め・高さは 90vh に収める */}
-      <div className="relative z-10 w-[96vw] max-w-7xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-2 border-b border-white/10 bg-slate-900/80">
+      {/* 本体：横幅広め・高さは 86vh に収める */}
+      <div className="relative z-10 w-[96vw] max-w-7xl max-h-[86vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+        {/* ヘッダー（縦をさらに詰める） */}
+        <div className="flex items-center justify-between px-5 py-1.5 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
             <h3 className="text-sm font-semibold">
               キャスト詳細（{cast.name}）
@@ -274,12 +274,12 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：モーダル内はスクロール無し */}
-        <div className="flex-1 px-4 py-2.5 bg-slate-950">
+        {/* コンテンツ：モーダル内はスクロール無しを想定 */}
+        <div className="flex-1 px-4 py-2 bg-slate-950">
           {/* 2x2 グリッド */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2.5 h-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2 h-full">
             {/* 左上：登録情報① */}
-            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 flex flex-col">
+            <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 flex flex-col">
               <h4 className="text-[11px] font-semibold mb-2">
                 登録情報①（プロフィール・希望・確認）
               </h4>
@@ -308,7 +308,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 右上：登録情報② */}
-            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 text-[11px] space-y-1.5">
+            <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 text-[11px] space-y-1.5">
               <h4 className="text-[11px] font-semibold mb-1">
                 登録情報②（動機・比較・選定理由）
               </h4>
@@ -347,7 +347,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 左下：基本情報（プロフィール＋希望条件＋就業可否＆水商売） */}
-            <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 space-y-1.5 text-[11px]">
+            <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 space-y-1.5 text-[11px]">
               <h4 className="text-[11px] font-semibold mb-1">
                 基本情報（プロフィール・希望条件・就業可否）
               </h4>
@@ -355,7 +355,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               {/* 上段：プロフィール & 希望条件 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {/* プロフィール */}
-                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
+                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                   <div className="font-semibold mb-1.5 text-[12px]">
                     プロフィール
                   </div>
@@ -365,7 +365,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
 
                 {/* 希望条件 */}
-                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
+                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                   <div className="font-semibold mb-1.5 text-[12px]">
                     希望条件
                   </div>
@@ -380,7 +380,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 
               {/* 下段：就業可否 & 水商売 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
+                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                   <div className="font-semibold mb-1.5 text-[12px]">
                     就業可否
                   </div>
@@ -389,7 +389,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                   <InfoRow label="飲酒" value="普通" />
                 </div>
 
-                <div className="bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
+                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                   <div className="font-semibold mb-1.5 text-[12px]">
                     水商売の経験 / NG店舗
                   </div>
@@ -400,14 +400,14 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               </div>
             </section>
 
-            {/* 右下：身分証＋備考（圧縮済み） */}
-            <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 text-[11px] space-y-1.5">
+            {/* 右下：身分証＋備考（さらに圧縮） */}
+            <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 text-[11px] space-y-1.5">
               <h4 className="text-[11px] font-semibold">
                 身分証明書確認 / 申告・備考
               </h4>
 
               <div className="grid grid-cols-1 gap-1.5">
-                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5 space-y-1.5">
+                <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5 space-y-1">
                   <InfoRow label="身分証種類" value="運転免許証" />
                   <InfoRow label="住民票・郵便物" value="◯" />
                   <InfoRow
@@ -445,7 +445,7 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
 /** ラベル＋値（1行）の小さい行パーツ（サブ情報用） */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-0.5">
       <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 truncate">

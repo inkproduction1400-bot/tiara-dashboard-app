@@ -244,29 +244,29 @@ type CastDetailModalProps = {
  */
 function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
   return (
-    // 画面中央に大きく表示（viewport 基準で固定）
+    // viewport 基準で中央固定
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* オーバーレイ（背景を暗く・クリックで閉じる） */}
+      {/* オーバーレイ */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* 本体：画面内に収まるよう高さ制限（内容が溢れたらモーダル内だけスクロール） */}
-      <div className="relative z-10 w-full max-w-6xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/10 bg-slate-900/80">
+      {/* 本体：横幅拡大・高さは 90vh に収める */}
+      <div className="relative z-10 w-[96vw] max-w-7xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+        {/* ヘッダー（高さを少し抑える） */}
+        <div className="flex items-center justify-between px-5 py-2 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
-            <h3 className="text-base font-semibold">
+            <h3 className="text-sm font-semibold">
               キャスト詳細（{cast.name}）
             </h3>
-            <span className="text-[11px] text-muted">
+            <span className="text-[10px] text-muted">
               管理番号: {cast.managementNumber} / キャストID: {cast.castCode}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 rounded-xl text-[11px] border border-white/15 bg-white/5">
+            <button className="px-3 py-1 rounded-xl text-[11px] border border-white/15 bg-white/5">
               LINEで連絡
             </button>
             <button
-              className="px-3 py-1.5 rounded-xl text-[11px] border border-white/20 bg-red-500/80 text-white"
+              className="px-3 py-1 rounded-xl text-[11px] border border-white/20 bg-red-500/80 text-white"
               onClick={onClose}
             >
               × 閉じる
@@ -274,26 +274,26 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：モーダル内だけスクロール可 */}
-        <div className="flex-1 px-5 py-3 bg-slate-950 overflow-y-auto">
-          {/* 2x2 グリッド。各カードの上下を揃えるため auto-rows-fr */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-3">
+        {/* コンテンツ：モーダル内はスクロール無し（overflow-y を付けない） */}
+        <div className="flex-1 px-4 py-3 bg-slate-950">
+          {/* 2x2 グリッド。余白を少し詰める */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2.5 h-full">
             {/* 左上：登録情報①（メイン情報・文字大きめ） */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 flex flex-col">
-              <h4 className="text-xs font-semibold mb-3">
+            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 flex flex-col">
+              <h4 className="text-[11px] font-semibold mb-2">
                 登録情報①（プロフィール・希望・確認）
               </h4>
 
-              <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 flex-1">
+              <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 flex-1">
                 {/* 写真 */}
                 <div>
-                  <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-xs text-muted">
+                  <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-[11px] text-muted">
                     写真
                   </div>
                 </div>
 
-                {/* 氏名など：他カードより大きめの文字でメイン情報を強調 */}
-                <div className="space-y-2.5 text-sm">
+                {/* 氏名など：メイン情報 */}
+                <div className="space-y-2 text-[13px]">
                   <MainInfoRow label="ふりがな" value={cast.name} />
                   <MainInfoRow label="氏名" value={cast.name} />
                   <MainInfoRow label="生年月日" value="2000-03-11（25歳）" />
@@ -307,9 +307,9 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               </div>
             </section>
 
-            {/* 右上：登録情報②（動機・比較・選定理由） */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-[11px] space-y-2.5">
-              <h4 className="text-xs font-semibold mb-1.5">
+            {/* 右上：登録情報② */}
+            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 text-[11px] space-y-1.5">
+              <h4 className="text-[11px] font-semibold mb-1">
                 登録情報②（動機・比較・選定理由）
               </h4>
 
@@ -346,10 +346,10 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               />
             </section>
 
-            {/* 左下：プロフィール＋希望条件＋就業可否＆水商売（1カード） */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3 text-[11px]">
+            {/* 左下：プロフィール＋希望条件＋就業可否＆水商売 */}
+            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 space-y-2 text-[11px]">
               {/* 上段：プロフィール & 希望条件 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 {/* プロフィール */}
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
                   <div className="font-semibold mb-2 text-[12px]">
@@ -374,8 +374,8 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
               </div>
 
-              {/* 下段：就業可否 & 水商売の経験/NG店舗（2カラム） */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 下段：就業可否 & 水商売 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
                   <div className="font-semibold mb-2 text-[12px]">
                     就業可否
@@ -397,12 +397,12 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 右下：身分証＋備考 */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-[11px] space-y-3">
-              <h4 className="text-xs font-semibold">
+            <section className="bg-slate-900/80 rounded-2xl p-3 border border-white/5 text-[11px] space-y-2">
+              <h4 className="text-[11px] font-semibold">
                 身分証明書確認 / 申告・備考
               </h4>
 
-              <div className="grid grid-cols-1 gap-3 h-full">
+              <div className="grid grid-cols-1 gap-2.5 h-full">
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 space-y-2">
                   <InfoRow label="身分証種類" value="運転免許証" />
                   <InfoRow label="住民票・郵便物" value="◯" />

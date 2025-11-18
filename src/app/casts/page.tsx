@@ -229,22 +229,24 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
       {/* オーバーレイ */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      {/* 本体：ほぼフルスクリーンサイズで中央表示 */}
-      <div className="relative z-50 w-full max-w-6xl h-full max-h-full min-h-[70vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+      {/* 本体：画面内に収まるよう高さ制限（内部は基本スクロール無し） */}
+      <div className="relative z-50 w-full max-w-6xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-slate-900/80">
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/10 bg-slate-900/80">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold">キャスト詳細（{cast.name}）</h3>
-            <span className="text-xs text-muted">
+            <h3 className="text-base font-semibold">
+              キャスト詳細（{cast.name}）
+            </h3>
+            <span className="text-[11px] text-muted">
               管理番号: {cast.managementNumber} / キャストID: {cast.castCode}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 rounded-xl text-xs border border-white/15 bg-white/5">
+            <button className="px-3 py-1.5 rounded-xl text-[11px] border border-white/15 bg-white/5">
               LINEで連絡
             </button>
             <button
-              className="px-3 py-1.5 rounded-xl text-xs border border-white/20 bg-red-500/80 text-white"
+              className="px-3 py-1.5 rounded-xl text-[11px] border border-white/20 bg-red-500/80 text-white"
               onClick={onClose}
             >
               × 閉じる
@@ -252,17 +254,17 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
           </div>
         </div>
 
-        {/* コンテンツ：モーダル内部だけスクロール */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 bg-slate-950">
+        {/* コンテンツ：高さを詰めて、通常はスクロール無しで収まるように */}
+        <div className="flex-1 px-5 py-3 bg-slate-950 overflow-hidden">
           {/* 2x2 グリッド。各カードの上下を揃えるため auto-rows-fr */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-3 h-full">
             {/* 左上：登録情報①（メイン情報・文字大きめ） */}
-            <section className="bg-slate-900/80 rounded-2xl p-5 border border-white/5 flex flex-col">
-              <h4 className="text-sm font-semibold mb-4">
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 flex flex-col">
+              <h4 className="text-xs font-semibold mb-3">
                 登録情報①（プロフィール・希望・確認）
               </h4>
 
-              <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-4 flex-1">
+              <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-3 flex-1">
                 {/* 写真 */}
                 <div>
                   <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-xs text-muted">
@@ -271,7 +273,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
 
                 {/* 氏名など：他カードより大きめの文字でメイン情報を強調 */}
-                <div className="space-y-3 text-sm">
+                <div className="space-y-2.5 text-sm">
                   <MainInfoRow label="ふりがな" value={cast.name} />
                   <MainInfoRow label="氏名" value={cast.name} />
                   <MainInfoRow label="生年月日" value="2000-03-11（25歳）" />
@@ -286,8 +288,8 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 右上：登録情報②（動機・比較・選定理由） */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
-              <h4 className="text-sm font-semibold">
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-[11px] space-y-2.5">
+              <h4 className="text-xs font-semibold mb-1.5">
                 登録情報②（動機・比較・選定理由）
               </h4>
 
@@ -304,7 +306,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               <InfoRow label="比較状況" value="1〜3社" />
               <InfoRow label="派遣会社名" value="派遣A / 派遣B" />
 
-              <div className="h-px bg-white/5 my-2" />
+              <div className="h-px bg-white/5 my-1" />
 
               <InfoRow
                 label="ティアラを選んだ理由"
@@ -316,7 +318,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               />
               <InfoRow label="その他（備考）" value="—" />
 
-              <div className="h-px bg-white/5 my-2" />
+              <div className="h-px bg白/5 my-1" />
 
               <InfoRow
                 label="30,000円到達への所感"
@@ -325,12 +327,12 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 左下：プロフィール＋希望条件＋就業可否＆水商売（1カード） */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3 text-xs">
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 space-y-3 text-[11px]">
               {/* 上段：プロフィール & 希望条件 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* プロフィール */}
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                  <div className="font-semibold mb-2 text-[13px]">
+                  <div className="font-semibold mb-2 text-[12px]">
                     プロフィール
                   </div>
                   <InfoRow label="身長" value="165 cm" />
@@ -340,7 +342,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 
                 {/* 希望条件 */}
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                  <div className="font-semibold mb-2 text-[13px]">
+                  <div className="font-semibold mb-2 text-[12px]">
                     希望条件
                   </div>
                   <InfoRow label="出勤希望" value="週4日（月・水・金・日）" />
@@ -355,7 +357,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               {/* 下段：就業可否 & 水商売の経験/NG店舗（2カラム） */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                  <div className="font-semibold mb-2 text-[13px]">
+                  <div className="font-semibold mb-2 text-[12px]">
                     就業可否
                   </div>
                   <InfoRow label="タトゥー" value="有" />
@@ -364,7 +366,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 </div>
 
                 <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5">
-                  <div className="font-semibold mb-2 text-[13px]">
+                  <div className="font-semibold mb-2 text-[12px]">
                     水商売の経験 / NG店舗
                   </div>
                   <InfoRow label="経験" value="—" />
@@ -375,8 +377,8 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </section>
 
             {/* 右下：身分証＋備考 */}
-            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-xs space-y-3">
-              <h4 className="text-sm font-semibold">
+            <section className="bg-slate-900/80 rounded-2xl p-4 border border-white/5 text-[11px] space-y-3">
+              <h4 className="text-xs font-semibold">
                 身分証明書確認 / 申告・備考
               </h4>
 
@@ -408,7 +410,7 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
       <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
-        <div className="w-full text-[13px] px-3 py-2 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
+        <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">
           {value || "—"}
         </div>
       </div>
@@ -419,7 +421,7 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
 /** ラベル＋値（1行）の小さい行パーツ（サブ情報用） */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1.5">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
       <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 truncate">

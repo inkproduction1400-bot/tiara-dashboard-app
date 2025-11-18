@@ -262,9 +262,15 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {/* ① 文言変更：LINE → チャット */}
             <button className="px-3 py-1 rounded-xl text-[11px] border border-white/15 bg-white/5">
-              LINEで連絡
+              チャットで連絡
             </button>
+            {/* ② 保存ボタンを追加（中間に配置） */}
+            <button className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white">
+              保存
+            </button>
+            {/* ③ 閉じるボタン（従来どおり右端） */}
             <button
               className="px-3 py-1 rounded-xl text-[11px] border border-white/20 bg-red-500/80 text-white"
               onClick={onClose}
@@ -284,7 +290,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                 登録情報①（プロフィール・希望・確認）
               </h4>
 
-              {/* ★ 写真列を広げて、右側の情報を右に寄せる */}
+              {/* 写真列を広げて、右側の情報を右に寄せる */}
               <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 flex-1">
                 {/* 写真 */}
                 <div>
@@ -304,6 +310,11 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
                   />
                   <MainInfoRow label="TEL" value="090-xxxx-xxxx" />
                   <MainInfoRow label="アドレス" value="cast11@example.com" />
+                  {/* ★ 追加：ティアラ査定時給 */}
+                  <MainInfoRow
+                    label="ティアラ査定時給"
+                    value="¥4,000"
+                  />
                 </div>
               </div>
             </section>
@@ -401,7 +412,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
               </div>
             </section>
 
-            {/* 右下：身分証＋備考（さらに圧縮） */}
+            {/* 右下：身分証＋備考（圧縮レイアウト） */}
             <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 text-[11px] space-y-1.5">
               <h4 className="text-[11px] font-semibold">
                 身分証明書確認 / 申告・備考
@@ -433,7 +444,7 @@ function CastDetailModal({ cast, onClose }: CastDetailModalProps) {
 function MainInfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      {/* ★ ラベル幅を少し狭めて、値を右に寄せる */}
+      {/* ラベル幅を少し狭めて、値を右に寄せる */}
       <div className="sm:w-28 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <div className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95">

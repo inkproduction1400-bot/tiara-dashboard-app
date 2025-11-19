@@ -138,35 +138,42 @@ export type CastUpdatePayload = {
   drinkOk?: boolean | null;
   hasExperience?: boolean | null;
   managementNumber?: string | null;
-  attributes?: {
-    heightCm?: number | null;
-    clothingSize?: string | null;
-    shoeSizeCm?: number | null;
-    tattoo?: boolean | null;
-    needPickup?: boolean | null;
-  } | null;
-  preferences?: {
-    desiredHourly?: number | null;
-    desiredMonthly?: number | null;
-    preferredDays?: string[]; // API 側で join(',')
-    preferredTimeFrom?: string | null;
-    preferredTimeTo?: string | null;
-    preferredArea?: string | null;
-    ngShopNotes?: string | null;
-    notes?: string | null;
-  } | null;
-  background?: {
-    howFound?: string | null;
-    motivation?: string | null;
-    otherAgencies?: string | null;
-    reasonChoose?: string | null;
-    shopSelectionPoints?: string | null;
-  } | null;
+  attributes?:
+    | {
+        heightCm?: number | null;
+        clothingSize?: string | null;
+        shoeSizeCm?: number | null;
+        tattoo?: boolean | null;
+        needPickup?: boolean | null;
+      }
+    | null;
+  preferences?:
+    | {
+        desiredHourly?: number | null;
+        desiredMonthly?: number | null;
+        preferredDays?: string[]; // API 側で join(',')
+        preferredTimeFrom?: string | null;
+        preferredTimeTo?: string | null;
+        preferredArea?: string | null;
+        ngShopNotes?: string | null;
+        notes?: string | null;
+      }
+    | null;
+  background?:
+    | {
+        howFound?: string | null;
+        motivation?: string | null;
+        otherAgencies?: string | null;
+        reasonChoose?: string | null;
+        shopSelectionPoints?: string | null;
+      }
+    | null;
 };
 
 /**
  * Cast 一覧取得
- * API 実体は `CastListItem[]` を返すので、ここで `{ items, total }` にラップする
+ * - API 側の `take` 上限（1000）を超えないように 1000 件ずつページングし、
+ *   limit 未指定なら「すべて取得」になるようにする。
  */
 export async function listCasts(params: {
   q?: string;
@@ -175,31 +182,57 @@ export async function listCasts(params: {
   drinkOk?: boolean;
   hasExperience?: boolean;
 } = {}): Promise<CastListResponse> {
-  const qs = new URLSearchParams();
+  const MAX_TAKE = 1000;
 
   const { q, limit, offset, drinkOk, hasExperience } = params;
 
-  if (q) qs.set("q", q);
+  const items: CastListItem[] = [];
 
-  // ★ デフォルトで「ほぼ全件」取りつつ、API 側の上限（想定 1000 件）でクランプ
-  const rawLimit = limit ?? 10000;
-  const safeLimit = Math.min(Math.max(rawLimit, 1), 1000);
-  qs.set("take", String(safeLimit));
+  // 取得したい件数（未指定なら「上限なし」とみなす）
+  const targetTotal = typeof limit === "number" && limit > 0 ? limit : Infinity;
 
-  if (offset != null) {
-    qs.set("offset", String(offset));
+  let currentOffset = offset ?? 0;
+  let remaining = targetTotal;
+
+  // 少なくとも 1 回は実行
+  // API が空配列を返すか、1 回分が MAX_TAKE 未満になったら終了
+  // それまで 1000 件ずつ offset を進める
+  // （limit が指定されている場合は、その上限までで打ち切り）
+  while (remaining > 0) {
+    const take = Math.min(MAX_TAKE, remaining);
+
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    qs.set("take", String(take));
+    if (currentOffset > 0) {
+      qs.set("offset", String(currentOffset));
+    }
+    if (typeof drinkOk === "boolean") {
+      qs.set("drinkOk", String(drinkOk));
+    }
+    if (typeof hasExperience === "boolean") {
+      qs.set("hasExperience", String(hasExperience));
+    }
+
+    const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
+    const page = await apiFetch<CastListItem[]>(path, withUser());
+
+    const pageItems = Array.isArray(page) ? page : [];
+    if (pageItems.length === 0) {
+      break;
+    }
+
+    items.push(...pageItems);
+
+    remaining -= pageItems.length;
+    currentOffset += pageItems.length;
+
+    if (pageItems.length < take) {
+      // これ以上データが無い
+      break;
+    }
   }
-  if (typeof drinkOk === "boolean") {
-    qs.set("drinkOk", String(drinkOk));
-  }
-  if (typeof hasExperience === "boolean") {
-    qs.set("hasExperience", String(hasExperience));
-  }
 
-  const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
-  const raw = await apiFetch<CastListItem[]>(path, withUser());
-
-  const items = Array.isArray(raw) ? raw : [];
   return {
     items,
     total: items.length,

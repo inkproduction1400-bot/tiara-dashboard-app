@@ -28,7 +28,7 @@ export type CastListItem = {
   hasExperience?: boolean | null;
   createdAt: string;
   managementNumber?: string | null;
-  legacyStaffId?: number | null; // 👈 追加（一覧用）
+  legacyStaffId?: number | null; // 追加
 };
 
 export type CastListResponse = {
@@ -120,14 +120,10 @@ export type CastDetail = {
   background: CastBackground | null;
   ngShops: CastNgShop[];
   latestShifts: CastLatestShift[];
-  legacyStaffId?: number | null; // 👈 追加（詳細用）
+  legacyStaffId?: number | null; // 追加
 };
 
-/**
- * PATCH /casts/:id 用の簡易ペイロード
- * - UpdateCastDto と整合するように、「存在するフィールドだけ」送る想定
- * - ネストも API 側の DTO（attributes / preferences / background）に合わせている
- */
+/** PATCH /casts/:id 用の簡易ペイロード */
 export type CastUpdatePayload = {
   displayName?: string | null;
   birthdate?: string | null;
@@ -138,42 +134,34 @@ export type CastUpdatePayload = {
   drinkOk?: boolean | null;
   hasExperience?: boolean | null;
   managementNumber?: string | null;
-  attributes?:
-    | {
-        heightCm?: number | null;
-        clothingSize?: string | null;
-        shoeSizeCm?: number | null;
-        tattoo?: boolean | null;
-        needPickup?: boolean | null;
-      }
-    | null;
-  preferences?:
-    | {
-        desiredHourly?: number | null;
-        desiredMonthly?: number | null;
-        preferredDays?: string[]; // API 側で join(',')
-        preferredTimeFrom?: string | null;
-        preferredTimeTo?: string | null;
-        preferredArea?: string | null;
-        ngShopNotes?: string | null;
-        notes?: string | null;
-      }
-    | null;
-  background?:
-    | {
-        howFound?: string | null;
-        motivation?: string | null;
-        otherAgencies?: string | null;
-        reasonChoose?: string | null;
-        shopSelectionPoints?: string | null;
-      }
-    | null;
+  attributes?: {
+    heightCm?: number | null;
+    clothingSize?: string | null;
+    shoeSizeCm?: number | null;
+    tattoo?: boolean | null;
+    needPickup?: boolean | null;
+  } | null;
+  preferences?: {
+    desiredHourly?: number | null;
+    desiredMonthly?: number | null;
+    preferredDays?: string[]; // API 側で join(',')
+    preferredTimeFrom?: string | null;
+    preferredTimeTo?: string | null;
+    preferredArea?: string | null;
+    ngShopNotes?: string | null;
+    notes?: string | null;
+  } | null;
+  background?: {
+    howFound?: string | null;
+    motivation?: string | null;
+    otherAgencies?: string | null;
+    reasonChoose?: string | null;
+    shopSelectionPoints?: string | null;
+  } | null;
 };
 
 /**
  * Cast 一覧取得
- * - API 側の `take` 上限（1000）を超えないように 1000 件ずつページングし、
- *   limit 未指定なら「すべて取得」になるようにする。
  */
 export async function listCasts(params: {
   q?: string;
@@ -182,57 +170,32 @@ export async function listCasts(params: {
   drinkOk?: boolean;
   hasExperience?: boolean;
 } = {}): Promise<CastListResponse> {
-  const MAX_TAKE = 1000;
+  const qs = new URLSearchParams();
 
   const { q, limit, offset, drinkOk, hasExperience } = params;
 
-  const items: CastListItem[] = [];
+  if (q) qs.set("q", q);
 
-  // 取得したい件数（未指定なら「上限なし」とみなす）
-  const targetTotal = typeof limit === "number" && limit > 0 ? limit : Infinity;
+  // ★ API 側の上限（仮に 1000）を超えないようにする
+  const MAX_TAKE = 1000;
+  const effectiveLimit =
+    limit != null ? Math.min(limit, MAX_TAKE) : MAX_TAKE;
+  qs.set("take", String(effectiveLimit));
 
-  let currentOffset = offset ?? 0;
-  let remaining = targetTotal;
-
-  // 少なくとも 1 回は実行
-  // API が空配列を返すか、1 回分が MAX_TAKE 未満になったら終了
-  // それまで 1000 件ずつ offset を進める
-  // （limit が指定されている場合は、その上限までで打ち切り）
-  while (remaining > 0) {
-    const take = Math.min(MAX_TAKE, remaining);
-
-    const qs = new URLSearchParams();
-    if (q) qs.set("q", q);
-    qs.set("take", String(take));
-    if (currentOffset > 0) {
-      qs.set("offset", String(currentOffset));
-    }
-    if (typeof drinkOk === "boolean") {
-      qs.set("drinkOk", String(drinkOk));
-    }
-    if (typeof hasExperience === "boolean") {
-      qs.set("hasExperience", String(hasExperience));
-    }
-
-    const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
-    const page = await apiFetch<CastListItem[]>(path, withUser());
-
-    const pageItems = Array.isArray(page) ? page : [];
-    if (pageItems.length === 0) {
-      break;
-    }
-
-    items.push(...pageItems);
-
-    remaining -= pageItems.length;
-    currentOffset += pageItems.length;
-
-    if (pageItems.length < take) {
-      // これ以上データが無い
-      break;
-    }
+  if (offset != null) {
+    qs.set("offset", String(offset));
+  }
+  if (typeof drinkOk === "boolean") {
+    qs.set("drinkOk", String(drinkOk));
+  }
+  if (typeof hasExperience === "boolean") {
+    qs.set("hasExperience", String(hasExperience));
   }
 
+  const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
+  const raw = await apiFetch<CastListItem[]>(path, withUser());
+
+  const items = Array.isArray(raw) ? raw : [];
   return {
     items,
     total: items.length,

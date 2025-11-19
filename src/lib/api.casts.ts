@@ -181,9 +181,10 @@ export async function listCasts(params: {
 
   if (q) qs.set("q", q);
 
-  // ★ デフォルトで「ほぼ全件」取るように変更（以前は limit 未指定 → API デフォルト 50 件）
-  const effectiveLimit = limit ?? 10000;
-  qs.set("take", String(effectiveLimit));
+  // ★ デフォルトで「ほぼ全件」取りつつ、API 側の上限（想定 1000 件）でクランプ
+  const rawLimit = limit ?? 10000;
+  const safeLimit = Math.min(Math.max(rawLimit, 1), 1000);
+  qs.set("take", String(safeLimit));
 
   if (offset != null) {
     qs.set("offset", String(offset));

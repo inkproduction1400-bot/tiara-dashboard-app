@@ -177,16 +177,22 @@ export async function listCasts(params: {
 } = {}): Promise<CastListResponse> {
   const qs = new URLSearchParams();
 
-  if (params.q) qs.set("q", params.q);
-  if (params.limit != null) qs.set("take", String(params.limit));
-  if ((params as any).offset != null) {
-    qs.set("offset", String((params as any).offset));
+  const { q, limit, offset, drinkOk, hasExperience } = params;
+
+  if (q) qs.set("q", q);
+
+  // ★ デフォルトで「ほぼ全件」取るように変更（以前は limit 未指定 → API デフォルト 50 件）
+  const effectiveLimit = limit ?? 10000;
+  qs.set("take", String(effectiveLimit));
+
+  if (offset != null) {
+    qs.set("offset", String(offset));
   }
-  if (typeof params.drinkOk === "boolean") {
-    qs.set("drinkOk", String(params.drinkOk));
+  if (typeof drinkOk === "boolean") {
+    qs.set("drinkOk", String(drinkOk));
   }
-  if (typeof params.hasExperience === "boolean") {
-    qs.set("hasExperience", String(params.hasExperience));
+  if (typeof hasExperience === "boolean") {
+    qs.set("hasExperience", String(hasExperience));
   }
 
   const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;

@@ -18,6 +18,7 @@ import {
  * - 希望時給
  * - キャストID（A001 など）※現状はプレースホルダ
  * - 担当者名 ※現状はプレースホルダ
+ * - 旧システムのスタッフID（legacyStaffId）
  */
 type CastRow = {
   id: string;
@@ -27,6 +28,7 @@ type CastRow = {
   desiredHourly: number | null;
   castCode: string;
   ownerStaffName: string;
+  legacyStaffId: number | null; // 👈 追加：旧システムのスタッフID
 };
 
 type SortMode = "kana" | "hourly";
@@ -80,6 +82,7 @@ export default function Page() {
           desiredHourly: null, // 希望時給も詳細 API 側の preferences から取る
           castCode: "-", // 仕様確定後に API フィールドと紐付け
           ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
+          legacyStaffId: c.legacyStaffId ?? null, // 👈 ここで旧IDをマッピング
         }));
 
         setBaseRows(mapped);
@@ -117,8 +120,9 @@ export default function Page() {
     let result = baseRows.filter((r) => {
       if (staffFilter && r.ownerStaffName !== staffFilter) return false;
       if (!query) return true;
-      // 管理番号 or 名前 に含まれていればヒット
-      const hay = `${r.managementNumber} ${r.name}`;
+      // 管理番号 / 名前 / 旧スタッフID に含まれていればヒット
+      const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
+      const hay = `${r.managementNumber} ${r.name} ${legacy}`;
       return hay.includes(query);
     });
 
@@ -186,7 +190,7 @@ export default function Page() {
           <div>
             <h2 className="text-xl font-extrabold">キャスト管理</h2>
             <p className="text-xs text-muted">
-              管理番号・名前で検索／担当者と並び替えでソート
+              管理番号・名前・旧IDで検索／担当者と並び替えでソート
             </p>
           </div>
           <div className="text-[11px] text-muted">
@@ -207,7 +211,7 @@ export default function Page() {
           <div className="flex flex-col gap-2">
             <input
               className="tiara-input"
-              placeholder="管理番号・名前で検索"
+              placeholder="管理番号・名前・旧IDで検索"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -273,7 +277,7 @@ export default function Page() {
                 <th className="text-left px-3 py-2">名前</th>
                 <th className="text-left px-3 py-2 w-16">年齢</th>
                 <th className="text-left px-3 py-2 w-24">希望時給</th>
-                <th className="text-left px-3 py-2 w-24">キャストID</th>
+                <th className="text-left px-3 py-2 w-24">旧スタッフID</th>
                 <th className="text-left px-3 py-2 w-32">担当者</th>
               </tr>
             </thead>
@@ -292,7 +296,9 @@ export default function Page() {
                       ? `¥${r.desiredHourly.toLocaleString()}`
                       : "-"}
                   </td>
-                  <td className="px-3 py-2 font-mono">{r.castCode}</td>
+                  <td className="px-3 py-2 font-mono">
+                    {r.legacyStaffId != null ? r.legacyStaffId : "-"}
+                  </td>
                   <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
                 </tr>
               ))}
@@ -431,6 +437,8 @@ function CastDetailModal({
 
   const displayName = detail?.displayName ?? cast.name;
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
+  const legacyStaffId =
+    detail?.legacyStaffId ?? cast.legacyStaffId ?? null; // 👈 詳細に旧IDが来ていれば優先
   const birth = detail?.birthdate
     ? detail.age != null
       ? `${detail.birthdate}（${detail.age}歳）`
@@ -460,7 +468,8 @@ function CastDetailModal({
                 キャスト詳細（{displayName}）
               </h3>
               <span className="text-[10px] text-muted">
-                管理番号: {managementNumber} / キャストID: {cast.castCode}
+                管理番号: {managementNumber} / 旧スタッフID:{" "}
+                {legacyStaffId ?? "-"} / キャストID: {cast.castCode}
               </span>
               {detailLoading && (
                 <span className="text-[10px] text-emerald-300">

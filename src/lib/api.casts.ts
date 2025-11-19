@@ -28,6 +28,7 @@ export type CastListItem = {
   hasExperience?: boolean | null;
   createdAt: string;
   managementNumber?: string | null;
+  legacyStaffId?: number | null; // 👈 追加（一覧用）
 };
 
 export type CastListResponse = {
@@ -119,6 +120,7 @@ export type CastDetail = {
   background: CastBackground | null;
   ngShops: CastNgShop[];
   latestShifts: CastLatestShift[];
+  legacyStaffId?: number | null; // 👈 追加（詳細用）
 };
 
 /**

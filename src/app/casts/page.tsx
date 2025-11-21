@@ -4,11 +4,7 @@
 import { useMemo, useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
-import {
-  listCasts,
-  getCast,
-  type CastDetail,
-} from "@/lib/api.casts";
+import { listCasts, getCast, type CastDetail } from "@/lib/api.casts";
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -28,7 +24,7 @@ type CastRow = {
   desiredHourly: number | null;
   castCode: string;
   ownerStaffName: string;
-  legacyStaffId: number | null; // 👈 追加：旧システムのスタッフID
+  legacyStaffId: number | null;
 };
 
 type SortMode = "kana" | "hourly";
@@ -74,15 +70,16 @@ export default function Page() {
 
         if (canceled) return;
 
-        const mapped: CastRow[] = (res.items ?? []).map((c) => ({
-          id: c.userId,
+        // API 側の items から一覧表示用の行にマッピング
+        const mapped: CastRow[] = (res.items ?? []).map((c: any) => ({
+          id: c.userId ?? c.id, // userId / id どちらでも対応
           managementNumber: c.managementNumber ?? "----",
           name: c.displayName ?? "(名前未設定)",
-          age: null, // 年齢は詳細 API からのみ取得できるのでここでは null
-          desiredHourly: null, // 希望時給も詳細 API 側の preferences から取る
+          age: c.age ?? null,
+          desiredHourly: c.desiredHourly ?? null,
           castCode: "-", // 仕様確定後に API フィールドと紐付け
           ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
-          legacyStaffId: c.legacyStaffId ?? null, // 👈 ここで旧IDをマッピング
+          legacyStaffId: c.legacyStaffId ?? null,
         }));
 
         setBaseRows(mapped);
@@ -198,9 +195,7 @@ export default function Page() {
               ? "一覧を読み込み中…"
               : `${rows.length.toLocaleString()} 件表示中`}
             {loadError && (
-              <span className="ml-2 text-red-400">
-                （{loadError}）
-              </span>
+              <span className="ml-2 text-red-400">（{loadError}）</span>
             )}
           </div>
         </header>
@@ -438,7 +433,7 @@ function CastDetailModal({
   const displayName = detail?.displayName ?? cast.name;
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
   const legacyStaffId =
-    detail?.legacyStaffId ?? cast.legacyStaffId ?? null; // 👈 詳細に旧IDが来ていれば優先
+    detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
   const birth = detail?.birthdate
     ? detail.age != null
       ? `${detail.birthdate}（${detail.age}歳）`
@@ -477,9 +472,7 @@ function CastDetailModal({
                 </span>
               )}
               {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-400">
-                  {detailError}
-                </span>
+                <span className="text-[10px] text-red-400">{detailError}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -521,20 +514,14 @@ function CastDetailModal({
 
                   {/* 氏名など */}
                   <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow
-                      label="ふりがな"
-                      value={displayName}
-                    />
+                    <MainInfoRow label="ふりがな" value={displayName} />
                     <MainInfoRow label="氏名" value={displayName} />
                     <MainInfoRow label="生年月日" value={birth} />
                     <MainInfoRow label="現住所" value={address} />
                     <MainInfoRow label="TEL" value={phone} />
                     <MainInfoRow label="アドレス" value={email} />
                     {/* ティアラ査定時給 */}
-                    <MainInfoRow
-                      label="ティアラ査定時給"
-                      value={tiaraHourly}
-                    />
+                    <MainInfoRow label="ティアラ査定時給" value={tiaraHourly} />
                     {/* NG店舗（複数登録可） */}
                     <MainInfoRow
                       label="NG店舗（複数登録可）"
@@ -568,7 +555,7 @@ function CastDetailModal({
                 </div>
               </section>
 
-              {/* 右上：登録情報②（まだダミー。後続で detail.background を反映） */}
+              {/* 右上：登録情報② */}
               <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold mb-1">
                   登録情報②（動機・比較・選定理由）
@@ -611,7 +598,7 @@ function CastDetailModal({
                 />
                 <InfoRow label="その他（備考）" value="—" />
 
-                <div className="h-px bg白/5 my-1" />
+                <div className="h-px bg-white/5 my-1" />
 
                 <InfoRow
                   label="30,000円到達への所感"
@@ -619,7 +606,7 @@ function CastDetailModal({
                 />
               </section>
 
-              {/* 左下：基本情報（プロフィール・希望条件・就業可否） */}
+              {/* 左下：基本情報 */}
               <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 space-y-1.5 text-[11px]">
                 <h4 className="text-[11px] font-semibold mb-1">
                   基本情報（プロフィール・希望条件・就業可否）
@@ -732,7 +719,6 @@ function CastDetailModal({
                   </div>
 
                   <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
-                    {/* タイトル変更済み */}
                     <div className="font-semibold mb-1.5 text-[12px]">
                       水商売の経験
                     </div>
@@ -751,7 +737,7 @@ function CastDetailModal({
                 </div>
               </section>
 
-              {/* 右下：身分証＋備考（現時点はダミー） */}
+              {/* 右下：身分証＋備考 */}
               <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold">
                   身分証明書確認 / 申告・備考
@@ -767,7 +753,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border白/5">
+                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                     <InfoRow label="備考" value="特記事項なし" />
                   </div>
                 </div>
@@ -854,7 +840,7 @@ function ShiftEditModal({
             </button>
             <span className="text-[13px] font-semibold">{monthLabel}</span>
             <button
-              className="px-2 py-1 rounded-md border border白/15 text-[11px]"
+              className="px-2 py-1 rounded-md border border-white/15 text-[11px]"
               onClick={nextMonth}
             >
               次月 →
@@ -867,12 +853,12 @@ function ShiftEditModal({
         </div>
 
         {/* カレンダー */}
-        <div className="flex-1 overflow-auto rounded-xl border border白/10 bg-slate-950/80">
+        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-slate-950/80">
           <table className="w-full text-[11px]">
             <thead>
               <tr className="bg-slate-900/80">
                 {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
-                  <th key={w} className="py-1 border-b border白/10">
+                  <th key={w} className="py-1 border-b border-white/10">
                     {w}
                   </th>
                 ))}
@@ -880,7 +866,7 @@ function ShiftEditModal({
             </thead>
             <tbody>
               {Array.from({ length: 6 }).map((_, rowIdx) => (
-                <tr key={rowIdx} className="border-t border白/5">
+                <tr key={rowIdx} className="border-t border-white/5">
                   {days.slice(rowIdx * 7, rowIdx * 7 + 7).map((d, i) => {
                     const dayNum = d.date.getDate();
                     const isToday =
@@ -888,7 +874,7 @@ function ShiftEditModal({
                     return (
                       <td
                         key={i}
-                        className={`align-top h-20 px-1.5 py-1 border-l border白/5 ${
+                        className={`align-top h-20 px-1.5 py-1 border-l border-white/5 ${
                           d.inCurrentMonth ? "" : "opacity-40"
                         }`}
                       >
@@ -900,13 +886,11 @@ function ShiftEditModal({
                           >
                             {dayNum}
                           </span>
-                          {/* ここに将来 slot（free/21:00 等）をバッジ表示 */}
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800/80 border border白/10">
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800/80 border border-white/10">
                             -
                           </span>
                         </div>
                         <div className="text-[10px] text-muted">
-                          {/* 編集UIは今後実装。現状はプレースホルダ */}
                           シフト: 未設定
                         </div>
                       </td>
@@ -919,10 +903,10 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border白/20 bg-white/5">
+          <button className="px-3 py-1 rounded-lg border border-white/20 bg-white/5">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
             保存して閉じる
           </button>
         </div>
@@ -940,7 +924,7 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
         <input
           type="text"
           defaultValue={value}
-          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border白/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
         />
       </div>
     </div>
@@ -956,7 +940,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         <input
           type="text"
           defaultValue={value}
-          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border白/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
         />
       </div>
     </div>

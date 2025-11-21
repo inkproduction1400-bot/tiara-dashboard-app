@@ -176,7 +176,7 @@ export async function listCasts(params: {
 
   if (q) qs.set("q", q);
 
-  // ★ API 側の上限（仮に 1000）を超えないようにする
+  // API 側の上限（現状 1000 を想定）を超えないようにする
   const MAX_TAKE = 1000;
   const effectiveLimit =
     limit != null ? Math.min(limit, MAX_TAKE) : MAX_TAKE;
@@ -193,13 +193,24 @@ export async function listCasts(params: {
   }
 
   const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
-  const raw = await apiFetch<CastListItem[]>(path, withUser());
 
-  const items = Array.isArray(raw) ? raw : [];
-  return {
-    items,
-    total: items.length,
-  };
+  // API は { items, total } を返す想定だが、
+  // 念のため配列だけ返る旧仕様にも対応しておく
+  const raw = await apiFetch<any>(path, withUser());
+
+  if (Array.isArray(raw)) {
+    const items: CastListItem[] = raw;
+    return {
+      items,
+      total: items.length,
+    };
+  }
+
+  const items: CastListItem[] = Array.isArray(raw?.items) ? raw.items : [];
+  const total: number =
+    typeof raw?.total === "number" ? raw.total : items.length;
+
+  return { items, total };
 }
 
 /** Cast 詳細取得（モーダル用） */

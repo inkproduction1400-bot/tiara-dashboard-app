@@ -14,9 +14,29 @@ import {
   type ShopDrinkPreference,
   type ShopIdRequirement,
   type ShopPreferredAgeRange,
+  // ★ 専属指名 / NGキャスト用 API
+  listShopFixedCasts,
+  listShopNgCasts,
+  upsertShopFixedCast,
+  deleteShopFixedCast,
+  upsertShopNgCast,
+  deleteShopNgCast,
+  type ShopFixedCastItem,
+  type ShopNgCastItem,
 } from "@/lib/api.shops";
 
 type PerPage = number | "all";
+
+// フロント側で削除フラグ・新規フラグを持たせるための拡張型
+type FixedRow = ShopFixedCastItem & {
+  _deleted?: boolean;
+  _isNew?: boolean;
+};
+
+type NgRow = ShopNgCastItem & {
+  _deleted?: boolean;
+  _isNew?: boolean;
+};
 
 export default function ShopsPage() {
   const [items, setItems] = useState<ShopListItem[]>([]);
@@ -89,7 +109,6 @@ export default function ShopsPage() {
       });
       const nextItems = res.items ?? [];
       setItems(nextItems);
-      // API から受けた件数（= 全件）を保持
       setTotal(nextItems.length);
       setMessage(null);
     } catch (e: any) {
@@ -225,7 +244,6 @@ export default function ShopsPage() {
       <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700/60">
         <div className="flex items-center justify-between px-4 py-2 text-sm text-slate-300 bg-slate-800/60">
           <div>
-            {/* 表示件数は現在のフィルタ結果に合わせる */}
             全 {filteredItems.length} 件中{" "}
             {startIndex === 0 ? 0 : startIndex} - {endIndex} 件を表示
           </div>
@@ -353,9 +371,17 @@ function ShopEditDrawer({
   // 既存項目：ジャンル
   const [genre, setGenre] = useState<ShopGenre | "">(initial.genre ?? "");
 
-  // 新規：専属指名キャスト / NG キャスト（現状はUIのみ）
-  const [exclusiveCast, setExclusiveCast] = useState<string>("");
-  const [ngCasts, setNgCasts] = useState<string>("");
+  // ★ 専属指名キャスト / NGキャスト（API 連動）
+  const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
+  const [ngCasts, setNgCasts] = useState<NgRow[]>([]);
+  const [fixedLoading, setFixedLoading] = useState(false);
+  const [ngLoadingState, setNgLoadingState] = useState(false);
+
+  // 追加用入力欄
+  const [fixedInputCastId, setFixedInputCastId] = useState("");
+  const [fixedInputNote, setFixedInputNote] = useState("");
+  const [ngInputCastId, setNgInputCastId] = useState("");
+  const [ngInputReason, setNgInputReason] = useState("");
 
   // 新規：飲酒の希望 / 身分証 / 希望年齢 / 担当
   const [drinkPreference, setDrinkPreference] = useState<
@@ -391,6 +417,150 @@ function ShopEditDrawer({
     "6000円以上",
   ];
 
+  // ---- 専属 / NG 初期ロード ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setFixedLoading(true);
+        setNgLoadingState(true);
+        const [fixed, ng] = await Promise.all([
+          listShopFixedCasts(initial.id),
+          listShopNgCasts(initial.id),
+        ]);
+        if (cancelled) return;
+        setFixedCasts(
+          fixed.map((row) => ({
+            ...row,
+            _deleted: false,
+            _isNew: false,
+          })),
+        );
+        setNgCasts(
+          ng.map((row) => ({
+            ...row,
+            _deleted: false,
+            _isNew: false,
+          })),
+        );
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[ShopEditDrawer] failed to load casts", e);
+      } finally {
+        if (!cancelled) {
+          setFixedLoading(false);
+          setNgLoadingState(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.id]);
+
+  // ---- 専属 / NG の local 操作 ----
+
+  const addFixedLocal = () => {
+    const castId = fixedInputCastId.trim();
+    if (!castId) return;
+
+    setFixedCasts((prev) => {
+      const existing = prev.find((r) => r.castId === castId);
+      if (existing) {
+        return prev.map((r) =>
+          r.castId === castId
+            ? {
+                ...r,
+                note: fixedInputNote.trim() || null,
+                _deleted: false,
+              }
+            : r,
+        );
+      }
+      const now = new Date().toISOString();
+      return [
+        ...prev,
+        {
+          id: `temp-fixed-${castId}`,
+          shopId: initial.id,
+          castId,
+          note: fixedInputNote.trim() || null,
+          createdAt: now,
+          cast: {
+            userId: castId,
+            displayName: null,
+            managementNumber: null,
+            castCode: null,
+          },
+          _deleted: false,
+          _isNew: true,
+        },
+      ];
+    });
+
+    setFixedInputCastId("");
+    setFixedInputNote("");
+  };
+
+  const toggleDeleteFixed = (castId: string) => {
+    setFixedCasts((prev) =>
+      prev.map((r) =>
+        r.castId === castId ? { ...r, _deleted: !r._deleted } : r,
+      ),
+    );
+  };
+
+  const addNgLocal = () => {
+    const castId = ngInputCastId.trim();
+    if (!castId) return;
+
+    setNgCasts((prev) => {
+      const existing = prev.find((r) => r.castId === castId);
+      if (existing) {
+        return prev.map((r) =>
+          r.castId === castId
+            ? {
+                ...r,
+                reason: ngInputReason.trim() || null,
+                _deleted: false,
+              }
+            : r,
+        );
+      }
+      const now = new Date().toISOString();
+      return [
+        ...prev,
+        {
+          id: `temp-ng-${castId}`,
+          shopId: initial.id,
+          castId,
+          reason: ngInputReason.trim() || null,
+          source: "manual",
+          createdAt: now,
+          cast: {
+            userId: castId,
+            displayName: null,
+            managementNumber: null,
+            castCode: null,
+          },
+          _deleted: false,
+          _isNew: true,
+        },
+      ];
+    });
+
+    setNgInputCastId("");
+    setNgInputReason("");
+  };
+
+  const toggleDeleteNg = (castId: string) => {
+    setNgCasts((prev) =>
+      prev.map((r) =>
+        r.castId === castId ? { ...r, _deleted: !r._deleted } : r,
+      ),
+    );
+  };
+
   const save = async () => {
     setSaving(true);
     setErr(null);
@@ -425,47 +595,69 @@ function ShopEditDrawer({
       payload.buildingName = buildingName.trim();
     }
 
-    // ★ ジャンルは「未設定」に戻す場合もあるので必ず送る
-    //   → 空のときは null を送る
-    if (!genre) {
-      payload.genre = null;
-    } else {
-      payload.genre = genre as ShopGenre;
-    }
+    // ジャンル
+    payload.genre = genre ? (genre as ShopGenre) : null;
 
-    // ★ ランクも「未設定」に戻すことを想定し、必ず送る
-    if (!rank) {
-      payload.rank = null;
-    } else {
-      payload.rank = rank as ShopRank;
-    }
+    // ランク
+    payload.rank = rank ? (rank as ShopRank) : null;
 
-    // ★ 時給は「未設定」に戻す場合もあるので必ず送る（空は null）
+    // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
 
-    // ★ 飲酒の希望：未設定は null
-    if (!drinkPreference) {
-      payload.drinkPreference = null;
-    } else {
-      payload.drinkPreference = drinkPreference as ShopDrinkPreference;
-    }
+    // 飲酒の希望
+    payload.drinkPreference = drinkPreference
+      ? (drinkPreference as ShopDrinkPreference)
+      : null;
 
-    // ★ 身分証：未設定は null
-    if (!idDocument) {
-      payload.idDocumentRequirement = null;
-    } else {
-      payload.idDocumentRequirement = idDocument as ShopIdRequirement;
-    }
+    // 身分証
+    payload.idDocumentRequirement = idDocument
+      ? (idDocument as ShopIdRequirement)
+      : null;
 
-    // ★ 希望年齢：未設定は null
-    if (!preferredAge) {
-      payload.preferredAgeRange = null;
-    } else {
-      payload.preferredAgeRange = preferredAge as ShopPreferredAgeRange;
-    }
+    // 希望年齢
+    payload.preferredAgeRange = preferredAge
+      ? (preferredAge as ShopPreferredAgeRange)
+      : null;
 
     try {
+      // 1. 店舗本体の更新
       await updateShop(initial.id, payload);
+
+      // 2. 専属キャストの同期
+      const fixedToDelete = fixedCasts.filter(
+        (r) => r._deleted && !r._isNew,
+      );
+      const fixedToUpsert = fixedCasts.filter((r) => !r._deleted);
+
+      await Promise.all([
+        ...fixedToDelete.map((r) =>
+          deleteShopFixedCast(initial.id, r.castId),
+        ),
+        ...fixedToUpsert.map((r) =>
+          upsertShopFixedCast(initial.id, {
+            castId: r.castId,
+            note: r.note ?? undefined,
+          }),
+        ),
+      ]);
+
+      // 3. NGキャストの同期
+      const ngToDelete = ngCasts.filter((r) => r._deleted && !r._isNew);
+      const ngToUpsert = ngCasts.filter((r) => !r._deleted);
+
+      await Promise.all([
+        ...ngToDelete.map((r) =>
+          deleteShopNgCast(initial.id, r.castId),
+        ),
+        ...ngToUpsert.map((r) =>
+          upsertShopNgCast(initial.id, {
+            castId: r.castId,
+            reason: r.reason ?? undefined,
+            source: r.source ?? "manual",
+          }),
+        ),
+      ]);
+
       await onSaved();
     } catch (e: any) {
       setErr(e?.message ?? "更新に失敗しました");
@@ -631,34 +823,185 @@ function ShopEditDrawer({
             </label>
           </div>
 
-          {/* キャスト関連（今はUIのみ） */}
+          {/* キャスト関連 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 専属指名キャスト */}
-            <label className="block">
+            <div className="space-y-2">
               <div className="text-sm text-slate-300 mb-1">
                 専属指名キャスト
               </div>
-              <input
-                value={exclusiveCast}
-                onChange={(e) => setExclusiveCast(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="キャスト名 または キャストID"
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                例: &quot;山田花子&quot; / &quot;cast_1234&quot;。将来検索UIに差し替え予定。
-              </p>
-            </label>
+
+              {/* 既存一覧 */}
+              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-48 overflow-y-auto text-xs">
+                {fixedLoading ? (
+                  <div className="text-slate-400">読み込み中…</div>
+                ) : fixedCasts.length === 0 ? (
+                  <div className="text-slate-500">登録なし</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {fixedCasts.map((row) => {
+                      const label =
+                        row.cast.managementNumber ||
+                        row.cast.castCode ||
+                        row.cast.displayName ||
+                        row.cast.userId;
+                      return (
+                        <li
+                          key={row.castId}
+                          className={`flex items-center justify-between gap-2 ${
+                            row._deleted ? "opacity-50 line-through" : ""
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="text-slate-200">
+                              {label ?? "(未設定)"}
+                            </div>
+                            <div className="text-slate-400">
+                              castId:{" "}
+                              <span className="font-mono">
+                                {row.castId}
+                              </span>
+                              {row.note && (
+                                <>
+                                  {" "}
+                                  / メモ:{" "}
+                                  <span className="whitespace-pre-wrap">
+                                    {row.note}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleDeleteFixed(row.castId)}
+                            className="px-2 py-1 text-[11px] rounded-lg border border-slate-600 text-slate-100"
+                          >
+                            {row._deleted ? "削除取消" : "削除"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* 追加フォーム */}
+              <div className="space-y-1">
+                <div className="text-[11px] text-slate-400">
+                  追加したいキャストの <code>castId（casts.user_id）</code>{" "}
+                  とメモを入力して「リストに追加」してください。
+                </div>
+                <input
+                  value={fixedInputCastId}
+                  onChange={(e) => setFixedInputCastId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
+                  placeholder="例: 8b1f8db2-1d5e-4dbf-bcd4-81e6e7f4a210"
+                />
+                <input
+                  value={fixedInputNote}
+                  onChange={(e) => setFixedInputNote(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
+                  placeholder="メモ（任意）例: 週1で固定勤務"
+                />
+                <button
+                  type="button"
+                  onClick={addFixedLocal}
+                  className="mt-1 px-3 py-1 rounded-lg bg-slate-700 text-xs text-white disabled:opacity-40"
+                  disabled={saving}
+                >
+                  リストに追加
+                </button>
+              </div>
+            </div>
 
             {/* NGキャスト */}
-            <label className="block">
+            <div className="space-y-2">
               <div className="text-sm text-slate-300 mb-1">NGキャスト</div>
-              <textarea
-                value={ngCasts}
-                onChange={(e) => setNgCasts(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white min-h-[72px]"
-                placeholder="キャスト名 or ID をカンマ区切りで入力（例: 山田花子, cast_0001, ...）"
-              />
-            </label>
+
+              {/* 既存一覧 */}
+              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-48 overflow-y-auto text-xs">
+                {ngLoadingState ? (
+                  <div className="text-slate-400">読み込み中…</div>
+                ) : ngCasts.length === 0 ? (
+                  <div className="text-slate-500">登録なし</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {ngCasts.map((row) => {
+                      const label =
+                        row.cast.managementNumber ||
+                        row.cast.castCode ||
+                        row.cast.displayName ||
+                        row.cast.userId;
+                      return (
+                        <li
+                          key={row.castId}
+                          className={`flex items-center justify-between gap-2 ${
+                            row._deleted ? "opacity-50 line-through" : ""
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="text-slate-200">
+                              {label ?? "(未設定)"}
+                            </div>
+                            <div className="text-slate-400">
+                              castId:{" "}
+                              <span className="font-mono">
+                                {row.castId}
+                              </span>
+                              {row.reason && (
+                                <>
+                                  {" "}
+                                  / 理由:{" "}
+                                  <span className="whitespace-pre-wrap">
+                                    {row.reason}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleDeleteNg(row.castId)}
+                            className="px-2 py-1 text-[11px] rounded-lg border border-slate-600 text-slate-100"
+                          >
+                            {row._deleted ? "削除取消" : "削除"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* 追加フォーム */}
+              <div className="space-y-1">
+                <div className="text-[11px] text-slate-400">
+                  追加したい NGキャストの{" "}
+                  <code>castId（casts.user_id）</code> と理由を入力して「リストに追加」してください。
+                </div>
+                <input
+                  value={ngInputCastId}
+                  onChange={(e) => setNgInputCastId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
+                  placeholder="例: 7c2f3a1d-45ef-4c41-9cc9-e8c44bda8813"
+                />
+                <input
+                  value={ngInputReason}
+                  onChange={(e) => setNgInputReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
+                  placeholder="NG理由（任意）例: トラブル歴あり"
+                />
+                <button
+                  type="button"
+                  onClick={addNgLocal}
+                  className="mt-1 px-3 py-1 rounded-lg bg-slate-700 text-xs text-white disabled:opacity-40"
+                  disabled={saving}
+                >
+                  リストに追加
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* 条件系：飲酒・身分証・年齢・担当 */}

@@ -23,7 +23,11 @@ function withUser(init?: RequestInit): RequestInit {
 export type ShopGenre = "club" | "cabaret" | "snack" | "gb";
 export type ShopRank = "S" | "A" | "B" | "C";
 export type ShopDrinkPreference = "none" | "weak" | "normal" | "strong";
-export type ShopIdRequirement = "none" | "photo_only" | "address_only" | "both";
+export type ShopIdRequirement =
+  | "none"
+  | "photo_only"
+  | "address_only"
+  | "both";
 export type ShopPreferredAgeRange =
   | "age_18_19"
   | "age_20_24"
@@ -100,22 +104,22 @@ export async function getShop(id: string) {
 
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
 export type UpdateShopPayload = Partial<{
-    name: string;
-    nameKana: string;
-    shopNumber: string;
-    prefecture: string;
-    city: string;
-    addressLine: string;
-    buildingName: string;
-    phone: string;
-    genre: ShopGenre | null;
-    rank: ShopRank | null;
-    drinkPreference: ShopDrinkPreference | null;
-    idDocumentRequirement: ShopIdRequirement | null;
-    preferredAgeRange: ShopPreferredAgeRange | null;
-    wageLabel: string | null;
-    reqKeywords: string[];
-  }>;
+  name: string;
+  nameKana: string;
+  shopNumber: string;
+  prefecture: string;
+  city: string;
+  addressLine: string;
+  buildingName: string;
+  phone: string;
+  genre: ShopGenre | null;
+  rank: ShopRank | null;
+  drinkPreference: ShopDrinkPreference | null;
+  idDocumentRequirement: ShopIdRequirement | null;
+  preferredAgeRange: ShopPreferredAgeRange | null;
+  wageLabel: string | null;
+  reqKeywords: string[];
+}>;
 
 export async function updateShop(id: string, payload: UpdateShopPayload) {
   return apiFetch<any>(
@@ -164,4 +168,124 @@ export async function importShopsExcel(file: File) {
     updated: number;
     skipped: number;
   }>;
+}
+
+/* ============================================================
+ * 専属指名キャスト / NGキャスト API クライアント
+ * ============================================================ */
+
+// 共通で返ってくる Cast 情報（API の select と揃える）
+export type ShopCastSummary = {
+  userId: string;
+  displayName: string | null;
+  managementNumber: string | null;
+  castCode: string | null;
+};
+
+// --- 専属指名キャスト（shop_fixed_casts） ---
+
+export type ShopFixedCastItem = {
+  id: string;
+  shopId: string;
+  castId: string;
+  note: string | null;
+  createdAt: string;
+  cast: ShopCastSummary;
+};
+
+export type UpsertFixedCastPayload = {
+  castId: string;
+  note?: string;
+};
+
+export async function listShopFixedCasts(
+  shopId: string,
+): Promise<ShopFixedCastItem[]> {
+  return apiFetch<ShopFixedCastItem[]>(
+    `/shops/${shopId}/fixed-casts`,
+    withUser(),
+  );
+}
+
+export async function upsertShopFixedCast(
+  shopId: string,
+  payload: UpsertFixedCastPayload,
+): Promise<ShopFixedCastItem> {
+  return apiFetch<ShopFixedCastItem>(
+    `/shops/${shopId}/fixed-casts`,
+    withUser({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function deleteShopFixedCast(
+  shopId: string,
+  castId: string,
+): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>(
+    `/shops/${shopId}/fixed-casts/${castId}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
+}
+
+// --- 店舗 → NGキャスト（shop_ng_casts） ---
+
+export type ShopNgCastItem = {
+  id: string;
+  shopId: string;
+  castId: string;
+  reason: string | null;
+  source: string | null;
+  createdAt: string;
+  cast: ShopCastSummary;
+};
+
+export type UpsertNgCastPayload = {
+  castId: string;
+  reason?: string;
+  source?: string;
+};
+
+export async function listShopNgCasts(
+  shopId: string,
+): Promise<ShopNgCastItem[]> {
+  return apiFetch<ShopNgCastItem[]>(
+    `/shops/${shopId}/ng-casts`,
+    withUser(),
+  );
+}
+
+export async function upsertShopNgCast(
+  shopId: string,
+  payload: UpsertNgCastPayload,
+): Promise<ShopNgCastItem> {
+  return apiFetch<ShopNgCastItem>(
+    `/shops/${shopId}/ng-casts`,
+    withUser({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function deleteShopNgCast(
+  shopId: string,
+  castId: string,
+): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>(
+    `/shops/${shopId}/ng-casts/${castId}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
 }

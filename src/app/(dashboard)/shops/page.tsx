@@ -886,17 +886,18 @@ function ShopEditDrawer({
                 )}
               </div>
 
-              {/* 追加フォーム */}
+              {/* 追加フォーム（管理番号ベースの説明に変更） */}
               <div className="space-y-1">
                 <div className="text-[11px] text-slate-400">
-                  追加したいキャストの <code>castId（casts.user_id）</code>{" "}
-                  とメモを入力して「リストに追加」してください。
+                  追加したいキャストの
+                  <span className="font-semibold">管理番号（4〜5桁の数字）</span>
+                  を入力して「リストに追加」を押してください。
                 </div>
                 <input
                   value={fixedInputCastId}
                   onChange={(e) => setFixedInputCastId(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
-                  placeholder="例: 8b1f8db2-1d5e-4dbf-bcd4-81e6e7f4a210"
+                  placeholder="例: 0001, 0234, 1203 など"
                 />
                 <input
                   value={fixedInputNote}
@@ -904,6 +905,9 @@ function ShopEditDrawer({
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
                   placeholder="メモ（任意）例: 週1で固定勤務"
                 />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  入力された管理番号をもとに、将来的にキャスト検索 → 専属登録する想定です（現状はID文字列を直接保存）。
+                </p>
                 <button
                   type="button"
                   onClick={addFixedLocal}
@@ -974,17 +978,18 @@ function ShopEditDrawer({
                 )}
               </div>
 
-              {/* 追加フォーム */}
+              {/* 追加フォーム（管理番号ベースの説明に変更） */}
               <div className="space-y-1">
                 <div className="text-[11px] text-slate-400">
-                  追加したい NGキャストの{" "}
-                  <code>castId（casts.user_id）</code> と理由を入力して「リストに追加」してください。
+                  追加したい NGキャストの
+                  <span className="font-semibold">管理番号（4〜5桁の数字）</span>
+                  を入力し、必要に応じて理由を入力して「リストに追加」を押してください。
                 </div>
                 <input
                   value={ngInputCastId}
                   onChange={(e) => setNgInputCastId(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
-                  placeholder="例: 7c2f3a1d-45ef-4c41-9cc9-e8c44bda8813"
+                  placeholder="例: 0001, 0234, 1203 など"
                 />
                 <input
                   value={ngInputReason}
@@ -992,6 +997,9 @@ function ShopEditDrawer({
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
                   placeholder="NG理由（任意）例: トラブル歴あり"
                 />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  入力された管理番号をもとに、将来的にキャスト検索 → NG登録する想定です（現状はID文字列を直接保存）。
+                </p>
                 <button
                   type="button"
                   onClick={addNgLocal}

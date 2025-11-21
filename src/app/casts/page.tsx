@@ -4,7 +4,7 @@
 import { useMemo, useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
-import { listCasts, getCast, type CastDetail } from "@/lib/api.casts";
+import { listCasts, getCast, updateCast, type CastDetail } from "@/lib/api.casts";
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -75,8 +75,8 @@ export default function Page() {
           id: c.userId ?? c.id, // userId / id どちらでも対応
           managementNumber: c.managementNumber ?? "----",
           name: c.displayName ?? "(名前未設定)",
-          age: c.age ?? null,
-          desiredHourly: c.desiredHourly ?? null,
+          age: (c as any).age ?? null,
+          desiredHourly: (c as any).desiredHourly ?? null,
           castCode: "-", // 仕様確定後に API フィールドと紐付け
           ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
           legacyStaffId: c.legacyStaffId ?? null,
@@ -168,6 +168,8 @@ export default function Page() {
       }
     })();
 
+    // この返り値は React のイベントハンドラでは使われないが、
+    // 型・構造はそのまま維持（必要であれば useEffect 化での置き換えも可）
     return () => {
       canceled = true;
     };
@@ -178,6 +180,23 @@ export default function Page() {
     setDetail(null);
     setDetailError(null);
     setDetailLoading(false);
+  };
+
+  // 保存成功時：detail と一覧の表示を更新
+  const handleDetailUpdated = (updated: CastDetail) => {
+    setDetail(updated);
+    setSelected((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: updated.displayName ?? prev.name,
+            managementNumber:
+              updated.managementNumber ?? prev.managementNumber,
+            // 希望時給が detail に入っている場合は一覧にも反映
+            desiredHourly: updated.preferences?.desiredHourly ?? prev.desiredHourly,
+          }
+        : prev,
+    );
   };
 
   return (
@@ -317,6 +336,7 @@ export default function Page() {
               detailLoading={detailLoading}
               detailError={detailError}
               onClose={handleCloseModal}
+              onUpdated={handleDetailUpdated}
             />
           </ModalPortal>
         )}
@@ -331,6 +351,7 @@ type CastDetailModalProps = {
   detailLoading: boolean;
   detailError: string | null;
   onClose: () => void;
+  onUpdated: (d: CastDetail) => void;
 };
 
 /**
@@ -401,6 +422,32 @@ function buildMonthDays(year: number, month: number): ShiftDay[] {
   return days;
 }
 
+/** Cast 詳細モーダル用のフォーム state 型 */
+type CastDetailForm = {
+  displayName: string;
+  birthdate: string;
+  address: string;
+  phone: string;
+  email: string;
+  // 希望時給（テキスト入力だが中身は数値を期待）
+  tiaraHourly: string;
+  // 希望出勤日（"月/火" などを想定）
+  preferredDays: string;
+  preferredTimeFrom: string;
+  preferredTimeTo: string;
+  preferredArea: string;
+  // プロフィール
+  heightCm: string;
+  clothingSize: string;
+  shoeSizeCm: string;
+  // 背景
+  howFound: string;
+  motivation: string;
+  otherAgencies: string;
+  reasonChoose: string;
+  shopSelectionPoints: string;
+};
+
 /**
  * キャスト詳細モーダル
  */
@@ -410,8 +457,55 @@ function CastDetailModal({
   detailLoading,
   detailError,
   onClose,
+  onUpdated,
 }: CastDetailModalProps) {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [form, setForm] = useState<CastDetailForm | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveDone, setSaveDone] = useState(false);
+
+  // detail 取得完了時にフォーム初期化
+  useEffect(() => {
+    if (!detail) {
+      setForm(null);
+      setSaveDone(false);
+      setSaveError(null);
+      return;
+    }
+
+    setForm({
+      displayName: detail.displayName ?? cast.name,
+      birthdate: detail.birthdate ?? "",
+      address: detail.address ?? "",
+      phone: detail.phone ?? "",
+      email: detail.email ?? "",
+      tiaraHourly:
+        detail.preferences?.desiredHourly != null
+          ? String(detail.preferences.desiredHourly)
+          : "",
+      preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
+      preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
+      preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
+      preferredArea: detail.preferences?.preferredArea ?? "",
+      heightCm:
+        detail.attributes?.heightCm != null
+          ? String(detail.attributes.heightCm)
+          : "",
+      clothingSize: detail.attributes?.clothingSize ?? "",
+      shoeSizeCm:
+        detail.attributes?.shoeSizeCm != null
+          ? String(detail.attributes.shoeSizeCm)
+          : "",
+      howFound: detail.background?.howFound ?? "",
+      motivation: detail.background?.motivation ?? "",
+      otherAgencies: detail.background?.otherAgencies ?? "",
+      reasonChoose: detail.background?.reasonChoose ?? "",
+      shopSelectionPoints: detail.background?.shopSelectionPoints ?? "",
+    });
+    setSaveDone(false);
+    setSaveError(null);
+  }, [detail, cast.name]);
 
   // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
   const today = new Date();
@@ -430,22 +524,94 @@ function CastDetailModal({
     return slot;
   };
 
-  const displayName = detail?.displayName ?? cast.name;
+  const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
   const legacyStaffId =
     detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
-  const birth = detail?.birthdate
-    ? detail.age != null
-      ? `${detail.birthdate}（${detail.age}歳）`
-      : detail.birthdate
+  const birth = form?.birthdate
+    ? detail?.age != null
+      ? `${form.birthdate}（${detail.age}歳）`
+      : form.birthdate
     : "—";
-  const address = detail?.address ?? "—";
-  const phone = detail?.phone ?? "—";
-  const email = detail?.email ?? "—";
-  const tiaraHourly =
-    detail?.preferences?.desiredHourly != null
-      ? `¥${detail.preferences.desiredHourly.toLocaleString()}`
+  const address = form?.address || "—";
+  const phone = form?.phone || "—";
+  const email = form?.email || "—";
+  const tiaraHourlyLabel =
+    form?.tiaraHourly && form.tiaraHourly.trim()
+      ? `¥${Number(form.tiaraHourly.replace(/[^\d]/g, "") || "0").toLocaleString()}`
       : "—";
+
+  const handleSave = async () => {
+    if (!detail || !form) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveDone(false);
+    try {
+      // 数値系のパース
+      const hourlyRaw = form.tiaraHourly.replace(/[^\d]/g, "");
+      const desiredHourly =
+        hourlyRaw.trim().length > 0 ? Number(hourlyRaw) || null : null;
+
+      const heightRaw = form.heightCm.replace(/[^\d]/g, "");
+      const heightCm =
+        heightRaw.trim().length > 0 ? Number(heightRaw) || null : null;
+
+      const shoeRaw = form.shoeSizeCm.replace(/[^\d]/g, "");
+      const shoeSizeCm =
+        shoeRaw.trim().length > 0 ? Number(shoeRaw) || null : null;
+
+      // 出勤希望日を配列へ
+      const preferredDays =
+        form.preferredDays
+          .split(/[\/、,\s]+/)
+          .map((x) => x.trim())
+          .filter(Boolean) || [];
+
+      const payload = {
+        displayName: form.displayName || null,
+        birthdate: form.birthdate || null,
+        address: form.address || null,
+        phone: form.phone || null,
+        email: form.email || null,
+        // note は UI 上の備考欄未連動のため元の値を維持
+        note: detail.note ?? null,
+        attributes: {
+          heightCm,
+          clothingSize: form.clothingSize || null,
+          shoeSizeCm,
+          tattoo: detail.attributes?.tattoo ?? null,
+          needPickup: detail.attributes?.needPickup ?? null,
+        },
+        preferences: {
+          desiredHourly,
+          desiredMonthly: detail.preferences?.desiredMonthly ?? null,
+          preferredDays,
+          preferredTimeFrom: form.preferredTimeFrom || null,
+          preferredTimeTo: form.preferredTimeTo || null,
+          preferredArea: form.preferredArea || null,
+          // NG メモ・備考欄は未編集なので元値を維持
+          ngShopNotes: detail.preferences?.ngShopNotes ?? null,
+          notes: detail.preferences?.notes ?? null,
+        },
+        background: {
+          howFound: form.howFound || null,
+          motivation: form.motivation || null,
+          otherAgencies: form.otherAgencies || null,
+          reasonChoose: form.reasonChoose || null,
+          shopSelectionPoints: form.shopSelectionPoints || null,
+        },
+      } as Parameters<typeof updateCast>[1];
+
+      const updated = await updateCast(cast.id, payload);
+      onUpdated(updated);
+      setSaveDone(true);
+    } catch (e: any) {
+      console.error(e);
+      setSaveError(e?.message ?? "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -474,15 +640,29 @@ function CastDetailModal({
               {!detailLoading && detailError && (
                 <span className="text-[10px] text-red-400">{detailError}</span>
               )}
+              {!detailLoading && saveDone && !saveError && (
+                <span className="text-[10px] text-emerald-300">
+                  保存しました
+                </span>
+              )}
+              {saveError && (
+                <span className="text-[10px] text-red-400">
+                  保存エラー: {saveError}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {/* ① 文言変更：LINE → チャット */}
               <button className="px-3 py-1 rounded-xl text-[11px] border border-white/15 bg-white/5">
                 チャットで連絡
               </button>
-              {/* ② 保存ボタン（API連携は後続タスクで updateCast を紐付け） */}
-              <button className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white">
-                保存
+              {/* ② 保存ボタン */}
+              <button
+                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={handleSave}
+                disabled={!detail || !form || saving}
+              >
+                {saving ? "保存中…" : "保存"}
               </button>
               {/* ③ 閉じるボタン */}
               <button
@@ -514,14 +694,67 @@ function CastDetailModal({
 
                   {/* 氏名など */}
                   <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow label="ふりがな" value={displayName} />
-                    <MainInfoRow label="氏名" value={displayName} />
-                    <MainInfoRow label="生年月日" value={birth} />
-                    <MainInfoRow label="現住所" value={address} />
-                    <MainInfoRow label="TEL" value={phone} />
-                    <MainInfoRow label="アドレス" value={email} />
+                    <MainInfoRow
+                      label="ふりがな"
+                      value={displayName}
+                      readOnly
+                    />
+                    <MainInfoRow
+                      label="氏名"
+                      value={form?.displayName ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, displayName: v } : prev,
+                        )
+                      }
+                    />
+                    <MainInfoRow
+                      label="生年月日"
+                      value={form?.birthdate ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, birthdate: v } : prev,
+                        )
+                      }
+                    />
+                    <MainInfoRow
+                      label="現住所"
+                      value={form?.address ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, address: v } : prev,
+                        )
+                      }
+                    />
+                    <MainInfoRow
+                      label="TEL"
+                      value={form?.phone ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, phone: v } : prev,
+                        )
+                      }
+                    />
+                    <MainInfoRow
+                      label="アドレス"
+                      value={form?.email ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, email: v } : prev,
+                        )
+                      }
+                    />
                     {/* ティアラ査定時給 */}
-                    <MainInfoRow label="ティアラ査定時給" value={tiaraHourly} />
+                    <MainInfoRow
+                      label="ティアラ査定時給"
+                      value={form?.tiaraHourly ?? ""}
+                      placeholder={tiaraHourlyLabel === "—" ? "例: 2500" : tiaraHourlyLabel}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, tiaraHourly: v } : prev,
+                        )
+                      }
+                    />
                     {/* NG店舗（複数登録可） */}
                     <MainInfoRow
                       label="NG店舗（複数登録可）"
@@ -530,6 +763,7 @@ function CastDetailModal({
                           ? `${detail.ngShops.length}件登録`
                           : "—"
                       }
+                      readOnly
                     />
 
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
@@ -563,46 +797,75 @@ function CastDetailModal({
 
                 <InfoRow
                   label="知った経路"
-                  value={detail?.background?.howFound ?? "—"}
+                  value={form?.howFound ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, howFound: v } : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="紹介者名 / サイト名"
                   value="（今後 detail.background 拡張で対応）"
+                  readOnly
                 />
                 <InfoRow
                   label="お仕事を始めるきっかけ"
-                  value={detail?.background?.motivation ?? "—"}
+                  value={form?.motivation ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, motivation: v } : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="他の派遣会社との比較"
                   value="（今後 detail.background 拡張で対応）"
+                  readOnly
                 />
                 <InfoRow
                   label="比較状況"
-                  value={detail?.background?.otherAgencies ?? "—"}
+                  value={form?.otherAgencies ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherAgencies: v } : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="派遣会社名"
                   value="（今後 detail.background 拡張で対応）"
+                  readOnly
                 />
 
                 <div className="h-px bg-white/5 my-1" />
 
                 <InfoRow
                   label="ティアラを選んだ理由"
-                  value={detail?.background?.reasonChoose ?? "—"}
+                  value={form?.reasonChoose ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, reasonChoose: v } : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="派遣先のお店選びで重要なポイント"
-                  value={detail?.background?.shopSelectionPoints ?? "—"}
+                  value={form?.shopSelectionPoints ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, shopSelectionPoints: v } : prev,
+                    )
+                  }
                 />
-                <InfoRow label="その他（備考）" value="—" />
+                <InfoRow label="その他（備考）" value="—" readOnly />
 
                 <div className="h-px bg-white/5 my-1" />
 
                 <InfoRow
                   label="30,000円到達への所感"
                   value="（今後アンケート項目などで対応）"
+                  readOnly
                 />
               </section>
 
@@ -619,22 +882,39 @@ function CastDetailModal({
                     </div>
                     <InfoRow
                       label="身長"
-                      value={
+                      value={form?.heightCm ?? ""}
+                      placeholder={
                         detail?.attributes?.heightCm != null
                           ? `${detail.attributes.heightCm} cm`
-                          : "—"
+                          : ""
+                      }
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, heightCm: v } : prev,
+                        )
                       }
                     />
                     <InfoRow
                       label="服のサイズ"
-                      value={detail?.attributes?.clothingSize ?? "—"}
+                      value={form?.clothingSize ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, clothingSize: v } : prev,
+                        )
+                      }
                     />
                     <InfoRow
                       label="靴のサイズ"
-                      value={
+                      value={form?.shoeSizeCm ?? ""}
+                      placeholder={
                         detail?.attributes?.shoeSizeCm != null
                           ? `${detail.attributes.shoeSizeCm} cm`
-                          : "—"
+                          : ""
+                      }
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, shoeSizeCm: v } : prev,
+                        )
                       }
                     />
                   </div>
@@ -645,19 +925,57 @@ function CastDetailModal({
                     </div>
                     <InfoRow
                       label="出勤希望"
-                      value={
+                      value={form?.preferredDays ?? ""}
+                      placeholder={
                         detail?.preferences?.preferredDays?.length
                           ? detail.preferences.preferredDays.join(" / ")
-                          : "—"
+                          : ""
+                      }
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, preferredDays: v } : prev,
+                        )
                       }
                     />
                     <InfoRow
                       label="時間帯"
                       value={
+                        form
+                          ? `${form.preferredTimeFrom ?? ""}${
+                              form.preferredTimeFrom || form.preferredTimeTo
+                                ? "〜"
+                                : ""
+                            }${form.preferredTimeTo ?? ""}`
+                          : ""
+                      }
+                      placeholder={
                         detail?.preferences?.preferredTimeFrom &&
-                        detail.preferences.preferredTimeTo
+                        detail.preferences?.preferredTimeTo
                           ? `${detail.preferences.preferredTimeFrom}〜${detail.preferences.preferredTimeTo}`
-                          : "—"
+                          : ""
+                      }
+                      onChange={(v) => {
+                        // 簡易パース（"HH:MM〜HH:MM" を想定）
+                        const [from, to] = v.split("〜");
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                preferredTimeFrom: from?.trim() ?? "",
+                                preferredTimeTo: to?.trim() ?? "",
+                              }
+                            : prev,
+                        );
+                      }}
+                    />
+                    <InfoRow
+                      label="希望エリア"
+                      value={form?.preferredArea ?? ""}
+                      placeholder={detail?.preferences?.preferredArea ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, preferredArea: v } : prev,
+                        )
                       }
                     />
                     <InfoRow
@@ -676,6 +994,7 @@ function CastDetailModal({
                               .join(" / ") || "—"
                           : "—"
                       }
+                      readOnly
                     />
                   </div>
                 </div>
@@ -694,6 +1013,7 @@ function CastDetailModal({
                           ? "有"
                           : "無"
                       }
+                      readOnly
                     />
                     <InfoRow
                       label="送迎の要否"
@@ -704,6 +1024,7 @@ function CastDetailModal({
                           ? "要"
                           : "不要"
                       }
+                      readOnly
                     />
                     <InfoRow
                       label="飲酒"
@@ -715,6 +1036,7 @@ function CastDetailModal({
                           ? "普通"
                           : "NG")
                       }
+                      readOnly
                     />
                   </div>
 
@@ -731,8 +1053,9 @@ function CastDetailModal({
                           ? "あり"
                           : "なし"
                       }
+                      readOnly
                     />
-                    <InfoRow label="勤務歴" value="—" />
+                    <InfoRow label="勤務歴" value="—" readOnly />
                   </div>
                 </div>
               </section>
@@ -745,16 +1068,17 @@ function CastDetailModal({
 
                 <div className="grid grid-cols-1 gap-1.5">
                   <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5 space-y-1">
-                    <InfoRow label="身分証種類" value="運転免許証" />
-                    <InfoRow label="住民票・郵便物" value="◯" />
+                    <InfoRow label="身分証種類" value="運転免許証" readOnly />
+                    <InfoRow label="住民票・郵便物" value="◯" readOnly />
                     <InfoRow
                       label="宣誓（身分証のない・更新時）"
                       value="◯"
+                      readOnly
                     />
                   </div>
 
                   <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
-                    <InfoRow label="備考" value="特記事項なし" />
+                    <InfoRow label="備考" value="特記事項なし" readOnly />
                   </div>
                 </div>
               </section>
@@ -916,15 +1240,35 @@ function ShiftEditModal({
 }
 
 /** 登録情報①用：文字を大きくしてメイン情報を強調する行（編集可） */
-function MainInfoRow({ label, value }: { label: string; value: string }) {
+function MainInfoRow({
+  label,
+  value,
+  onChange,
+  readOnly,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange?: (v: string) => void;
+  readOnly?: boolean;
+  placeholder?: string;
+}) {
+  const effectiveReadOnly = readOnly || !onChange;
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
       <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <input
           type="text"
-          defaultValue={value}
-          className="w-full text-[13px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          value={value ?? ""}
+          placeholder={placeholder}
+          onChange={(e) => onChange?.(e.target.value)}
+          readOnly={effectiveReadOnly}
+          className={`w-full text-[13px] px-3 py-1.5 rounded-lg border text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
+            effectiveReadOnly
+              ? "bg-slate-900/60 border-white/15 text-muted cursor-default"
+              : "bg-slate-950/70 border-white/10"
+          }`}
         />
       </div>
     </div>
@@ -932,15 +1276,35 @@ function MainInfoRow({ label, value }: { label: string; value: string }) {
 }
 
 /** ラベル＋値（1行）の小さい行パーツ（サブ情報用・編集可） */
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  label,
+  value,
+  onChange,
+  readOnly,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange?: (v: string) => void;
+  readOnly?: boolean;
+  placeholder?: string;
+}) {
+  const effectiveReadOnly = readOnly || !onChange;
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
       <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
       <div className="flex-1 min-w-0">
         <input
           type="text"
-          defaultValue={value}
-          className="w-full text-[11px] px-2 py-1.5 rounded-lg bg-slate-950/60 border border-white/5 text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          value={value ?? ""}
+          placeholder={placeholder}
+          onChange={(e) => onChange?.(e.target.value)}
+          readOnly={effectiveReadOnly}
+          className={`w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
+            effectiveReadOnly
+              ? "bg-slate-900/60 border-white/10 text-muted cursor-default"
+              : "bg-slate-950/60 border-white/5"
+          }`}
         />
       </div>
     </div>

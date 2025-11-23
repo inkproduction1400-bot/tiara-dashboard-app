@@ -8,6 +8,7 @@ import {
   listCasts,
   getCast,
   updateCast,
+  deleteCast,
   type CastDetail,
   type CastListItem,
 } from "@/lib/api.casts";
@@ -82,6 +83,11 @@ export default function Page() {
   const [detail, setDetail] = useState<CastDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  // 削除モーダル用
+  const [deleteTarget, setDeleteTarget] = useState<CastRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // 一覧取得：初回に最大 10,000 件を一括ロード（検索はフロント側で実施）
   useEffect(() => {
@@ -228,6 +234,56 @@ export default function Page() {
           }
         : prev,
     );
+    setBaseRows((prev) =>
+      prev.map((r) =>
+        r.id === updated.userId
+          ? {
+              ...r,
+              name: updated.displayName ?? r.name,
+              managementNumber: updated.managementNumber ?? r.managementNumber,
+              desiredHourly: updated.preferences?.desiredHourly ?? r.desiredHourly,
+            }
+          : r,
+      ),
+    );
+  };
+
+  // 削除ボタン押下 → 確認モーダル表示
+  const handleClickDelete = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    row: CastRow,
+  ) => {
+    e.stopPropagation(); // 行クリック（詳細表示）を止める
+    setDeleteTarget(row);
+    setDeleteError(null);
+  };
+
+  // 削除確定処理
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteCast(deleteTarget.id);
+      // 一覧から除外
+      setBaseRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      // 詳細を開いていたら閉じる
+      if (selected && selected.id === deleteTarget.id) {
+        handleCloseModal();
+      }
+      setDeleteTarget(null);
+    } catch (e: any) {
+      console.error(e);
+      setDeleteError(e?.message ?? "削除に失敗しました");
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (deleteBusy) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
   };
 
   return (
@@ -324,6 +380,7 @@ export default function Page() {
                 <th className="text-left px-3 py-2 w-24">希望時給</th>
                 <th className="text-left px-3 py-2 w-24">旧スタッフID</th>
                 <th className="text-left px-3 py-2 w-32">担当者</th>
+                <th className="text-left px-3 py-2 w-20">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -345,11 +402,20 @@ export default function Page() {
                     {r.legacyStaffId != null ? r.legacyStaffId : "-"}
                   </td>
                   <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      className="text-[11px] px-2 py-1 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
+                      onClick={(e) => handleClickDelete(e, r)}
+                    >
+                      削除
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td className="px-3 py-6 text-center text-muted" colSpan={6}>
+                  <td className="px-3 py-6 text-center text-muted" colSpan={7}>
                     該当データがありません
                   </td>
                 </tr>
@@ -368,6 +434,19 @@ export default function Page() {
               detailError={detailError}
               onClose={handleCloseModal}
               onUpdated={handleDetailUpdated}
+            />
+          </ModalPortal>
+        )}
+
+        {/* 削除確認モーダル */}
+        {deleteTarget && (
+          <ModalPortal>
+            <DeleteCastModal
+              target={deleteTarget}
+              busy={deleteBusy}
+              error={deleteError}
+              onCancel={handleCancelDelete}
+              onConfirm={handleConfirmDelete}
             />
           </ModalPortal>
         )}
@@ -650,12 +729,12 @@ function CastDetailModal({
   return (
     <>
       {/* viewport 基準で中央固定 */}
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center px-3 py-6">
         {/* オーバーレイ */}
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-        {/* 本体：横幅広め・高さは 90vh に収める */}
-        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+        {/* 本体：横幅広め・高さは 90vh に収める（中身はスクロール） */}
+        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
           {/* ヘッダー */}
           <div className="flex items-center justify-between px-5 py-1.5 border-b border-white/10 bg-slate-900/80">
             <div className="flex items-center gap-3">
@@ -708,8 +787,8 @@ function CastDetailModal({
             </div>
           </div>
 
-          {/* コンテンツ */}
-          <div className="flex-1 px-4 py-2 bg-slate-950 overflow-y-auto">
+          {/* コンテンツ（ここをスクロールさせる） */}
+          <div className="flex-1 overflow-auto px-4 py-2 bg-slate-950">
             {/* 2x2 グリッド */}
             <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2 h-full">
               {/* 左上：登録情報① */}
@@ -1134,6 +1213,68 @@ function CastDetailModal({
   );
 }
 
+/** 削除確認モーダル */
+function DeleteCastModal({
+  target,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  target: CastRow;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
+      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-md bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4">
+        <h4 className="text-sm font-semibold text-ink mb-2">
+          キャスト削除の確認
+        </h4>
+        <p className="text-xs text-red-300 mb-2">
+          このキャストを削除すると、元に戻せません。
+        </p>
+        <p className="text-xs text-ink/90 mb-3">
+          管理番号: <span className="font-mono">{target.managementNumber}</span>
+          <br />
+          名前: <span className="font-semibold">{target.name}</span>
+          {target.legacyStaffId != null && (
+            <>
+              <br />
+              旧スタッフID:{" "}
+              <span className="font-mono">{target.legacyStaffId}</span>
+            </>
+          )}
+        </p>
+        {error && (
+          <p className="text-xs text-red-400 mb-2">削除エラー: {error}</p>
+        )}
+        <div className="mt-3 flex items-center justify-end gap-2 text-xs">
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg border border-white/25 bg-white/5 text-ink disabled:opacity-60"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg border border-red-400/70 bg-red-500/90 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? "削除中…" : "削除する"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** シフト編集モーダル */
 function ShiftEditModal({
   onClose,
@@ -1171,9 +1312,9 @@ function ShiftEditModal({
   const monthLabel = `${year}年 ${month + 1}月`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-4xl max-h-[88vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col overflow-hidden">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>

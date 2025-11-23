@@ -294,3 +294,12 @@ export async function deleteCastNg(input: {
     }),
   );
 }
+/** Cast 削除 */
+export async function deleteCast(id: string): Promise<void> {
+  await apiFetch<void>(
+    `/casts/${id}`,
+    withUser({
+      method: "DELETE",
+    }),
+  );
+}

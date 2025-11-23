@@ -9,6 +9,7 @@ import {
   getCast,
   updateCast,
   type CastDetail,
+  type CastListItem,
 } from "@/lib/api.casts";
 
 /**
@@ -61,7 +62,7 @@ export default function Page() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 一覧取得（q でサーバー側検索）
+  // 一覧取得（q でサーバー側検索）＋ 200 件ずつ全件ロード
   useEffect(() => {
     let canceled = false;
 
@@ -69,24 +70,49 @@ export default function Page() {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await listCasts({
-          q: q.trim() || undefined,
-          // ★ 全件表示させるため、上限を十分大きく指定
-          limit: 2000,
-        });
+        const query = q.trim() || undefined;
+        const TAKE = 200;
+
+        let allItems: CastListItem[] = [];
+        let offset = 0;
+        let total = Number.MAX_SAFE_INTEGER;
+
+        while (!canceled && offset < total) {
+          const res = await listCasts({
+            q: query,
+            limit: TAKE,
+            offset,
+          });
+
+          if (canceled) return;
+
+          const pageItems = res.items ?? [];
+          allItems = allItems.concat(pageItems);
+
+          // total は API が返す件数を信頼する
+          total = res.total ?? allItems.length;
+
+          // 最終ページ（200件未満）でループ終了
+          if (pageItems.length < TAKE) {
+            break;
+          }
+
+          offset += TAKE;
+        }
 
         if (canceled) return;
 
         // API 側の items から一覧表示用の行にマッピング
-        const mapped: CastRow[] = (res.items ?? []).map((c: any) => ({
-          id: c.userId ?? c.id, // userId / id どちらでも対応
-          managementNumber: c.managementNumber ?? "----",
-          name: c.displayName ?? "(名前未設定)",
+        const mapped: CastRow[] = allItems.map((c: CastListItem | any) => ({
+          id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
+          managementNumber: (c as any).managementNumber ?? "----",
+          name: (c as any).displayName ?? "(名前未設定)",
           age: (c as any).age ?? null,
+          // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
           desiredHourly: (c as any).desiredHourly ?? null,
           castCode: "-", // 仕様確定後に API フィールドと紐付け
           ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
-          legacyStaffId: c.legacyStaffId ?? null,
+          legacyStaffId: (c as any).legacyStaffId ?? null,
         }));
 
         setBaseRows(mapped);
@@ -113,8 +139,7 @@ export default function Page() {
   const staffOptions = useMemo(() => {
     const set = new Set<string>();
     baseRows.forEach((r) => {
-      if (r.ownerStaffName && r.ownerStaffName !== "-")
-        set.add(r.ownerStaffName);
+      if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [baseRows]);
@@ -176,8 +201,6 @@ export default function Page() {
       }
     })();
 
-    // この返り値は React のイベントハンドラでは使われないが、
-    // 型・構造はそのまま維持（必要であれば useEffect 化での置き換えも可）
     return () => {
       canceled = true;
     };
@@ -198,10 +221,10 @@ export default function Page() {
         ? {
             ...prev,
             name: updated.displayName ?? prev.name,
-            managementNumber: updated.managementNumber ?? prev.managementNumber,
+            managementNumber:
+              updated.managementNumber ?? prev.managementNumber,
             // 希望時給が detail に入っている場合は一覧にも反映
-            desiredHourly:
-              updated.preferences?.desiredHourly ?? prev.desiredHourly,
+            desiredHourly: updated.preferences?.desiredHourly ?? prev.desiredHourly,
           }
         : prev,
     );
@@ -534,7 +557,8 @@ function CastDetailModal({
 
   const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
-  const legacyStaffId = detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
+  const legacyStaffId =
+    detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
   const birth = form?.birthdate
     ? detail?.age != null
       ? `${form.birthdate}（${detail.age}歳）`
@@ -545,9 +569,7 @@ function CastDetailModal({
   const email = form?.email || "—";
   const tiaraHourlyLabel =
     form?.tiaraHourly && form.tiaraHourly.trim()
-      ? `¥${Number(
-          form.tiaraHourly.replace(/[^\d]/g, "") || "0",
-        ).toLocaleString()}`
+      ? `¥${Number(form.tiaraHourly.replace(/[^\d]/g, "") || "0").toLocaleString()}`
       : "—";
 
   const handleSave = async () => {
@@ -647,9 +669,7 @@ function CastDetailModal({
                 </span>
               )}
               {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-400">
-                  {detailError}
-                </span>
+                <span className="text-[10px] text-red-400">{detailError}</span>
               )}
               {!detailLoading && saveDone && !saveError && (
                 <span className="text-[10px] text-emerald-300">
@@ -705,7 +725,11 @@ function CastDetailModal({
 
                   {/* 氏名など */}
                   <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow label="ふりがな" value={displayName} readOnly />
+                    <MainInfoRow
+                      label="ふりがな"
+                      value={displayName}
+                      readOnly
+                    />
                     <MainInfoRow
                       label="氏名"
                       value={form?.displayName ?? ""}

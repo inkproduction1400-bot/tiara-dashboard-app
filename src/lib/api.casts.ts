@@ -28,7 +28,10 @@ export type CastListItem = {
   hasExperience?: boolean | null;
   createdAt: string;
   managementNumber?: string | null;
-  legacyStaffId?: number | null; // 追加
+  legacyStaffId?: number | null;
+  // 一覧でそのまま使えるようにしておく（API 側で select されていればそのまま入ってくる）
+  age?: number | null;
+  desiredHourly?: number | null;
 };
 
 export type CastListResponse = {
@@ -120,7 +123,7 @@ export type CastDetail = {
   background: CastBackground | null;
   ngShops: CastNgShop[];
   latestShifts: CastLatestShift[];
-  legacyStaffId?: number | null; // 追加
+  legacyStaffId?: number | null;
 };
 
 /** PATCH /casts/:id 用の簡易ペイロード */
@@ -147,12 +150,14 @@ export type CastUpdatePayload = {
     | {
         desiredHourly?: number | null;
         desiredMonthly?: number | null;
-        preferredDays?: string[]; // API 側で join(',')
+        preferredDays?: string[];
         preferredTimeFrom?: string | null;
         preferredTimeTo?: string | null;
         preferredArea?: string | null;
         ngShopNotes?: string | null;
         notes?: string | null;
+        // feeCategory は API 側で受け取れるようになったタイミングでここに追加予定
+        // feeCategory?: string | null;
       }
     | null;
   background?:
@@ -184,8 +189,8 @@ export async function listCasts(
 
   if (q) qs.set("q", q);
 
-  // API 側の上限（現状 2000 を想定）を超えないようにする
-  const MAX_TAKE = 2000;
+  // API 側の上限（現状 200 を想定）を超えないようにする
+  const MAX_TAKE = 200;
   const effectiveLimit =
     limit != null ? Math.min(limit, MAX_TAKE) : MAX_TAKE;
   qs.set("take", String(effectiveLimit));

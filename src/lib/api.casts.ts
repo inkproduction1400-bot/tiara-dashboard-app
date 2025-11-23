@@ -168,97 +168,46 @@ export type CastUpdatePayload = {
 
 /**
  * Cast 一覧取得
- * - API のページング（take / offset）を 50 件ずつ内部で回して「ほぼ全件」を取得
- * - limit が指定された場合は「1ページあたりの希望サイズ」だが、API 上限 50 を超えない
+ * - API 仕様上、クエリで使えるのは q / take / drinkOk / hasExperience のみ
+ * - offset を付けると 400 になるため、1 回だけ /casts?take=N で取得する
  */
 export async function listCasts(
   params: {
     q?: string;
-    limit?: number;
-    offset?: number;
+    limit?: number; // 取得件数（take にマップ）
     drinkOk?: boolean;
     hasExperience?: boolean;
   } = {},
 ): Promise<CastListResponse> {
-  const {
-    q,
-    limit,
-    offset: initialOffset = 0,
-    drinkOk,
-    hasExperience,
-  } = params;
+  const { q, limit, drinkOk, hasExperience } = params;
 
-  // 一度に取得する最大総件数（8,000人想定なので余裕を持って 10,000）
-  const MAX_TOTAL = 10_000;
+  // API 側の上限が 1000 なので、それを越えないように丸める
+  const take = Math.min(limit ?? 1000, 1000);
 
-  // API 側の 1 回あたり上限を 50 と仮定して固定
-  const rawLimit =
-    typeof limit === "number" && limit > 0 ? limit : 50;
-  const PAGE_SIZE = Math.min(rawLimit, 50); // <= 50 に必ず抑え込む
-
-  const allItems: CastListItem[] = [];
-  let totalFromApi: number | null = null;
-  let offset = initialOffset;
-
-  while (true) {
-    const qs = new URLSearchParams();
-    if (q) qs.set("q", q);
-    qs.set("take", String(PAGE_SIZE));
-    if (offset) qs.set("offset", String(offset));
-    if (typeof drinkOk === "boolean") {
-      qs.set("drinkOk", String(drinkOk));
-    }
-    if (typeof hasExperience === "boolean") {
-      qs.set("hasExperience", String(hasExperience));
-    }
-
-    const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
-
-    // API は { items, total } or 配列 どちらもあり得る
-    const raw = await apiFetch<any>(path, withUser());
-
-    let pageItems: CastListItem[] = [];
-    let pageTotal: number | undefined;
-
-    if (Array.isArray(raw)) {
-      pageItems = raw;
-      pageTotal = raw.length;
-    } else {
-      pageItems = Array.isArray(raw?.items) ? raw.items : [];
-      if (typeof raw?.total === "number") {
-        pageTotal = raw.total;
-      }
-    }
-
-    // 念のため 0 件返ってきたらそこで打ち切り
-    if (!pageItems.length) {
-      break;
-    }
-
-    allItems.push(...pageItems);
-
-    if (totalFromApi == null && typeof pageTotal === "number") {
-      totalFromApi = pageTotal;
-    }
-
-    const reachedTotal =
-      totalFromApi != null && allItems.length >= totalFromApi;
-    const reachedMax = allItems.length >= MAX_TOTAL;
-
-    if (reachedTotal || reachedMax) {
-      break;
-    }
-
-    // 次ページへ
-    offset += pageItems.length;
+  const qs = new URLSearchParams();
+  if (q) qs.set("q", q);
+  if (take) qs.set("take", String(take));
+  if (typeof drinkOk === "boolean") {
+    qs.set("drinkOk", String(drinkOk));
+  }
+  if (typeof hasExperience === "boolean") {
+    qs.set("hasExperience", String(hasExperience));
   }
 
-  const total = totalFromApi ?? allItems.length;
+  const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
 
-  return {
-    items: allItems,
-    total,
-  };
+  // API は { items, total } or 配列 どちらもあり得る
+  const raw = await apiFetch<any>(path, withUser());
+
+  if (Array.isArray(raw)) {
+    return { items: raw, total: raw.length };
+  }
+
+  const items = Array.isArray(raw?.items) ? raw.items : [];
+  const total =
+    typeof raw?.total === "number" ? raw.total : items.length;
+
+  return { items, total };
 }
 
 /** Cast 詳細取得（モーダル用） */

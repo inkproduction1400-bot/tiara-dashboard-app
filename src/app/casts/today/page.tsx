@@ -8,13 +8,16 @@ import {
   listCasts as fetchCastList,
 } from "@/lib/api.casts";
 
+type DrinkLevel = "ng" | "weak" | "normal" | "strong" | null;
+
 type Cast = {
   id: string;
   code: string;
   name: string;
   age: number;
   desiredHourly: number;
-  drinkOk: boolean;
+  /** 飲酒レベル: NG / 弱い / 普通 / 強い / 未登録(null) */
+  drinkLevel: DrinkLevel;
   photoUrl?: string;
   /** このキャストがNGの店舗ID一覧（将来APIから付与） */
   ngShopIds?: string[];
@@ -32,7 +35,7 @@ type Shop = {
   minAge?: number;
   /** 最高年齢 */
   maxAge?: number;
-  /** true の場合は飲酒OKキャストのみマッチ */
+  /** true の場合は「NG 以外で飲めるキャスト」のみマッチ */
   requireDrinkOk?: boolean;
 };
 
@@ -70,6 +73,18 @@ const TODAY_SHOPS: Shop[] = [
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
 
+/** boolean/文字列から4段階の飲酒レベルに変換するヘルパー */
+const mapDrinkLevel = (raw: any): DrinkLevel => {
+  // すでに enum 的な文字列ならそれを優先
+  if (raw === "ng" || raw === "weak" || raw === "normal" || raw === "strong") {
+    return raw;
+  }
+  // 旧データ boolean 対応
+  if (raw === true) return "normal";
+  if (raw === false) return "ng";
+  return null; // 未登録
+};
+
 /**
  * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
  */
@@ -84,9 +99,32 @@ const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
   if (shop.minAge != null && cast.age < shop.minAge) return false;
   if (shop.maxAge != null && cast.age > shop.maxAge) return false;
 
-  if (shop.requireDrinkOk && !cast.drinkOk) return false;
+  // 「飲酒OKのみ」は NG 以外（弱い / 普通 / 強い）を許可
+  if (shop.requireDrinkOk) {
+    const canDrink =
+      cast.drinkLevel === "weak" ||
+      cast.drinkLevel === "normal" ||
+      cast.drinkLevel === "strong";
+    if (!canDrink) return false;
+  }
 
   return true;
+};
+
+/** 飲酒レベルを数値スコアに変換（ソート用） */
+const drinkScore = (level: DrinkLevel): number => {
+  switch (level) {
+    case "ng":
+      return 0;
+    case "weak":
+      return 1;
+    case "normal":
+      return 2;
+    case "strong":
+      return 3;
+    default:
+      return -1; // 未登録は最後寄せ
+  }
 };
 
 export default function Page() {
@@ -148,7 +186,9 @@ export default function Page() {
           name: item.displayName,
           age: item.age ?? 0,
           desiredHourly: item.desiredHourly ?? 0,
-          drinkOk: item.drinkOk ?? false,
+          drinkLevel: mapDrinkLevel(
+            (item as any).drinkLevel ?? (item as any).drinkOk,
+          ),
           photoUrl: "/images/sample-cast.jpg",
           ngShopIds: [],
         }));
@@ -166,7 +206,9 @@ export default function Page() {
             name: item.displayName,
             age: item.age ?? 0,
             desiredHourly: 0, // /casts 側では希望時給はまだ無いので 0 で補完
-            drinkOk: item.drinkOk ?? false,
+            drinkLevel: mapDrinkLevel(
+              (item as any).drinkLevel ?? (item as any).drinkOk,
+            ),
             photoUrl: "/images/sample-cast.jpg",
             ngShopIds: [],
           };
@@ -261,17 +303,17 @@ export default function Page() {
 
     // ⑥ 飲酒ソート（チェックボックスで制御）
     if (drinkSort === "okFirst") {
-      list.sort((a: Cast, b: Cast) => {
-        const av = a.drinkOk ? 1 : 0;
-        const bv = b.drinkOk ? 1 : 0;
-        return bv - av; // true(OK) が先
-      });
+      // 強い → 普通 → 弱い → NG → 未登録
+      list.sort(
+        (a: Cast, b: Cast) =>
+          drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel),
+      );
     } else if (drinkSort === "ngFirst") {
-      list.sort((a: Cast, b: Cast) => {
-        const av = a.drinkOk ? 1 : 0;
-        const bv = b.drinkOk ? 1 : 0;
-        return av - bv; // false(NG) が先
-      });
+      // NG → 弱い → 普通 → 強い → 未登録
+      list.sort(
+        (a: Cast, b: Cast) =>
+          drinkScore(a.drinkLevel) - drinkScore(b.drinkLevel),
+      );
     }
 
     // ⑦ ページネーション
@@ -302,8 +344,20 @@ export default function Page() {
     currentPage,
   ]);
 
-  const formatDrinkLabel = (cast: Cast) =>
-    cast.drinkOk ? "飲酒: 普通（可）" : "飲酒: NG";
+  const formatDrinkLabel = (cast: Cast) => {
+    switch (cast.drinkLevel) {
+      case "ng":
+        return "飲酒: NG";
+      case "weak":
+        return "飲酒: 弱い";
+      case "normal":
+        return "飲酒: 普通";
+      case "strong":
+        return "飲酒: 強い";
+      default:
+        return "飲酒: 未登録";
+    }
+  };
 
   const filteredShops = useMemo(() => {
     const q = shopSearch.trim().toLowerCase();
@@ -473,7 +527,7 @@ export default function Page() {
                     setDrinkSort(e.target.checked ? "okFirst" : "none")
                   }
                 />
-                <span>OKを優先</span>
+                <span>飲める順（強い→普通→弱い→NG）</span>
               </label>
               <label className="inline-flex items-center gap-1">
                 <input
@@ -484,7 +538,7 @@ export default function Page() {
                     setDrinkSort(e.target.checked ? "ngFirst" : "none")
                   }
                 />
-                <span>NGを優先</span>
+                <span>飲めない順（NG→弱い→普通→強い）</span>
               </label>
             </div>
           </div>

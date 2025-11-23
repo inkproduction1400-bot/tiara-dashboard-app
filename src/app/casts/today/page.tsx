@@ -284,8 +284,6 @@ export default function Page() {
       );
     }
 
-    // TODO: 担当者・ステータス条件が入ったらここでさらに絞り込み
-
     // ⑤ ソート（年齢・時給）
     switch (sortKey) {
       case "hourlyDesc":
@@ -416,33 +414,6 @@ export default function Page() {
               明日の出勤予定：
               <span className="font-semibold ml-1">{667}</span> 名
             </span>
-
-            {/* ページ情報 & ページ送り */}
-            <div className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto gap-2">
-              <button
-                type="button"
-                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
-                onClick={() =>
-                  setCurrentPage((p) => Math.max(1, p - 1))
-                }
-                disabled={effectivePage <= 1}
-              >
-                ←
-              </button>
-              <span className="text-xs">
-                {effectivePage} / {totalPages}　全 {filteredTotal} 名
-              </span>
-              <button
-                type="button"
-                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={effectivePage >= totalPages}
-              >
-                →
-              </button>
-            </div>
           </div>
 
           {/* 検索・担当者・件数・並び替え・飲酒ソート */}
@@ -543,31 +514,60 @@ export default function Page() {
             </div>
           </div>
 
-          {/* ステータスタブ */}
+          {/* ステータスタブ + ページ送り（右寄せ） */}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            {[
-              { id: "unassigned", label: "未配属" },
-              { id: "today", label: "本日出勤" },
-              { id: "matched", label: "マッチ済み" },
-              { id: "all", label: "全キャスト" },
-            ].map((tab) => {
-              const active = statusTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={
-                    "px-3 py-1 rounded-full border text-xs " +
-                    (active
-                      ? "bg-sky-600 text-white border-sky-600"
-                      : "bg-white text-slate-700 border-slate-200")
-                  }
-                  onClick={() => setStatusTab(tab.id as typeof statusTab)}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: "unassigned", label: "未配属" },
+                { id: "today", label: "本日出勤" },
+                { id: "matched", label: "マッチ済み" },
+                { id: "all", label: "全キャスト" },
+              ].map((tab) => {
+                const active = statusTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={
+                      "px-3 py-1 rounded-full border text-xs " +
+                      (active
+                        ? "bg-sky-600 text-white border-sky-600"
+                        : "bg-white text-slate-700 border-slate-200")
+                    }
+                    onClick={() => setStatusTab(tab.id as typeof statusTab)}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ページ情報 & ページ送り（タブ列の右側） */}
+            <div className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto gap-2">
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.max(1, p - 1))
+                }
+                disabled={effectivePage <= 1}
+              >
+                ←
+              </button>
+              <span className="text-xs">
+                {effectivePage} / {totalPages}　全 {filteredTotal} 名
+              </span>
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={effectivePage >= totalPages}
+              >
+                →
+              </button>
+            </div>
           </div>
 
           {/* ローディング・エラー表示 */}

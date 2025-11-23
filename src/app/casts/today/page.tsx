@@ -105,6 +105,7 @@ export default function Page() {
   >("today");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // ローディング・エラー表示用
   const [loading, setLoading] = useState(true);
@@ -192,7 +193,17 @@ export default function Page() {
     };
   }, []);
 
-  const filteredCasts = useMemo(() => {
+  // 絞り込み条件が変わったら 1 ページ目に戻す
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusTab, keyword, selectedShopId, itemsPerPage, sortKey, drinkSort]);
+
+  const {
+    items: filteredCasts,
+    total: filteredTotal,
+    totalPages,
+    page: effectivePage,
+  } = useMemo(() => {
     const todayIds = new Set(todayCasts.map((c) => c.id));
     const matchedIds = new Set(staged.map((c) => c.id));
 
@@ -263,8 +274,21 @@ export default function Page() {
       });
     }
 
-    // ⑦ 件数制限
-    return list.slice(0, itemsPerPage);
+    // ⑦ ページネーション
+    const total = list.length;
+    const perPage = itemsPerPage || 50;
+    const tp = Math.max(1, Math.ceil(total / perPage));
+    const page = Math.min(currentPage, tp);
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    const paged = list.slice(start, end);
+
+    return {
+      items: paged,
+      total,
+      totalPages: tp,
+      page,
+    };
   }, [
     allCasts,
     todayCasts,
@@ -275,6 +299,7 @@ export default function Page() {
     drinkSort,
     itemsPerPage,
     statusTab,
+    currentPage,
   ]);
 
   const formatDrinkLabel = (cast: Cast) =>
@@ -337,9 +362,33 @@ export default function Page() {
               明日の出勤予定：
               <span className="font-semibold ml-1">{667}</span> 名
             </span>
-            <span className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto">
-              1 / 32　全 {allCasts.length} 名
-            </span>
+
+            {/* ページ情報 & ページ送り */}
+            <div className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto gap-2">
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.max(1, p - 1))
+                }
+                disabled={effectivePage <= 1}
+              >
+                ←
+              </button>
+              <span className="text-xs">
+                {effectivePage} / {totalPages}　全 {filteredTotal} 名
+              </span>
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={effectivePage >= totalPages}
+              >
+                →
+              </button>
+            </div>
           </div>
 
           {/* 検索・担当者・件数・並び替え・飲酒ソート */}
@@ -687,7 +736,7 @@ export default function Page() {
 
       {/* 店舗選択モーダル */}
       {shopModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify中心">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShopModalOpen(false)}

@@ -166,6 +166,24 @@ export type CastUpdatePayload = {
     | null;
 };
 
+/** ===== 今日出勤キャスト (/casts/today) 用の型 ===== */
+
+/** /casts/today の 1 レコード */
+export type TodayCastApiItem = {
+  castId: string;
+  managementNumber: string | null;
+  displayName: string;
+  age: number | null;
+  desiredHourly: number | null;
+  drinkOk: boolean | null;
+};
+
+/** /casts/today のレスポンス全体 */
+export type TodayCastsApiResponse = {
+  date: string;
+  items: TodayCastApiItem[];
+};
+
 /**
  * Cast 一覧取得
  * - API 仕様上、クエリで使えるのは q / take / drinkOk / hasExperience のみ
@@ -233,6 +251,14 @@ export function updateCast(
       body: JSON.stringify(payload),
     }),
   );
+}
+
+/**
+ * 今日出勤キャスト一覧取得 (/casts/today)
+ * - 認証・x-user-id 付与は他 API と同じく withUser 経由
+ */
+export async function listTodayCasts(): Promise<TodayCastsApiResponse> {
+  return apiFetch<TodayCastsApiResponse>("/casts/today", withUser());
 }
 
 /** NG 店舗 upsert */

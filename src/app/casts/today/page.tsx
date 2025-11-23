@@ -3,6 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
+import {
+  listTodayCasts,
+  type TodayCastApiItem,
+  type TodayCastsApiResponse,
+} from "@/lib/api.casts";
 
 type Cast = {
   id: string;
@@ -14,21 +19,6 @@ type Cast = {
   photoUrl?: string;
   /** このキャストがNGの店舗ID一覧（将来APIから付与） */
   ngShopIds?: string[];
-};
-
-// /api/v1/casts/today のレスポンス用（実際の型のうち、今回使う部分だけ）
-type TodayCastApiItem = {
-  castId: string;
-  managementNumber: string | null;
-  displayName: string;
-  age: number | null;
-  desiredHourly: number | null;
-  drinkOk: boolean | null;
-};
-
-type TodayCastsApiResponse = {
-  date: string;
-  items: TodayCastApiItem[];
 };
 
 type Shop = {
@@ -99,50 +89,14 @@ const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
   return true;
 };
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
-
-/**
- * ダッシュボードのログイン実装で使っていそうなキーを総当りで拾う
- * （shops API と同じノリで、キー違いによる 401 を避ける）
- */
-const ACCESS_TOKEN_KEYS = [
-  "tiara:accessToken",
-  "tiara-dashboard:accessToken",
-  "tiara-dashboard:token",
-  "tiara-dashboard:jwt",
-  "accessToken",
-];
-
-const getAccessToken = (): string => {
-  if (typeof window === "undefined") return "";
-  for (const key of ACCESS_TOKEN_KEYS) {
-    const v = window.localStorage.getItem(key);
-    if (v && v.trim()) return v;
-  }
-  return "";
-};
-
 /**
  * /api/v1/casts/today を叩いて UI 用の Cast 配列に変換
+ * - 認証ヘッダや x-user-id は listTodayCasts 側で付与
  */
 async function fetchTodayCasts(): Promise<Cast[]> {
-  const token = getAccessToken();
+  const json: TodayCastsApiResponse = await listTodayCasts();
 
-  const res = await fetch(`${API_BASE}/casts/today`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch /casts/today: ${res.status}`);
-  }
-
-  const json = (await res.json()) as TodayCastsApiResponse;
-
-  return json.items.map<Cast>((item) => ({
+  return json.items.map<Cast>((item: TodayCastApiItem) => ({
     id: item.castId,
     code: item.managementNumber ?? item.castId.slice(0, 8),
     name: item.displayName,
@@ -538,7 +492,7 @@ export default function Page() {
 
             {/* D&D 受け皿 */}
             <div className="mt-3 flex-1 min-h-0">
-              <div className="rounded-xl border-2 border-dashed border白/20 bg-white/5 h-full flex flex-col">
+              <div className="rounded-xl border-2 border-dashed border-white/20 bg-white/5 h-full flex flex-col">
                 <div className="px-3 py-2 border-b border-white/10">
                   <p className="text-xs text-muted">
                     ここにキャストカードをドラッグ＆ドロップ
@@ -776,7 +730,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="mt-2 p-3 rounded-xl bg白/5 border border白/10">
+                <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10">
                   <div className="text-[11px] text-muted">
                     備考（将来拡張用）
                   </div>
@@ -787,10 +741,10 @@ export default function Page() {
               </div>
             </div>
 
-            <footer className="px-4 py-3 border-t border白/10 flex items-center justify-end gap-2">
+            <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
               <button
                 type="button"
-                className="rounded-xl border border白/20 bg白/5 text-ink px-4 py-1.5 text-xs"
+                className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
                 onClick={closeCastDetail}
               >
                 閉じる

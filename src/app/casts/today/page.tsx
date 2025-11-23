@@ -67,13 +67,8 @@ const TODAY_SHOPS: Shop[] = [
   },
 ];
 
-type SortKey =
-  | "default"
-  | "hourlyDesc"
-  | "ageAsc"
-  | "ageDesc"
-  | "drinkOkFirst"
-  | "drinkNgFirst";
+type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
+type DrinkSort = "none" | "okFirst" | "ngFirst";
 
 /**
  * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
@@ -109,6 +104,7 @@ export default function Page() {
     "today" | "all" | "matched" | "unassigned"
   >("today");
   const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
 
   // ローディング・エラー表示用
   const [loading, setLoading] = useState(true);
@@ -237,7 +233,7 @@ export default function Page() {
 
     // TODO: 担当者・ステータス条件が入ったらここでさらに絞り込み
 
-    // ⑤ ソート
+    // ⑤ ソート（年齢・時給）
     switch (sortKey) {
       case "hourlyDesc":
         list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
@@ -248,27 +244,26 @@ export default function Page() {
       case "ageDesc":
         list.sort((a: Cast, b: Cast) => b.age - a.age);
         break;
-      case "drinkOkFirst": {
-        list.sort((a: Cast, b: Cast) => {
-          const av = a.drinkOk ? 1 : 0;
-          const bv = b.drinkOk ? 1 : 0;
-          return bv - av; // true(OK) が先
-        });
-        break;
-      }
-      case "drinkNgFirst": {
-        list.sort((a: Cast, b: Cast) => {
-          const av = a.drinkOk ? 1 : 0;
-          const bv = b.drinkOk ? 1 : 0;
-          return av - bv; // false(NG) が先
-        });
-        break;
-      }
       default:
         break;
     }
 
-    // ⑥ 件数制限
+    // ⑥ 飲酒ソート（チェックボックスで制御）
+    if (drinkSort === "okFirst") {
+      list.sort((a: Cast, b: Cast) => {
+        const av = a.drinkOk ? 1 : 0;
+        const bv = b.drinkOk ? 1 : 0;
+        return bv - av; // true(OK) が先
+      });
+    } else if (drinkSort === "ngFirst") {
+      list.sort((a: Cast, b: Cast) => {
+        const av = a.drinkOk ? 1 : 0;
+        const bv = b.drinkOk ? 1 : 0;
+        return av - bv; // false(NG) が先
+      });
+    }
+
+    // ⑦ 件数制限
     return list.slice(0, itemsPerPage);
   }, [
     allCasts,
@@ -277,6 +272,7 @@ export default function Page() {
     selectedShop,
     keyword,
     sortKey,
+    drinkSort,
     itemsPerPage,
     statusTab,
   ]);
@@ -346,7 +342,7 @@ export default function Page() {
             </span>
           </div>
 
-          {/* 検索・担当者・件数・並び替え */}
+          {/* 検索・担当者・件数・並び替え・飲酒ソート */}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">
@@ -401,10 +397,11 @@ export default function Page() {
               </div>
             </div>
 
+            {/* 並び替え（年齢・時給） */}
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">並び替え</span>
               <select
-                className="tiara-input h-8 w-[200px] text-xs"
+                className="tiara-input h-8 w-[180px] text-xs"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
               >
@@ -412,9 +409,34 @@ export default function Page() {
                 <option value="hourlyDesc">時給が高い順</option>
                 <option value="ageAsc">年齢が若い順</option>
                 <option value="ageDesc">年齢が高い順</option>
-                <option value="drinkOkFirst">飲酒OKが先</option>
-                <option value="drinkNgFirst">飲酒NGが先</option>
               </select>
+            </div>
+
+            {/* 飲酒ソート（チェックボックス） */}
+            <div className="flex items-center gap-2">
+              <span className="text-muted whitespace-nowrap">飲酒</span>
+              <label className="inline-flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3"
+                  checked={drinkSort === "okFirst"}
+                  onChange={(e) =>
+                    setDrinkSort(e.target.checked ? "okFirst" : "none")
+                  }
+                />
+                <span>OKを優先</span>
+              </label>
+              <label className="inline-flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3"
+                  checked={drinkSort === "ngFirst"}
+                  onChange={(e) =>
+                    setDrinkSort(e.target.checked ? "ngFirst" : "none")
+                  }
+                />
+                <span>NGを優先</span>
+              </label>
             </div>
           </div>
 
@@ -665,7 +687,7 @@ export default function Page() {
 
       {/* 店舗選択モーダル */}
       {shopModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify中心">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShopModalOpen(false)}

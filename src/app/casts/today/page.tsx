@@ -514,8 +514,8 @@ export default function Page() {
             </div>
           </div>
 
-          {/* ステータスタブ + ページ送り（右寄せ） */}
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                    {/* ステータスタブ + ページ送り */}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "unassigned", label: "未配属" },
@@ -542,8 +542,8 @@ export default function Page() {
               })}
             </div>
 
-            {/* ページ情報 & ページ送り（タブ列の右側） */}
-            <div className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto gap-2">
+            {/* ページ情報 & ページ送り（タブのすぐ右隣） */}
+            <div className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 gap-2 ml-2">
               <button
                 type="button"
                 className="text-xs px-2 py-0.5 rounded-full border border-white/20 disabled:opacity-40"
@@ -569,7 +569,7 @@ export default function Page() {
               </button>
             </div>
           </div>
-
+          
           {/* ローディング・エラー表示 */}
           {loading && (
             <p className="mt-1 text-xs text-muted">本日出勤キャストを読込中...</p>

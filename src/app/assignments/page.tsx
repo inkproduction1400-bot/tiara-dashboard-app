@@ -1,12 +1,855 @@
+// src/app/assignments/page.tsx
 "use client";
+
+import { useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
+import {
+  type ShopRequest,
+  type ShopAssignment,
+  loadShopRequests,
+  saveShopRequests,
+  loadAssignments,
+  saveAssignments,
+  createEmptyShopRequest,
+  createEmptyAssignment,
+} from "@/store/assignmentsStore";
+
 export default function Page() {
+  // 共通ストアから初期値をロード（ローカル or localStorage）
+  const [items, setItems] = useState<ShopRequest[]>(() => loadShopRequests());
+  const [assignments, setAssignments] = useState<ShopAssignment[]>(() =>
+    loadAssignments(),
+  );
+
+  const [keyword, setKeyword] = useState("");
+  const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow">(
+    "all",
+  );
+
+  // 店舗編集モーダル用
+  const [editing, setEditing] = useState<ShopRequest | null>(null);
+  const [editingIsNew, setEditingIsNew] = useState(false);
+
+  // 店舗編集モーダル内：割当編集フォーム用
+  const [assignmentDraft, setAssignmentDraft] =
+    useState<ShopAssignment | null>(null);
+  const [assignmentDraftIsNew, setAssignmentDraftIsNew] = useState(false);
+
+  const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  // 店舗ごとの割当リスト（一覧表示用）
+  const assignmentsByShop = useMemo(() => {
+    const map: Record<string, ShopAssignment[]> = {};
+    for (const a of assignments) {
+      if (!map[a.shopId]) map[a.shopId] = [];
+      map[a.shopId].push(a);
+    }
+    return map;
+  }, [assignments]);
+
+  const filteredItems = useMemo(() => {
+    let list = [...items];
+
+    if (dateFilter === "today") {
+      list = list.filter((i) => i.requestedDate === "本日");
+    } else if (dateFilter === "tomorrow") {
+      list = list.filter((i) => i.requestedDate === "明日");
+    }
+
+    if (keyword.trim()) {
+      const q = keyword.trim();
+      list = list.filter(
+        (i) =>
+          i.name.includes(q) ||
+          i.code.includes(q) ||
+          i.note?.includes(q),
+      );
+    }
+
+    // 仮でコード昇順
+    list.sort((a, b) => a.code.localeCompare(b.code));
+
+    return list;
+  }, [items, keyword, dateFilter]);
+
+  // 編集中店舗に紐づく割当（モーダル内表示用）
+  const currentEditingAssignments = useMemo(() => {
+    if (!editing) return [];
+    return assignments.filter((a) => a.shopId === editing.id);
+  }, [assignments, editing]);
+
+  const openEdit = (shop: ShopRequest) => {
+    setEditing(shop);
+    setEditingIsNew(false);
+    setAssignmentDraft(null);
+    setAssignmentDraftIsNew(false);
+  };
+
+  const openNew = () => {
+    const next = createEmptyShopRequest();
+    setEditing(next);
+    setEditingIsNew(true);
+    setAssignmentDraft(null);
+    setAssignmentDraftIsNew(false);
+  };
+
+  const closeEdit = () => {
+    setEditing(null);
+    setEditingIsNew(false);
+    setAssignmentDraft(null);
+    setAssignmentDraftIsNew(false);
+  };
+
+  const saveEdit = () => {
+    if (!editing) return;
+
+    setItems((prev) => {
+      const exists = prev.some((i) => i.id === editing.id);
+      const next = exists
+        ? prev.map((i) => (i.id === editing.id ? editing : i))
+        : [...prev, editing];
+      saveShopRequests(next);
+      return next;
+    });
+
+    closeEdit();
+  };
+
+  const deleteItem = (shop: ShopRequest) => {
+    if (
+      !window.confirm(
+        `店舗番号 ${shop.code} / ${shop.name} のリクエストを削除しますか？\n（この店舗の割当キャストも併せて削除されます）`,
+      )
+    ) {
+      return;
+    }
+
+    setItems((prev) => {
+      const next = prev.filter((i) => i.id !== shop.id);
+      saveShopRequests(next);
+      return next;
+    });
+
+    setAssignments((prev) => {
+      const next = prev.filter((a) => a.shopId !== shop.id);
+      saveAssignments(next);
+      return next;
+    });
+
+    // 編集中だったものを削除した場合はモーダルも閉じる
+    if (editing && editing.id === shop.id) {
+      closeEdit();
+    }
+  };
+
+  // ===== 割当キャスト 編集系（モーダル内） =====
+  const beginNewAssignment = () => {
+    if (!editing) return;
+    setAssignmentDraft(createEmptyAssignment(editing.id));
+    setAssignmentDraftIsNew(true);
+  };
+
+  const beginEditAssignment = (a: ShopAssignment) => {
+    setAssignmentDraft({ ...a });
+    setAssignmentDraftIsNew(false);
+  };
+
+  const cancelAssignmentDraft = () => {
+    setAssignmentDraft(null);
+    setAssignmentDraftIsNew(false);
+  };
+
+  const saveAssignmentDraft = () => {
+    if (!assignmentDraft) return;
+
+    setAssignments((prev) => {
+      const exists = prev.some((a) => a.id === assignmentDraft.id);
+      const next = exists
+        ? prev.map((a) => (a.id === assignmentDraft.id ? assignmentDraft : a))
+        : [...prev, assignmentDraft];
+      saveAssignments(next);
+      return next;
+    });
+
+    setAssignmentDraft(null);
+    setAssignmentDraftIsNew(false);
+  };
+
+  const deleteAssignment = (a: ShopAssignment) => {
+    if (
+      !window.confirm(
+        `この店舗からキャスト ${a.castCode} / ${a.castName} の割当を削除しますか？`,
+      )
+    ) {
+      return;
+    }
+
+    setAssignments((prev) => {
+      const next = prev.filter((x) => x.id !== a.id);
+      saveAssignments(next);
+      return next;
+    });
+
+    if (assignmentDraft && assignmentDraft.id === a.id) {
+      cancelAssignmentDraft();
+    }
+  };
+
+  const formatAssignedNames = (shopId: string) => {
+    const list = assignmentsByShop[shopId] ?? [];
+    if (list.length === 0) return "—";
+    const names = list.map((a) => a.castName);
+    if (names.length <= 3) return names.join(" / ");
+    return `${names.slice(0, 3).join(" / ")} ほか${names.length - 3}名`;
+  };
+
   return (
     <AppShell>
-      <section className="tiara-panel grow p-4 h-full">
-        <h2 className="text-lg font-bold">割当確認（プレースホルダー）</h2>
-        <p className="text-xs text-muted mt-1">このページは後で実装されます。</p>
-      </section>
+      <div className="h-full flex flex-col gap-3">
+        {/* ヘッダー */}
+        <section className="tiara-panel p-3 flex flex-col gap-2">
+          <header className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <h1 className="text-sm font-semibold">
+                割当確認 / 店舗リクエスト一覧
+              </h1>
+              <p className="mt-0.5 text-[11px] text-muted">
+                各店舗ごとの「必要人数・条件」と「割当済みキャスト」を一元的に管理します。
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="tiara-btn text-[11px] px-3 py-1"
+                onClick={openNew}
+              >
+                ＋ 新規追加
+              </button>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 border border-white/10">
+                build: {buildStamp}
+              </span>
+            </div>
+          </header>
+
+          {/* フィルタ */}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">日付</span>
+              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+                <button
+                  type="button"
+                  className={`px-3 py-1 ${
+                    dateFilter === "all"
+                      ? "bg-slate-900 text-ink"
+                      : "bg-transparent text-slate-700"
+                  } text-[11px]`}
+                  onClick={() => setDateFilter("all")}
+                >
+                  すべて
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 ${
+                    dateFilter === "today"
+                      ? "bg-slate-900 text-ink"
+                      : "bg-transparent text-slate-700"
+                  } text-[11px]`}
+                  onClick={() => setDateFilter("today")}
+                >
+                  本日
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 ${
+                    dateFilter === "tomorrow"
+                      ? "bg-slate-900 text-ink"
+                      : "bg-transparent text-slate-700"
+                  } text-[11px]`}
+                  onClick={() => setDateFilter("tomorrow")}
+                >
+                  明日
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">キーワード</span>
+              <input
+                className="tiara-input h-8 w-[260px] text-xs"
+                placeholder="店舗番号・店舗名・メモで検索"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* メイン：店舗リクエスト＋割当済みキャスト名 */}
+        <section className="tiara-panel flex-1 p-3 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between mb-2 text-[11px] text-muted">
+            <span>
+              該当店舗：
+              <span className="font-semibold text-ink">
+                {filteredItems.length}
+              </span>{" "}
+              件
+            </span>
+            <span>
+              ※ 行の「割当キャスト」列で、現在の割当状況を一覧で確認できます。
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-900/60 text-[11px] text-muted sticky top-0 z-10">
+                <tr>
+                  <th className="px-3 py-2 text-left w-[80px]">店舗番号</th>
+                  <th className="px-3 py-2 text-left">店舗名</th>
+                  <th className="px-3 py-2 text-left w-[60px]">日付</th>
+                  <th className="px-3 py-2 text-right w-[80px]">希望人数</th>
+                  <th className="px-3 py-2 text-right w-[120px]">
+                    時給レンジ
+                  </th>
+                  <th className="px-3 py-2 text-right w-[120px]">
+                    年齢レンジ
+                  </th>
+                  <th className="px-3 py-2 text-center w-[80px]">飲酒条件</th>
+                  <th className="px-3 py-2 text-left w-[200px]">
+                    割当キャスト
+                  </th>
+                  <th className="px-3 py-2 text-left">メモ</th>
+                  <th className="px-3 py-2 text-center w-[120px]">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.length === 0 ? (
+                  <tr>
+                    <td
+                      className="px-3 py-4 text-center text-[11px] text-muted"
+                      colSpan={10}
+                    >
+                      条件に一致する店舗リクエストがありません。
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItems.map((shop) => {
+                    const assignedNames = formatAssignedNames(shop.id);
+                    const assignedCount =
+                      assignmentsByShop[shop.id]?.length ?? 0;
+
+                    return (
+                      <tr
+                        key={shop.id}
+                        className="border-t border-white/5 hover:bg-slate-900/30"
+                      >
+                        <td className="px-3 py-2 font-mono">{shop.code}</td>
+                        <td className="px-3 py-2">{shop.name}</td>
+                        <td className="px-3 py-2">{shop.requestedDate}</td>
+                        <td className="px-3 py-2 text-right">
+                          {shop.requestedHeadcount} 名
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {shop.minHourly
+                            ? `¥${shop.minHourly.toLocaleString()}`
+                            : "-"}
+                          {" 〜 "}
+                          {shop.maxHourly
+                            ? `¥${shop.maxHourly.toLocaleString()}`
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {shop.minAge ?? "-"}{" 〜 "}
+                          {shop.maxAge ?? "-"} 歳
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {shop.requireDrinkOk ? "飲酒OK必須" : "不問"}
+                        </td>
+                        <td className="px-3 py-2 max-w-[220px]">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="line-clamp-2 text-[11px] text-ink/80">
+                              {assignedNames}
+                            </span>
+                            <span className="text-[10px] text-muted">
+                              割当済み:{" "}
+                              <span className="font-semibold">
+                                {assignedCount}
+                              </span>{" "}
+                              名
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 max-w-[260px]">
+                          <span className="line-clamp-2 text-[11px] text-ink/80">
+                            {shop.note || "-"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="tiara-btn text-[11px] px-3 py-1"
+                              onClick={() => openEdit(shop)}
+                            >
+                              詳細・編集
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-3 py-1 text-[11px]"
+                              onClick={() => deleteItem(shop)}
+                            >
+                              削除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      {/* 編集 / 新規追加モーダル（リクエスト＋割当キャスト） */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* オーバーレイ */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeEdit}
+          />
+          {/* モーダル本体 */}
+          <div className="relative z-10 w-full max-w-3xl max-h-[90vh] rounded-2xl bg-slate-950 border border-white/10 shadow-xl flex flex-col overflow-hidden">
+            <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-ink">
+                  {editingIsNew
+                    ? "新規店舗リクエストを追加"
+                    : `店舗リクエスト / 割当キャストを編集`}
+                </h2>
+                <p className="mt-0.5 text-[11px] text-muted">
+                  上段で「店舗リクエスト条件」、下段で「この店舗への割当キャスト」を編集します。
+                </p>
+              </div>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-ink"
+                onClick={closeEdit}
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-auto p-4 space-y-5 text-xs text-ink">
+              {/* 店舗情報・条件 */}
+              <div className="space-y-4">
+                {/* 店舗情報 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      店舗番号
+                    </label>
+                    <input
+                      className="tiara-input h-8 w-full text-xs"
+                      placeholder="例）001"
+                      value={editing.code}
+                      onChange={(e) =>
+                        setEditing({ ...editing, code: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[11px] text-muted mb-1">
+                      店舗名
+                    </label>
+                    <input
+                      className="tiara-input h-8 w-full text-xs"
+                      placeholder="例）クラブ ティアラ本店"
+                      value={editing.name}
+                      onChange={(e) =>
+                        setEditing({ ...editing, name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* 日付・人数・飲酒 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      日付
+                    </label>
+                    <select
+                      className="tiara-input h-8 w-full text-xs"
+                      value={editing.requestedDate}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          requestedDate: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="本日">本日</option>
+                      <option value="明日">明日</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      希望人数
+                    </label>
+                    <input
+                      type="number"
+                      className="tiara-input h-8 w-full text-xs text-right"
+                      min={0}
+                      value={editing.requestedHeadcount}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          requestedHeadcount: Number(e.target.value || 0),
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      飲酒条件
+                    </label>
+                    <select
+                      className="tiara-input h-8 w-full text-xs"
+                      value={editing.requireDrinkOk ? "require" : "any"}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          requireDrinkOk: e.target.value === "require",
+                        })
+                      }
+                    >
+                      <option value="any">不問（飲酒NGも可）</option>
+                      <option value="require">飲酒OK必須</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 時給レンジ・年齢レンジ */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      希望時給レンジ（円）
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="tiara-input h-8 w-full text-xs text-right"
+                        placeholder="min"
+                        value={editing.minHourly ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            minHourly: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          })
+                        }
+                      />
+                      <span className="text-muted">〜</span>
+                      <input
+                        type="number"
+                        className="tiara-input h-8 w-full text-xs text-right"
+                        placeholder="max"
+                        value={editing.maxHourly ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            maxHourly: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-muted mb-1">
+                      希望年齢レンジ（歳）
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        className="tiara-input h-8 w-full text-xs text-right"
+                        placeholder="min"
+                        value={editing.minAge ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            minAge: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          })
+                        }
+                      />
+                      <span className="text-muted">〜</span>
+                      <input
+                        type="number"
+                        className="tiara-input h-8 w-full text-xs text-right"
+                        placeholder="max"
+                        value={editing.maxAge ?? ""}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            maxAge: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* NG情報など将来用のメモ */}
+                <div>
+                  <label className="block text-[11px] text-muted mb-1">
+                    備考メモ（NG情報・客層など）
+                  </label>
+                  <textarea
+                    className="tiara-input w-full text-xs min-h-[80px]"
+                    value={editing.note ?? ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, note: e.target.value })
+                    }
+                    placeholder="例）NGキャスト: A101 / A205 など。客層・希望タイプ・注意事項などを記載。"
+                  />
+                </div>
+              </div>
+
+              {/* この店舗の割当キャスト一覧 */}
+              <div className="mt-2 p-3 rounded-xl bg白/5 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[11px] text-muted">
+                      この店舗の割当キャスト
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-ink/80">
+                      名前・ID・単価を確認し、必要に応じて追加・編集・削除を行えます。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="tiara-btn text-[11px] px-3 py-1"
+                    onClick={beginNewAssignment}
+                  >
+                    ＋ 割当を追加（ローカル）
+                  </button>
+                </div>
+
+                <div className="rounded-lg border border-white/10 overflow-hidden">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-slate-900/80 text-muted">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left w-[80px]">
+                          キャストID
+                        </th>
+                        <th className="px-2 py-1.5 text-left w-[120px]">
+                          キャスト名
+                        </th>
+                        <th className="px-2 py-1.5 text-right w-[90px]">
+                          割当時給
+                        </th>
+                        <th className="px-2 py-1.5 text-left">メモ</th>
+                        <th className="px-2 py-1.5 text-center w-[120px]">
+                          操作
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentEditingAssignments.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="px-2 py-3 text-center text-[11px] text-muted"
+                          >
+                            この店舗に割当済みのキャストはまだ登録されていません。
+                          </td>
+                        </tr>
+                      ) : (
+                        currentEditingAssignments.map((a) => (
+                          <tr
+                            key={a.id}
+                            className="border-t border-white/5 hover:bg-slate-900/40"
+                          >
+                            <td className="px-2 py-1.5 font-mono">
+                              {a.castCode}
+                            </td>
+                            <td className="px-2 py-1.5">{a.castName}</td>
+                            <td className="px-2 py-1.5 text-right">
+                              ¥{a.agreedHourly.toLocaleString()}
+                            </td>
+                            <td className="px-2 py-1.5 max-w-[220px]">
+                              <span className="line-clamp-2 text-ink/80">
+                                {a.note || "-"}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="tiara-btn text-[10px] px-2.5 py-1"
+                                  onClick={() => beginEditAssignment(a)}
+                                >
+                                  編集
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-2.5 py-1 text-[10px]"
+                                  onClick={() => deleteAssignment(a)}
+                                >
+                                  削除
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 割当編集フォーム（インライン） */}
+                {assignmentDraft && (
+                  <div className="mt-3 p-3 rounded-lg bg-slate-900 border border-sky-500/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-[11px] text-sky-100 font-semibold">
+                          割当キャストを
+                          {assignmentDraftIsNew ? "追加" : "編集"}
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-muted">
+                          キャストID・名前・時給・メモを入力して保存します。
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-[10px] text-muted hover:text-ink"
+                        onClick={cancelAssignmentDraft}
+                      >
+                        ✕ 閉じる
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-muted mb-1">
+                          キャストID
+                        </label>
+                        <input
+                          className="tiara-input h-8 w-full text-[11px]"
+                          placeholder="例）A101"
+                          value={assignmentDraft.castCode}
+                          onChange={(e) =>
+                            setAssignmentDraft({
+                              ...assignmentDraft,
+                              castCode: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[10px] text-muted mb-1">
+                          キャスト名
+                        </label>
+                        <input
+                          className="tiara-input h-8 w-full text-[11px]"
+                          placeholder="例）あいな"
+                          value={assignmentDraft.castName}
+                          onChange={(e) =>
+                            setAssignmentDraft({
+                              ...assignmentDraft,
+                              castName: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-muted mb-1">
+                          割当時給（円）
+                        </label>
+                        <input
+                          type="number"
+                          className="tiara-input h-8 w-full text-[11px] text-right"
+                          value={assignmentDraft.agreedHourly}
+                          onChange={(e) =>
+                            setAssignmentDraft({
+                              ...assignmentDraft,
+                              agreedHourly: Number(e.target.value || 0),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-muted mb-1">
+                        メモ
+                      </label>
+                      <textarea
+                        className="tiara-input w-full text-[11px] min-h-[60px]"
+                        value={assignmentDraft.note ?? ""}
+                        onChange={(e) =>
+                          setAssignmentDraft({
+                            ...assignmentDraft,
+                            note: e.target.value,
+                          })
+                        }
+                        placeholder="例）VIP席担当／同伴あり／NG店舗配慮など"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-[11px]"
+                        onClick={cancelAssignmentDraft}
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        type="button"
+                        className="tiara-btn text-[11px]"
+                        onClick={saveAssignmentDraft}
+                      >
+                        {assignmentDraftIsNew
+                          ? "割当を追加（ローカル）"
+                          : "割当を保存（ローカル）"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
+                onClick={closeEdit}
+              >
+                閉じる
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs"
+                onClick={saveEdit}
+              >
+                {editingIsNew
+                  ? "リクエストを追加（ローカル）"
+                  : "リクエストを保存（ローカル）"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

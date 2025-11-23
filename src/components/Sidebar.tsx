@@ -20,11 +20,7 @@ export default function Sidebar() {
           href: "/casts/today",
           active: isActiveDeep("/casts/today"),
         },
-        {
-          label: "リクエスト店舗",
-          href: "/requests",
-          active: isActiveDeep("/requests"),
-        },
+        // リクエスト店舗は削除
         {
           label: "割当確認",
           href: "/assignments",
@@ -54,7 +50,7 @@ export default function Sidebar() {
       title: "通信機能",
       items: [
         { label: "チャット", href: "/chat", active: isActiveDeep("/chat") },
-        { label: "SOS", href: "/sos", active: isActiveDeep("/sos") },
+        // SOS は削除
       ],
     },
     {
@@ -76,10 +72,10 @@ export default function Sidebar() {
 
   return (
     <aside className="side-nav side--manabi slim">
-      {/* ロゴ（/dashboardへ） */}
+      {/* ロゴ（ログイン後のデフォルト＝本日出勤キャストへ） */}
       <div className="side__brand px-2 py-3">
         <Link
-          href="/dashboard"
+          href="/casts/today"
           className="block"
           prefetch={false}
           aria-label="TIARA ダッシュボードへ"

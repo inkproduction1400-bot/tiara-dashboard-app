@@ -172,10 +172,22 @@ export default function Page() {
   const filteredCasts = useMemo(() => {
     let list: Cast[] = [...casts];
 
+    // ★ ステータスタブによる絞り込み
+    if (statusTab === "matched") {
+      // 右側の「割当候補」に入っているキャストだけ表示
+      list = list.filter((c) => staged.some((s) => s.id === c.id));
+    } else if (statusTab === "unassigned") {
+      // 右側の「割当候補」に入っていないキャストだけ表示
+      list = list.filter((c) => !staged.some((s) => s.id === c.id));
+    }
+    // "today" と "all" は現状どちらも「今日のAPI結果全員」
+
+    // 店舗条件
     if (selectedShop) {
       list = list.filter((c: Cast) => matchesShopConditions(c, selectedShop));
     }
 
+    // キーワード（名前 or コード）
     if (keyword.trim()) {
       const q = keyword.trim();
       list = list.filter(
@@ -183,8 +195,9 @@ export default function Page() {
       );
     }
 
-    // TODO: 担当者・ステータス条件が入ったらここでさらに絞り込み
+    // TODO: 担当者条件が入ったらここでさらに絞り込み
 
+    // 並び替え
     switch (sortKey) {
       case "hourlyDesc":
         list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
@@ -200,7 +213,7 @@ export default function Page() {
     }
 
     return list.slice(0, itemsPerPage);
-  }, [casts, keyword, sortKey, itemsPerPage, 担当者, statusTab, selectedShop]);
+  }, [casts, staged, keyword, sortKey, itemsPerPage, statusTab, selectedShop]);
 
   const formatDrinkLabel = (cast: Cast) =>
     cast.drinkOk ? "飲酒: 普通（可）" : "飲酒: NG";
@@ -730,7 +743,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="mt-2 p-3 rounded-xl bg白/5 border border-white/10">
                   <div className="text-[11px] text-muted">
                     備考（将来拡張用）
                   </div>

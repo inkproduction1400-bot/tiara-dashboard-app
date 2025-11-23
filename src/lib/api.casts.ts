@@ -28,10 +28,7 @@ export type CastListItem = {
   hasExperience?: boolean | null;
   createdAt: string;
   managementNumber?: string | null;
-  legacyStaffId?: number | null;
-  // 一覧でそのまま使えるようにしておく（API 側で select されていればそのまま入ってくる）
-  age?: number | null;
-  desiredHourly?: number | null;
+  legacyStaffId?: number | null; // 追加
 };
 
 export type CastListResponse = {
@@ -123,7 +120,7 @@ export type CastDetail = {
   background: CastBackground | null;
   ngShops: CastNgShop[];
   latestShifts: CastLatestShift[];
-  legacyStaffId?: number | null;
+  legacyStaffId?: number | null; // 追加
 };
 
 /** PATCH /casts/:id 用の簡易ペイロード */
@@ -150,14 +147,12 @@ export type CastUpdatePayload = {
     | {
         desiredHourly?: number | null;
         desiredMonthly?: number | null;
-        preferredDays?: string[];
+        preferredDays?: string[]; // API 側で join(',')
         preferredTimeFrom?: string | null;
         preferredTimeTo?: string | null;
         preferredArea?: string | null;
         ngShopNotes?: string | null;
         notes?: string | null;
-        // feeCategory は API 側で受け取れるようになったタイミングでここに追加予定
-        // feeCategory?: string | null;
       }
     | null;
   background?:
@@ -173,6 +168,10 @@ export type CastUpdatePayload = {
 
 /**
  * Cast 一覧取得
+ *
+ * - フロントから `take` は送らない（API 側のデフォルト件数を利用）
+ * - limit / offset を明示された場合は 1 回だけ叩く
+ * - limit / offset が無い場合は offset をずらしながら「全ページ取得」して返す
  */
 export async function listCasts(
   params: {
@@ -183,47 +182,81 @@ export async function listCasts(
     hasExperience?: boolean;
   } = {},
 ): Promise<CastListResponse> {
-  const qs = new URLSearchParams();
-
   const { q, limit, offset, drinkOk, hasExperience } = params;
 
-  if (q) qs.set("q", q);
+  const buildPath = (offsetValue?: number) => {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (typeof offsetValue === "number" && offsetValue > 0) {
+      qs.set("offset", String(offsetValue));
+    }
+    if (typeof drinkOk === "boolean") {
+      qs.set("drinkOk", String(drinkOk));
+    }
+    if (typeof hasExperience === "boolean") {
+      qs.set("hasExperience", String(hasExperience));
+    }
+    const qstr = qs.toString();
+    return `/casts${qstr ? `?${qstr}` : ""}`;
+  };
 
-  // API 側の上限（現状 200 を想定）を超えないようにする
-  const MAX_TAKE = 200;
-  const effectiveLimit =
-    limit != null ? Math.min(limit, MAX_TAKE) : MAX_TAKE;
-  qs.set("take", String(effectiveLimit));
+  /** 1ページ分フェッチして {items,total} に正規化するヘルパー */
+  const fetchPage = async (offsetValue?: number): Promise<CastListResponse> => {
+    const raw = await apiFetch<any>(buildPath(offsetValue), withUser());
 
-  if (offset != null) {
-    qs.set("offset", String(offset));
+    if (Array.isArray(raw)) {
+      const items: CastListItem[] = raw;
+      return { items, total: items.length };
+    }
+
+    const items: CastListItem[] = Array.isArray(raw?.items) ? raw.items : [];
+    const total: number =
+      typeof raw?.total === "number" ? raw.total : items.length;
+
+    return { items, total };
+  };
+
+  // --- A. limit / offset 指定あり → 単ページのみ返す ---
+  if (limit != null || offset != null) {
+    const { items, total } = await fetchPage(offset);
+    const sliced =
+      limit != null && limit < items.length ? items.slice(0, limit) : items;
+    return { items: sliced, total };
   }
-  if (typeof drinkOk === "boolean") {
-    qs.set("drinkOk", String(drinkOk));
+
+  // --- B. limit / offset 指定なし → 全ページ取得 ---
+  const allItems: CastListItem[] = [];
+  let total = 0;
+  let currentOffset = 0;
+  let pageSize = 0;
+
+  // 無限ループ防止のため上限ページ数を決めておく（念のため）
+  const MAX_PAGES = 100;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { items, total: pageTotal } = await fetchPage(
+      page === 0 ? undefined : currentOffset,
+    );
+
+    if (page === 0) {
+      total = pageTotal;
+      pageSize = items.length;
+    }
+
+    allItems.push(...items);
+
+    // これ以上データがない
+    if (items.length === 0) break;
+    if (allItems.length >= total) break;
+
+    // 次ページへ
+    currentOffset += items.length;
+
+    // pageSize が 0（= total 0）のときも抜ける
+    if (pageSize === 0) break;
   }
-  if (typeof hasExperience === "boolean") {
-    qs.set("hasExperience", String(hasExperience));
-  }
 
-  const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
-
-  // API は { items, total } を返す想定だが、
-  // 念のため配列だけ返る旧仕様にも対応しておく
-  const raw = await apiFetch<any>(path, withUser());
-
-  if (Array.isArray(raw)) {
-    const items: CastListItem[] = raw;
-    return {
-      items,
-      total: items.length,
-    };
-  }
-
-  const items: CastListItem[] = Array.isArray(raw?.items) ? raw.items : [];
-  const total: number =
-    typeof raw?.total === "number" ? raw.total : items.length;
-
-  return { items, total };
+  return { items: allItems, total };
 }
 
 /** Cast 詳細取得（モーダル用） */

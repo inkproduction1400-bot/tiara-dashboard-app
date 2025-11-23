@@ -62,7 +62,7 @@ export default function Page() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 一覧取得（q でサーバー側検索）＋ 200 件ずつ全件ロード
+  // 一覧取得：初回に全件ロード（検索はフロント側で実施）
   useEffect(() => {
     let canceled = false;
 
@@ -70,37 +70,14 @@ export default function Page() {
       setLoading(true);
       setLoadError(null);
       try {
-        const query = q.trim() || undefined;
-        const TAKE = 200;
-
-        let allItems: CastListItem[] = [];
-        let offset = 0;
-        let total = Number.MAX_SAFE_INTEGER;
-
-        while (!canceled && offset < total) {
-          const res = await listCasts({
-            q: query,
-            limit: TAKE,
-            offset,
-          });
-
-          if (canceled) return;
-
-          const pageItems = res.items ?? [];
-          allItems = allItems.concat(pageItems);
-
-          // total は API が返す件数を信頼する
-          total = res.total ?? allItems.length;
-
-          // 最終ページ（200件未満）でループ終了
-          if (pageItems.length < TAKE) {
-            break;
-          }
-
-          offset += TAKE;
-        }
+        // listCasts 内部で offset / take を回して「ほぼ全件」取得
+        const res = await listCasts({
+          limit: 200, // 1ページあたりのサイズ（内部ループ用）
+        });
 
         if (canceled) return;
+
+        const allItems: CastListItem[] = res.items ?? [];
 
         // API 側の items から一覧表示用の行にマッピング
         const mapped: CastRow[] = allItems.map((c: CastListItem | any) => ({
@@ -133,7 +110,7 @@ export default function Page() {
     return () => {
       canceled = true;
     };
-  }, [q]);
+  }, []);
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
@@ -144,7 +121,7 @@ export default function Page() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [baseRows]);
 
-  // 検索＋担当者フィルタ＋ソート
+  // 検索＋担当者フィルタ＋ソート（完全にフロント側で実施）
   const rows = useMemo(() => {
     const query = q.trim();
     let result = baseRows.filter((r) => {
@@ -224,7 +201,8 @@ export default function Page() {
             managementNumber:
               updated.managementNumber ?? prev.managementNumber,
             // 希望時給が detail に入っている場合は一覧にも反映
-            desiredHourly: updated.preferences?.desiredHourly ?? prev.desiredHourly,
+            desiredHourly:
+              updated.preferences?.desiredHourly ?? prev.desiredHourly,
           }
         : prev,
     );
@@ -569,7 +547,9 @@ function CastDetailModal({
   const email = form?.email || "—";
   const tiaraHourlyLabel =
     form?.tiaraHourly && form.tiaraHourly.trim()
-      ? `¥${Number(form.tiaraHourly.replace(/[^\d]/g, "") || "0").toLocaleString()}`
+      ? `¥${Number(
+          form.tiaraHourly.replace(/[^\d]/g, "") || "0",
+        ).toLocaleString()}`
       : "—";
 
   const handleSave = async () => {
@@ -952,7 +932,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-slate-950/40 rounded-xl p-2 border border白/5">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       希望条件
                     </div>
@@ -1179,7 +1159,7 @@ function ShiftEditModal({
             </p>
           </div>
           <button
-            className="px-3 py-1 rounded-lg text-[11px] border border-white/20 bg-red-500/80 text-white"
+            className="px-3 py-1 rounded-lg text-[11px] border border-white/20 bg-red-500/80 text白"
             onClick={onClose}
           >
             閉じる
@@ -1260,10 +1240,10 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-white/20 bg-white/5">
+          <button className="px-3 py-1 rounded-lg border border-white/20 bg白/5">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
             保存して閉じる
           </button>
         </div>

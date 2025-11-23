@@ -28,7 +28,7 @@ export type CastListItem = {
   hasExperience?: boolean | null;
   createdAt: string;
   managementNumber?: string | null;
-  legacyStaffId?: number | null; // 追加
+  legacyStaffId?: number | null; // 旧システムのスタッフID
 };
 
 export type CastListResponse = {
@@ -120,7 +120,7 @@ export type CastDetail = {
   background: CastBackground | null;
   ngShops: CastNgShop[];
   latestShifts: CastLatestShift[];
-  legacyStaffId?: number | null; // 追加
+  legacyStaffId?: number | null; // 旧システムのスタッフID
 };
 
 /** PATCH /casts/:id 用の簡易ペイロード */
@@ -168,10 +168,8 @@ export type CastUpdatePayload = {
 
 /**
  * Cast 一覧取得
- *
- * - フロントから `take` は送らない（API 側のデフォルト件数を利用）
- * - limit / offset を明示された場合は 1 回だけ叩く
- * - limit / offset が無い場合は offset をずらしながら「全ページ取得」して返す
+ * - API のページング（take / offset）を内部で回して「ほぼ全件」を取得
+ * - limit が指定された場合は 1ページあたりの件数として扱う
  */
 export async function listCasts(
   params: {
@@ -182,81 +180,75 @@ export async function listCasts(
     hasExperience?: boolean;
   } = {},
 ): Promise<CastListResponse> {
-  const { q, limit, offset, drinkOk, hasExperience } = params;
+  const {
+    q,
+    limit,
+    offset: initialOffset = 0,
+    drinkOk,
+    hasExperience,
+  } = params;
 
-  const buildPath = (offsetValue?: number) => {
+  // 一度に取得する最大総件数（8,000人想定なので余裕を持って 10,000）
+  const MAX_TAKE = 10_000;
+  // 1ページあたりの取得件数（API 側の上限 などを考慮して 200 目安）
+  const PAGE_SIZE = Math.min(limit ?? 200, MAX_TAKE);
+
+  const allItems: CastListItem[] = [];
+  let totalFromApi: number | null = null;
+  let offset = initialOffset;
+
+  while (true) {
     const qs = new URLSearchParams();
     if (q) qs.set("q", q);
-    if (typeof offsetValue === "number" && offsetValue > 0) {
-      qs.set("offset", String(offsetValue));
-    }
+    qs.set("take", String(PAGE_SIZE));
+    if (offset) qs.set("offset", String(offset));
     if (typeof drinkOk === "boolean") {
       qs.set("drinkOk", String(drinkOk));
     }
     if (typeof hasExperience === "boolean") {
       qs.set("hasExperience", String(hasExperience));
     }
-    const qstr = qs.toString();
-    return `/casts${qstr ? `?${qstr}` : ""}`;
-  };
 
-  /** 1ページ分フェッチして {items,total} に正規化するヘルパー */
-  const fetchPage = async (offsetValue?: number): Promise<CastListResponse> => {
-    const raw = await apiFetch<any>(buildPath(offsetValue), withUser());
+    const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
+
+    // API は { items, total } or 配列 どちらもあり得る
+    const raw = await apiFetch<any>(path, withUser());
+
+    let pageItems: CastListItem[] = [];
+    let pageTotal: number | undefined;
 
     if (Array.isArray(raw)) {
-      const items: CastListItem[] = raw;
-      return { items, total: items.length };
+      pageItems = raw;
+      pageTotal = raw.length;
+    } else {
+      pageItems = Array.isArray(raw?.items) ? raw.items : [];
+      if (typeof raw?.total === "number") {
+        pageTotal = raw.total;
+      }
     }
 
-    const items: CastListItem[] = Array.isArray(raw?.items) ? raw.items : [];
-    const total: number =
-      typeof raw?.total === "number" ? raw.total : items.length;
+    allItems.push(...pageItems);
 
-    return { items, total };
+    if (totalFromApi == null && typeof pageTotal === "number") {
+      totalFromApi = pageTotal;
+    }
+
+    const reachedTotal =
+      totalFromApi != null && allItems.length >= totalFromApi;
+    const gotLastPage = pageItems.length < PAGE_SIZE;
+    const reachedMax = allItems.length >= MAX_TAKE;
+
+    if (reachedTotal || gotLastPage || reachedMax) {
+      break;
+    }
+
+    offset += pageItems.length;
+  }
+
+  return {
+    items: allItems,
+    total: totalFromApi ?? allItems.length,
   };
-
-  // --- A. limit / offset 指定あり → 単ページのみ返す ---
-  if (limit != null || offset != null) {
-    const { items, total } = await fetchPage(offset);
-    const sliced =
-      limit != null && limit < items.length ? items.slice(0, limit) : items;
-    return { items: sliced, total };
-  }
-
-  // --- B. limit / offset 指定なし → 全ページ取得 ---
-  const allItems: CastListItem[] = [];
-  let total = 0;
-  let currentOffset = 0;
-  let pageSize = 0;
-
-  // 無限ループ防止のため上限ページ数を決めておく（念のため）
-  const MAX_PAGES = 100;
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const { items, total: pageTotal } = await fetchPage(
-      page === 0 ? undefined : currentOffset,
-    );
-
-    if (page === 0) {
-      total = pageTotal;
-      pageSize = items.length;
-    }
-
-    allItems.push(...items);
-
-    // これ以上データがない
-    if (items.length === 0) break;
-    if (allItems.length >= total) break;
-
-    // 次ページへ
-    currentOffset += items.length;
-
-    // pageSize が 0（= total 0）のときも抜ける
-    if (pageSize === 0) break;
-  }
-
-  return { items: allItems, total };
 }
 
 /** Cast 詳細取得（モーダル用） */

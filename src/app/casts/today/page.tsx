@@ -103,16 +103,31 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 /**
+ * ダッシュボードのログイン実装で使っていそうなキーを総当りで拾う
+ * （shops API と同じノリで、キー違いによる 401 を避ける）
+ */
+const ACCESS_TOKEN_KEYS = [
+  "tiara:accessToken",
+  "tiara-dashboard:accessToken",
+  "tiara-dashboard:token",
+  "tiara-dashboard:jwt",
+  "accessToken",
+];
+
+const getAccessToken = (): string => {
+  if (typeof window === "undefined") return "";
+  for (const key of ACCESS_TOKEN_KEYS) {
+    const v = window.localStorage.getItem(key);
+    if (v && v.trim()) return v;
+  }
+  return "";
+};
+
+/**
  * /api/v1/casts/today を叩いて UI 用の Cast 配列に変換
  */
 async function fetchTodayCasts(): Promise<Cast[]> {
-  // ★ トークンの保管キーは実際の実装に合わせて調整してください
-  const token =
-    typeof window !== "undefined"
-      ? window.localStorage.getItem("tiara:accessToken") ||
-        window.localStorage.getItem("accessToken") ||
-        ""
-      : "";
+  const token = getAccessToken();
 
   const res = await fetch(`${API_BASE}/casts/today`, {
     headers: {
@@ -523,7 +538,7 @@ export default function Page() {
 
             {/* D&D 受け皿 */}
             <div className="mt-3 flex-1 min-h-0">
-              <div className="rounded-xl border-2 border-dashed border-white/20 bg-white/5 h-full flex flex-col">
+              <div className="rounded-xl border-2 border-dashed border白/20 bg-white/5 h-full flex flex-col">
                 <div className="px-3 py-2 border-b border-white/10">
                   <p className="text-xs text-muted">
                     ここにキャストカードをドラッグ＆ドロップ
@@ -761,7 +776,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="mt-2 p-3 rounded-xl bg白/5 border border-white/10">
+                <div className="mt-2 p-3 rounded-xl bg白/5 border border白/10">
                   <div className="text-[11px] text-muted">
                     備考（将来拡張用）
                   </div>
@@ -772,10 +787,10 @@ export default function Page() {
               </div>
             </div>
 
-            <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
+            <footer className="px-4 py-3 border-t border白/10 flex items-center justify-end gap-2">
               <button
                 type="button"
-                className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
+                className="rounded-xl border border白/20 bg白/5 text-ink px-4 py-1.5 text-xs"
                 onClick={closeCastDetail}
               >
                 閉じる

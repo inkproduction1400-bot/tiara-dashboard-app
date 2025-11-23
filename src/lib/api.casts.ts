@@ -170,6 +170,7 @@ export type CastUpdatePayload = {
  * Cast 一覧取得
  * - API 仕様上、クエリで使えるのは q / take / drinkOk / hasExperience のみ
  * - offset を付けると 400 になるため、1 回だけ /casts?take=N で取得する
+ * - バック側の上限と揃えて take の最大値は 10,000
  */
 export async function listCasts(
   params: {
@@ -181,8 +182,10 @@ export async function listCasts(
 ): Promise<CastListResponse> {
   const { q, limit, drinkOk, hasExperience } = params;
 
-  // API 側の上限が 1000 なので、それを越えないように丸める
-  const take = Math.min(limit ?? 1000, 1000);
+  // API 側の上限が 10,000 なので、それを越えないように丸める
+  const MAX_TAKE = 10_000;
+  const DEFAULT_TAKE = 10_000;
+  const take = Math.min(limit ?? DEFAULT_TAKE, MAX_TAKE);
 
   const qs = new URLSearchParams();
   if (q) qs.set("q", q);

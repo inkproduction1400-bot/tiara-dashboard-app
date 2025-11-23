@@ -62,7 +62,7 @@ export default function Page() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 一覧取得：初回に最大 1000 件を一括ロード（検索はフロント側で実施）
+  // 一覧取得：初回に最大 10,000 件を一括ロード（検索はフロント側で実施）
   useEffect(() => {
     let canceled = false;
 
@@ -73,7 +73,7 @@ export default function Page() {
       try {
         // API 側は take のみ受付（offset は送らない）
         const res = await listCasts({
-          limit: 1000, // 安全な最大件数（API 側で 50〜1000 にクランプされる想定）
+          limit: 10_000, // 安全な最大件数（API 側で 1〜10,000 にクランプされる想定）
         });
 
         if (canceled) return;
@@ -781,7 +781,7 @@ function CastDetailModal({
                     />
 
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                    <div className="flex flex-col sm:flex-row sm:itemsCenter sm:gap-3">
                       <div className="sm:w-28 text-[12px] text-muted shrink-0">
                         シフト情報（直近2日）
                       </div>
@@ -1149,7 +1149,7 @@ function ShiftEditModal({
   const monthLabel = `${year}年 ${month + 1}月`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center">
+    <div className="fixed inset-0 z-[120] flex items-center justifyCenter">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">

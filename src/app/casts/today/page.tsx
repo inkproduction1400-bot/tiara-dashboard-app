@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   listTodayCasts,
-  type TodayCastApiItem,
-  type TodayCastsApiResponse,
+  listCasts as fetchCastList,
 } from "@/lib/api.casts";
 
 type Cast = {
@@ -89,27 +88,12 @@ const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
   return true;
 };
 
-/**
- * /api/v1/casts/today を叩いて UI 用の Cast 配列に変換
- * - 認証ヘッダや x-user-id は listTodayCasts 側で付与
- */
-async function fetchTodayCasts(): Promise<Cast[]> {
-  const json: TodayCastsApiResponse = await listTodayCasts();
-
-  return json.items.map<Cast>((item: TodayCastApiItem) => ({
-    id: item.castId,
-    code: item.managementNumber ?? item.castId.slice(0, 8),
-    name: item.displayName,
-    age: item.age ?? 0,
-    desiredHourly: item.desiredHourly ?? 0,
-    drinkOk: item.drinkOk ?? false,
-    photoUrl: "/images/sample-cast.jpg",
-    ngShopIds: [],
-  }));
-}
-
 export default function Page() {
-  const [casts, setCasts] = useState<Cast[]>([]);
+  // 本日出勤キャスト一覧（/casts/today）
+  const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
+  // 全キャスト（シフトに関係なく /casts から取得）
+  const [allCasts, setAllCasts] = useState<Cast[]>([]);
+
   const [staged, setStaged] = useState<Cast[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<string>("");
   const [keyword, setKeyword] = useState("");
@@ -138,7 +122,7 @@ export default function Page() {
     [selectedShopId],
   );
 
-  // ★ 初回マウント時に /casts/today を叩いてキャスト一覧を取得
+  // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
   useEffect(() => {
     let cancelled = false;
 
@@ -146,10 +130,47 @@ export default function Page() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchTodayCasts();
-        if (!cancelled) {
-          setCasts(data);
-        }
+
+        const [todayResp, allResp] = await Promise.all([
+          listTodayCasts(),
+          fetchCastList({ limit: 10_000 }),
+        ]);
+
+        if (cancelled) return;
+
+        // 本日出勤キャスト
+        const todayList: Cast[] = todayResp.items.map((item) => ({
+          id: item.castId,
+          code: item.managementNumber ?? item.castId.slice(0, 8),
+          name: item.displayName,
+          age: item.age ?? 0,
+          desiredHourly: item.desiredHourly ?? 0,
+          drinkOk: item.drinkOk ?? false,
+          photoUrl: "/images/sample-cast.jpg",
+          ngShopIds: [],
+        }));
+
+        const todayMap = new Map(todayList.map((c) => [c.id, c]));
+
+        // 全キャスト（/casts）。本日出勤分は todayList を優先し、それ以外はデフォルト値で補完
+        const allList: Cast[] = allResp.items.map((item) => {
+          const fromToday = todayMap.get(item.userId);
+          if (fromToday) return fromToday;
+
+          return {
+            id: item.userId,
+            code: item.managementNumber ?? item.userId.slice(0, 8),
+            name: item.displayName,
+            age: item.age ?? 0,
+            desiredHourly: 0, // /casts 側では希望時給はまだ無いので 0 で補完
+            drinkOk: item.drinkOk ?? false,
+            photoUrl: "/images/sample-cast.jpg",
+            ngShopIds: [],
+          };
+        });
+
+        setTodayCasts(todayList);
+        setAllCasts(allList);
       } catch (e: any) {
         console.error(e);
         if (!cancelled) {
@@ -170,24 +191,37 @@ export default function Page() {
   }, []);
 
   const filteredCasts = useMemo(() => {
-    let list: Cast[] = [...casts];
+    const todayIds = new Set(todayCasts.map((c) => c.id));
+    const matchedIds = new Set(staged.map((c) => c.id));
 
-    // ★ ステータスタブによる絞り込み
-    if (statusTab === "matched") {
-      // 右側の「割当候補」に入っているキャストだけ表示
-      list = list.filter((c) => staged.some((s) => s.id === c.id));
-    } else if (statusTab === "unassigned") {
-      // 右側の「割当候補」に入っていないキャストだけ表示
-      list = list.filter((c) => !staged.some((s) => s.id === c.id));
+    // ① ベース集合の選択（タブの役割）
+    // - 未配属 / 本日出勤 / マッチ済み：本日出勤キャストのみ
+    // - 全キャスト：シフトに関係なく全キャスト
+    let base: Cast[];
+    if (statusTab === "all") {
+      base = allCasts;
+    } else {
+      base = allCasts.filter((c) => todayIds.has(c.id));
     }
-    // "today" と "all" は現状どちらも「今日のAPI結果全員」
 
-    // 店舗条件
-    if (selectedShop) {
+    // ② タブごとの追加フィルタ
+    // - 未配属：本日出勤かつ未マッチ（staged に含まれていない）
+    // - マッチ済み：本日出勤かつマッチ済み（staged に含まれている）
+    if (statusTab === "unassigned") {
+      base = base.filter((c) => !matchedIds.has(c.id));
+    } else if (statusTab === "matched") {
+      base = base.filter((c) => matchedIds.has(c.id));
+    }
+
+    let list: Cast[] = [...base];
+
+    // ③ 店舗条件フィルタ
+    // - 「全キャスト」タブのときはシフトに関係なく全表示したいので、店舗条件は適用しない
+    if (selectedShop && statusTab !== "all") {
       list = list.filter((c: Cast) => matchesShopConditions(c, selectedShop));
     }
 
-    // キーワード（名前 or コード）
+    // ④ キーワード（名前 or 管理番号）
     if (keyword.trim()) {
       const q = keyword.trim();
       list = list.filter(
@@ -195,9 +229,9 @@ export default function Page() {
       );
     }
 
-    // TODO: 担当者条件が入ったらここでさらに絞り込み
+    // TODO: 担当者・ステータス条件が入ったらここでさらに絞り込み
 
-    // 並び替え
+    // ⑤ ソート
     switch (sortKey) {
       case "hourlyDesc":
         list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
@@ -212,8 +246,18 @@ export default function Page() {
         break;
     }
 
+    // ⑥ 件数制限
     return list.slice(0, itemsPerPage);
-  }, [casts, staged, keyword, sortKey, itemsPerPage, statusTab, selectedShop]);
+  }, [
+    allCasts,
+    todayCasts,
+    staged,
+    selectedShop,
+    keyword,
+    sortKey,
+    itemsPerPage,
+    statusTab,
+  ]);
 
   const formatDrinkLabel = (cast: Cast) =>
     cast.drinkOk ? "飲酒: 普通（可）" : "飲酒: NG";
@@ -232,6 +276,7 @@ export default function Page() {
     setSelectedShopId(shop.id);
     setShopModalOpen(false);
 
+    // 割当候補は、選択した店舗条件に合わないものを除外
     setStaged((prev: Cast[]) =>
       prev.filter((c: Cast) => matchesShopConditions(c, shop)),
     );
@@ -263,7 +308,7 @@ export default function Page() {
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
               本日の出勤：
-              <span className="font-semibold ml-1">{casts.length}</span> 名
+              <span className="font-semibold ml-1">{todayCasts.length}</span> 名
             </span>
             {/* ここは将来 API 連携で置き換え */}
             <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
@@ -275,7 +320,7 @@ export default function Page() {
               <span className="font-semibold ml-1">{667}</span> 名
             </span>
             <span className="inline-flex items-center rounded-full bg-slate-900 text-ink px-3 py-1 ml-auto">
-              1 / 32　全 {casts.length} 名
+              1 / 32　全 {allCasts.length} 名
             </span>
           </div>
 
@@ -460,7 +505,8 @@ export default function Page() {
               e.preventDefault();
               const castId = e.dataTransfer.getData("text/plain");
               if (!castId) return;
-              const cast = casts.find((c: Cast) => c.id === castId);
+              const cast =
+                allCasts.find((c: Cast) => c.id === castId) ?? null;
               if (!cast) return;
 
               if (selectedShop && !matchesShopConditions(cast, selectedShop)) {

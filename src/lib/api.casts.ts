@@ -134,50 +134,58 @@ export type CastUpdatePayload = {
   drinkOk?: boolean | null;
   hasExperience?: boolean | null;
   managementNumber?: string | null;
-  attributes?: {
-    heightCm?: number | null;
-    clothingSize?: string | null;
-    shoeSizeCm?: number | null;
-    tattoo?: boolean | null;
-    needPickup?: boolean | null;
-  } | null;
-  preferences?: {
-    desiredHourly?: number | null;
-    desiredMonthly?: number | null;
-    preferredDays?: string[]; // API 側で join(',')
-    preferredTimeFrom?: string | null;
-    preferredTimeTo?: string | null;
-    preferredArea?: string | null;
-    ngShopNotes?: string | null;
-    notes?: string | null;
-  } | null;
-  background?: {
-    howFound?: string | null;
-    motivation?: string | null;
-    otherAgencies?: string | null;
-    reasonChoose?: string | null;
-    shopSelectionPoints?: string | null;
-  } | null;
+  attributes?:
+    | {
+        heightCm?: number | null;
+        clothingSize?: string | null;
+        shoeSizeCm?: number | null;
+        tattoo?: boolean | null;
+        needPickup?: boolean | null;
+      }
+    | null;
+  preferences?:
+    | {
+        desiredHourly?: number | null;
+        desiredMonthly?: number | null;
+        preferredDays?: string[]; // API 側で join(',')
+        preferredTimeFrom?: string | null;
+        preferredTimeTo?: string | null;
+        preferredArea?: string | null;
+        ngShopNotes?: string | null;
+        notes?: string | null;
+      }
+    | null;
+  background?:
+    | {
+        howFound?: string | null;
+        motivation?: string | null;
+        otherAgencies?: string | null;
+        reasonChoose?: string | null;
+        shopSelectionPoints?: string | null;
+      }
+    | null;
 };
 
 /**
  * Cast 一覧取得
  */
-export async function listCasts(params: {
-  q?: string;
-  limit?: number;
-  offset?: number;
-  drinkOk?: boolean;
-  hasExperience?: boolean;
-} = {}): Promise<CastListResponse> {
+export async function listCasts(
+  params: {
+    q?: string;
+    limit?: number;
+    offset?: number;
+    drinkOk?: boolean;
+    hasExperience?: boolean;
+  } = {},
+): Promise<CastListResponse> {
   const qs = new URLSearchParams();
 
   const { q, limit, offset, drinkOk, hasExperience } = params;
 
   if (q) qs.set("q", q);
 
-  // API 側の上限（現状 1000 を想定）を超えないようにする
-  const MAX_TAKE = 1000;
+  // API 側の上限（現状 2000 を想定）を超えないようにする
+  const MAX_TAKE = 2000;
   const effectiveLimit =
     limit != null ? Math.min(limit, MAX_TAKE) : MAX_TAKE;
   qs.set("take", String(effectiveLimit));

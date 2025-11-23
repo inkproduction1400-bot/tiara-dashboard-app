@@ -4,7 +4,12 @@
 import { useMemo, useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
-import { listCasts, getCast, updateCast, type CastDetail } from "@/lib/api.casts";
+import {
+  listCasts,
+  getCast,
+  updateCast,
+  type CastDetail,
+} from "@/lib/api.casts";
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -66,6 +71,8 @@ export default function Page() {
       try {
         const res = await listCasts({
           q: q.trim() || undefined,
+          // ★ 全件表示させるため、上限を十分大きく指定
+          limit: 2000,
         });
 
         if (canceled) return;
@@ -106,7 +113,8 @@ export default function Page() {
   const staffOptions = useMemo(() => {
     const set = new Set<string>();
     baseRows.forEach((r) => {
-      if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
+      if (r.ownerStaffName && r.ownerStaffName !== "-")
+        set.add(r.ownerStaffName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [baseRows]);
@@ -190,10 +198,10 @@ export default function Page() {
         ? {
             ...prev,
             name: updated.displayName ?? prev.name,
-            managementNumber:
-              updated.managementNumber ?? prev.managementNumber,
+            managementNumber: updated.managementNumber ?? prev.managementNumber,
             // 希望時給が detail に入っている場合は一覧にも反映
-            desiredHourly: updated.preferences?.desiredHourly ?? prev.desiredHourly,
+            desiredHourly:
+              updated.preferences?.desiredHourly ?? prev.desiredHourly,
           }
         : prev,
     );
@@ -526,8 +534,7 @@ function CastDetailModal({
 
   const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
-  const legacyStaffId =
-    detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
+  const legacyStaffId = detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
   const birth = form?.birthdate
     ? detail?.age != null
       ? `${form.birthdate}（${detail.age}歳）`
@@ -538,7 +545,9 @@ function CastDetailModal({
   const email = form?.email || "—";
   const tiaraHourlyLabel =
     form?.tiaraHourly && form.tiaraHourly.trim()
-      ? `¥${Number(form.tiaraHourly.replace(/[^\d]/g, "") || "0").toLocaleString()}`
+      ? `¥${Number(
+          form.tiaraHourly.replace(/[^\d]/g, "") || "0",
+        ).toLocaleString()}`
       : "—";
 
   const handleSave = async () => {
@@ -638,7 +647,9 @@ function CastDetailModal({
                 </span>
               )}
               {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-400">{detailError}</span>
+                <span className="text-[10px] text-red-400">
+                  {detailError}
+                </span>
               )}
               {!detailLoading && saveDone && !saveError && (
                 <span className="text-[10px] text-emerald-300">
@@ -694,11 +705,7 @@ function CastDetailModal({
 
                   {/* 氏名など */}
                   <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow
-                      label="ふりがな"
-                      value={displayName}
-                      readOnly
-                    />
+                    <MainInfoRow label="ふりがな" value={displayName} readOnly />
                     <MainInfoRow
                       label="氏名"
                       value={form?.displayName ?? ""}
@@ -748,7 +755,9 @@ function CastDetailModal({
                     <MainInfoRow
                       label="ティアラ査定時給"
                       value={form?.tiaraHourly ?? ""}
-                      placeholder={tiaraHourlyLabel === "—" ? "例: 2500" : tiaraHourlyLabel}
+                      placeholder={
+                        tiaraHourlyLabel === "—" ? "例: 2500" : tiaraHourlyLabel
+                      }
                       onChange={(v) =>
                         setForm((prev) =>
                           prev ? { ...prev, tiaraHourly: v } : prev,

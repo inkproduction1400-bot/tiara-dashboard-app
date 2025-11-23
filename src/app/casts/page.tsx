@@ -48,6 +48,27 @@ function ModalPortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
+/** 旧システム由来のゴミ値（NULL 配列 / PHP シリアライズなど）を空文字に正規化 */
+function sanitizeBackgroundField(raw?: string | null): string {
+  if (raw == null) return "";
+  const v = String(raw).trim();
+  if (!v) return "";
+
+  const lower = v.toLowerCase();
+
+  // 単純な NULL 文字列
+  if (lower === "null" || lower === "none") return "";
+
+  // PHP シリアライズっぽい a:6:{...}
+  if (v.startsWith("a:")) return "";
+
+  // [[null,null]] など配列文字列っぽいもの
+  if (v.startsWith("[[") || v.startsWith("{{")) return "";
+  if (/^\[.*null.*\]$/.test(lower)) return "";
+
+  return v;
+}
+
 export default function Page() {
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
@@ -507,9 +528,10 @@ function CastDetailModal({
         detail.attributes?.shoeSizeCm != null
           ? String(detail.attributes.shoeSizeCm)
           : "",
-      howFound: detail.background?.howFound ?? "",
-      motivation: detail.background?.motivation ?? "",
-      otherAgencies: detail.background?.otherAgencies ?? "",
+      // ★ SQLそのまま表示されたくない3項目は sanitize
+      howFound: sanitizeBackgroundField(detail.background?.howFound),
+      motivation: sanitizeBackgroundField(detail.background?.motivation),
+      otherAgencies: sanitizeBackgroundField(detail.background?.otherAgencies),
       reasonChoose: detail.background?.reasonChoose ?? "",
       shopSelectionPoints: detail.background?.shopSelectionPoints ?? "",
     });
@@ -781,7 +803,7 @@ function CastDetailModal({
                     />
 
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
-                    <div className="flex flex-col sm:flex-row sm:itemsCenter sm:gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
                       <div className="sm:w-28 text-[12px] text-muted shrink-0">
                         シフト情報（直近2日）
                       </div>
@@ -1149,7 +1171,7 @@ function ShiftEditModal({
   const monthLabel = `${year}年 ${month + 1}月`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justifyCenter">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">

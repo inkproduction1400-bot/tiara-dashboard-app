@@ -62,8 +62,7 @@ export default function Page() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 一覧取得：初回に全件ロード（検索はフロント側で実施）
-  // listCasts は 1 リクエスト分だけ返すので、ここで offset / take を回して全件取得する
+  // 一覧取得：初回に最大 1000 件を一括ロード（検索はフロント側で実施）
   useEffect(() => {
     let canceled = false;
 
@@ -72,37 +71,15 @@ export default function Page() {
       setLoadError(null);
 
       try {
-        const PAGE_SIZE = 50; // listCasts 側も 50 にクランプしている想定
-        let offset = 0;
-        let total = Number.MAX_SAFE_INTEGER;
-
-        const allItems: CastListItem[] = [];
-
-        while (!canceled && offset < total) {
-          const res = await listCasts({
-            limit: PAGE_SIZE,
-            offset,
-          });
-
-          if (canceled) return;
-
-          const pageItems: CastListItem[] = res.items ?? [];
-          allItems.push(...pageItems);
-
-          // API 側の total を信頼する（なければ allItems.length で代用）
-          total = typeof res.total === "number" ? res.total : allItems.length;
-
-          // 最終ページ（50件未満）でループ終了
-          if (pageItems.length < PAGE_SIZE) {
-            break;
-          }
-
-          offset += pageItems.length;
-        }
+        // API 側は take のみ受付（offset は送らない）
+        const res = await listCasts({
+          limit: 1000, // 安全な最大件数（API 側で 50〜1000 にクランプされる想定）
+        });
 
         if (canceled) return;
 
-        // API 側の items から一覧表示用の行にマッピング
+        const allItems: CastListItem[] = res.items ?? [];
+
         const mapped: CastRow[] = allItems.map((c: CastListItem | any) => ({
           id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
           managementNumber: (c as any).managementNumber ?? "----",

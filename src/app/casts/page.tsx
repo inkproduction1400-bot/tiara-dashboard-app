@@ -650,12 +650,12 @@ function CastDetailModal({
   return (
     <>
       {/* viewport 基準で中央固定 */}
-      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
         {/* オーバーレイ */}
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-        {/* 本体：横幅広め・高さは 86vh に収める */}
-        <div className="relative z-10 w-[96vw] max-w-7xl max-h-[86vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+        {/* 本体：横幅広め・高さは 90vh に収める */}
+        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
           {/* ヘッダー */}
           <div className="flex items-center justify-between px-5 py-1.5 border-b border-white/10 bg-slate-900/80">
             <div className="flex items-center gap-3">
@@ -709,7 +709,7 @@ function CastDetailModal({
           </div>
 
           {/* コンテンツ */}
-          <div className="flex-1 px-4 py-2 bg-slate-950">
+          <div className="flex-1 px-4 py-2 bg-slate-950 overflow-y-auto">
             {/* 2x2 グリッド */}
             <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2 h-full">
               {/* 左上：登録情報① */}
@@ -1171,9 +1171,9 @@ function ShiftEditModal({
   const monthLabel = `${year}年 ${month + 1}月`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-full max-w-4xl max-h-[88vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>

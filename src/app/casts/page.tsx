@@ -17,7 +17,7 @@ import {
  * 一覧用キャスト行（API からの view model）
  * - 管理番号（4桁数字）
  * - 名前
- * - 年齢
+ * - 年齢（生年月日からフロントで自動算出。なければ API の age）
  * - 希望時給
  * - キャストID（A001 など）※現状はプレースホルダ
  * - 担当者名 ※現状はプレースホルダ
@@ -70,6 +70,26 @@ function sanitizeBackgroundField(raw?: string | null): string {
   return v;
 }
 
+/** 生年月日(YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD など)から年齢を計算 */
+function calcAgeFromBirthdate(birthdate?: string | null): number | null {
+  if (!birthdate) return null;
+  const src = birthdate.trim();
+  if (!src) return null;
+
+  const safe = src.replace(/\./g, "-").replace(/\//g, "-");
+  const d = new Date(safe);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age -= 1;
+  }
+  if (age < 0 || age > 130) return null;
+  return age;
+}
+
 export default function Page() {
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
@@ -107,17 +127,23 @@ export default function Page() {
 
         const allItems: CastListItem[] = res.items ?? [];
 
-        const mapped: CastRow[] = allItems.map((c: CastListItem | any) => ({
-          id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
-          managementNumber: (c as any).managementNumber ?? "----",
-          name: (c as any).displayName ?? "(名前未設定)",
-          age: (c as any).age ?? null,
-          // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
-          desiredHourly: (c as any).desiredHourly ?? null,
-          castCode: "-", // 仕様確定後に API フィールドと紐付け
-          ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
-          legacyStaffId: (c as any).legacyStaffId ?? null,
-        }));
+        const mapped: CastRow[] = allItems.map((c: CastListItem | any) => {
+          const birthdate: string | null = (c as any).birthdate ?? null;
+          const ageFromBirth =
+            calcAgeFromBirthdate(birthdate) ?? ((c as any).age ?? null);
+
+          return {
+            id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
+            managementNumber: (c as any).managementNumber ?? "----",
+            name: (c as any).displayName ?? "(名前未設定)",
+            age: ageFromBirth,
+            // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
+            desiredHourly: (c as any).desiredHourly ?? null,
+            castCode: "-", // 仕様確定後に API フィールドと紐付け
+            ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
+            legacyStaffId: (c as any).legacyStaffId ?? null,
+          };
+        });
 
         setBaseRows(mapped);
       } catch (e: any) {
@@ -218,9 +244,13 @@ export default function Page() {
     setDetailLoading(false);
   };
 
-  // 保存成功時：detail と一覧の表示を更新
+  // 保存成功時：detail と一覧の表示を更新（年齢も生年月日から再計算）
   const handleDetailUpdated = (updated: CastDetail) => {
     setDetail(updated);
+
+    const updatedAge =
+      calcAgeFromBirthdate(updated.birthdate ?? null) ?? null;
+
     setSelected((prev) =>
       prev
         ? {
@@ -228,12 +258,13 @@ export default function Page() {
             name: updated.displayName ?? prev.name,
             managementNumber:
               updated.managementNumber ?? prev.managementNumber,
-            // 希望時給が detail に入っている場合は一覧にも反映
             desiredHourly:
               updated.preferences?.desiredHourly ?? prev.desiredHourly,
+            age: updatedAge ?? prev.age,
           }
         : prev,
     );
+
     setBaseRows((prev) =>
       prev.map((r) =>
         r.id === updated.userId
@@ -241,7 +272,10 @@ export default function Page() {
               ...r,
               name: updated.displayName ?? r.name,
               managementNumber: updated.managementNumber ?? r.managementNumber,
-              desiredHourly: updated.preferences?.desiredHourly ?? r.desiredHourly,
+              desiredHourly:
+                updated.preferences?.desiredHourly ?? r.desiredHourly,
+              age:
+                calcAgeFromBirthdate(updated.birthdate ?? null) ?? r.age,
             }
           : r,
       ),
@@ -392,7 +426,9 @@ export default function Page() {
                 >
                   <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
                   <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2">{r.age ?? "-"}</td>
+                  <td className="px-3 py-2">
+                    {r.age != null ? r.age : "-"}
+                  </td>
                   <td className="px-3 py-2">
                     {r.desiredHourly
                       ? `¥${r.desiredHourly.toLocaleString()}`
@@ -639,11 +675,17 @@ function CastDetailModal({
   const managementNumber = detail?.managementNumber ?? cast.managementNumber;
   const legacyStaffId =
     detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
-  const birth = form?.birthdate
-    ? detail?.age != null
-      ? `${form.birthdate}（${detail.age}歳）`
-      : form.birthdate
-    : "—";
+
+  const birthdateStr =
+    form?.birthdate || detail?.birthdate || null;
+  const computedAge = calcAgeFromBirthdate(birthdateStr);
+  const birth =
+    birthdateStr != null && birthdateStr !== ""
+      ? computedAge != null
+        ? `${birthdateStr}（${computedAge}歳）`
+        : birthdateStr
+      : "—";
+
   const address = form?.address || "—";
   const phone = form?.phone || "—";
   const email = form?.email || "—";
@@ -729,7 +771,7 @@ function CastDetailModal({
   return (
     <>
       {/* viewport 基準で中央固定 */}
-      <div className="fixed inset-0 z-[100] flex items-center justify-center px-3 py-6">
+      <div className="fixed inset-0 z-[100] flex items-center justify中心 px-3 py-6">
         {/* オーバーレイ */}
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
@@ -824,6 +866,7 @@ function CastDetailModal({
                     <MainInfoRow
                       label="生年月日"
                       value={form?.birthdate ?? ""}
+                      placeholder={birth === "—" ? "" : birth}
                       onChange={(v) =>
                         setForm((prev) =>
                           prev ? { ...prev, birthdate: v } : prev,

@@ -63,21 +63,44 @@ export default function Page() {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   // 一覧取得：初回に全件ロード（検索はフロント側で実施）
+  // listCasts は 1 リクエスト分だけ返すので、ここで offset / take を回して全件取得する
   useEffect(() => {
     let canceled = false;
 
     async function run() {
       setLoading(true);
       setLoadError(null);
+
       try {
-        // listCasts 内部で offset / take を回して「ほぼ全件」取得
-        const res = await listCasts({
-          limit: 200, // 1ページあたりのサイズ（内部ループ用）
-        });
+        const PAGE_SIZE = 50; // listCasts 側も 50 にクランプしている想定
+        let offset = 0;
+        let total = Number.MAX_SAFE_INTEGER;
+
+        const allItems: CastListItem[] = [];
+
+        while (!canceled && offset < total) {
+          const res = await listCasts({
+            limit: PAGE_SIZE,
+            offset,
+          });
+
+          if (canceled) return;
+
+          const pageItems: CastListItem[] = res.items ?? [];
+          allItems.push(...pageItems);
+
+          // API 側の total を信頼する（なければ allItems.length で代用）
+          total = typeof res.total === "number" ? res.total : allItems.length;
+
+          // 最終ページ（50件未満）でループ終了
+          if (pageItems.length < PAGE_SIZE) {
+            break;
+          }
+
+          offset += pageItems.length;
+        }
 
         if (canceled) return;
-
-        const allItems: CastListItem[] = res.items ?? [];
 
         // API 側の items から一覧表示用の行にマッピング
         const mapped: CastRow[] = allItems.map((c: CastListItem | any) => ({
@@ -127,7 +150,8 @@ export default function Page() {
     let result = baseRows.filter((r) => {
       if (staffFilter && r.ownerStaffName !== staffFilter) return false;
       if (!query) return true;
-      // 管理番号 / 名前 / 旧スタッフID に含まれていればヒット
+
+      // 管理番号 / 名前 / 旧スタッフID に含まれていればヒット（旧ID検索対応）
       const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
       const hay = `${r.managementNumber} ${r.name} ${legacy}`;
       return hay.includes(query);
@@ -932,7 +956,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border白/5">
+                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       希望条件
                     </div>
@@ -1159,7 +1183,7 @@ function ShiftEditModal({
             </p>
           </div>
           <button
-            className="px-3 py-1 rounded-lg text-[11px] border border-white/20 bg-red-500/80 text白"
+            className="px-3 py-1 rounded-lg text-[11px] border border-white/20 bg-red-500/80 text-white"
             onClick={onClose}
           >
             閉じる
@@ -1240,10 +1264,10 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-white/20 bg白/5">
+          <button className="px-3 py-1 rounded-lg border border-white/20 bg-white/5">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
             保存して閉じる
           </button>
         </div>

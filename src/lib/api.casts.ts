@@ -29,6 +29,8 @@ export type CastListItem = {
   createdAt: string;
   managementNumber?: string | null;
   legacyStaffId?: number | null; // 旧システムのスタッフID
+  birthdate?: string | null;
+  age?: number | null;
 };
 
 export type CastListResponse = {

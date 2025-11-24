@@ -7,6 +7,10 @@ import {
   listTodayCasts,
   listCasts as fetchCastList,
 } from "@/lib/api.casts";
+import {
+  loadScheduleShopRequestsFromStorage,
+  type ScheduleShopRequest,
+} from "@/lib/schedule.store";
 
 type DrinkLevel = "ng" | "weak" | "normal" | "strong" | null;
 
@@ -39,36 +43,16 @@ type Shop = {
   requireDrinkOk?: boolean;
 };
 
-// ★ 店舗はひとまずダミーのまま（あとで /shops API につなぐ）
-const TODAY_SHOPS: Shop[] = [
-  {
-    id: "s1",
-    code: "001",
-    name: "クラブ ティアラ本店",
-    minHourly: 4500,
-    minAge: 20,
-    maxAge: 35,
-    requireDrinkOk: true,
-  },
-  {
-    id: "s2",
-    code: "002",
-    name: "スナック フラワー",
-    minHourly: 3500,
-    minAge: 18,
-    maxAge: 40,
-    requireDrinkOk: false,
-  },
-  {
-    id: "s3",
-    code: "003",
-    name: "ラウンジ プリマ",
-    minHourly: 4000,
-    minAge: 21,
-    maxAge: 32,
-    requireDrinkOk: true,
-  },
-];
+// ===== スケジュール連携: 本日分の店舗をスケジュールストアから取得 =====
+
+// 本日の日付キー（YYYY-MM-DD）
+const todayKey = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
@@ -158,9 +142,35 @@ export default function Page() {
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  // ★ スケジュールで登録された「本日分の店舗」をロード（無ければ空配列）
+  const todayShops: Shop[] = useMemo(() => {
+    const allReq: ScheduleShopRequest[] = loadScheduleShopRequestsFromStorage();
+    const today = todayKey();
+
+    const todaysReq = allReq.filter((req) => req.date === today);
+
+    // 本日分が 0 件なら空配列（ダミー店舗は出さない）
+    if (todaysReq.length === 0) {
+      return [];
+    }
+
+    // ScheduleShopRequest → Shop へマッピング
+    return todaysReq.map<Shop>((req) => ({
+      id: req.id, // スケジュール側の id を採用
+      code: req.code,
+      name: req.name,
+      minHourly: req.minHourly,
+      maxHourly: req.maxHourly,
+      minAge: req.minAge,
+      maxAge: req.maxAge,
+      requireDrinkOk: req.requireDrinkOk,
+    }));
+  }, []);
+
   const selectedShop = useMemo(
-    () => TODAY_SHOPS.find((s: Shop) => s.id === selectedShopId) ?? null,
-    [selectedShopId],
+    () => todayShops.find((s: Shop) => s.id === selectedShopId) ?? null,
+    [todayShops, selectedShopId],
   );
 
   // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
@@ -359,13 +369,13 @@ export default function Page() {
 
   const filteredShops = useMemo(() => {
     const q = shopSearch.trim().toLowerCase();
-    if (!q) return TODAY_SHOPS;
-    return TODAY_SHOPS.filter(
+    if (!q) return todayShops;
+    return todayShops.filter(
       (s: Shop) =>
         s.code.toLowerCase().includes(q) ||
         s.name.toLowerCase().includes(q),
     );
-  }, [shopSearch]);
+  }, [shopSearch, todayShops]);
 
   const handleSelectShop = (shop: Shop) => {
     setSelectedShopId(shop.id);
@@ -514,8 +524,8 @@ export default function Page() {
             </div>
           </div>
 
-                    {/* ステータスタブ + ページ送り */}
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          {/* ステータスタブ + ページ送り */}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "unassigned", label: "未配属" },
@@ -569,7 +579,7 @@ export default function Page() {
               </button>
             </div>
           </div>
-          
+
           {/* ローディング・エラー表示 */}
           {loading && (
             <p className="mt-1 text-xs text-muted">本日出勤キャストを読込中...</p>
@@ -672,26 +682,36 @@ export default function Page() {
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-sm">店舗セット</h3>
               </div>
-              <div className="space-y-1 text-[11px] text-muted">
-                <div className="flex items-center justify-between">
-                  <span>店舗：</span>
-                  <span className="font-medium text-ink">
-                    {selectedShop
-                      ? `${selectedShop.code} / ${selectedShop.name}`
-                      : "未選択"}
-                  </span>
+
+              {/* 本日のスケジュール有無メッセージ */}
+              {todayShops.length === 0 ? (
+                <p className="text-[11px] text-red-300">
+                  本日のスケジュール登録がありません。
+                  スケジュール画面から店舗リクエストを登録してください。
+                </p>
+              ) : (
+                <div className="space-y-1 text-[11px] text-muted">
+                  <div className="flex items-center justify-between">
+                    <span>店舗：</span>
+                    <span className="font-medium text-ink">
+                      {selectedShop
+                        ? `${selectedShop.code} / ${selectedShop.name}`
+                        : "未選択"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>更新：</span>
+                    <span>-</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>更新：</span>
-                  <span>-</span>
-                </div>
-              </div>
+              )}
 
               <div className="flex items-center gap-2 mt-1">
                 <button
                   type="button"
                   className="tiara-btn text-xs w-full"
                   onClick={() => setShopModalOpen(true)}
+                  disabled={todayShops.length === 0}
                 >
                   店舗をセット
                 </button>
@@ -821,9 +841,16 @@ export default function Page() {
 
             <div className="flex-1 overflow-auto p-4">
               {filteredShops.length === 0 ? (
-                <p className="text-xs text-muted">
-                  条件に一致する店舗がありません。
-                </p>
+                todayShops.length === 0 ? (
+                  <p className="text-xs text-muted">
+                    本日のスケジュール登録がありません。
+                    スケジュール画面から店舗リクエストを登録してください。
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted">
+                    条件に一致する店舗がありません。
+                  </p>
+                )
               ) : (
                 <div
                   className="grid gap-3"

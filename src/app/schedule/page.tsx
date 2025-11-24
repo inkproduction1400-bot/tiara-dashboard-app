@@ -1,22 +1,13 @@
 // src/app/schedule/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
-
-type ScheduleShopRequest = {
-  id: string;
-  date: string; // YYYY-MM-DD
-  code: string;
-  name: string;
-  requestedHeadcount: number;
-  minHourly?: number;
-  maxHourly?: number;
-  minAge?: number;
-  maxAge?: number;
-  requireDrinkOk: boolean;
-  note?: string;
-};
+import {
+  type ScheduleShopRequest,
+  loadScheduleShopRequestsFromStorage,
+  saveScheduleShopRequestsToStorage,
+} from "@/lib/schedule.store";
 
 const todayKey = () => {
   const d = new Date();
@@ -40,6 +31,7 @@ const TODAY = todayKey();
 const TOMORROW = addDays(TODAY, 1);
 const DAY_AFTER = addDays(TODAY, 2);
 
+// 初期表示用のダミーデータ（ストレージに何も無い場合のみ使用）
 const MOCK_SCHEDULE: ScheduleShopRequest[] = [
   {
     id: "s1-" + TODAY,
@@ -110,7 +102,13 @@ const createEmptyRequestForDate = (date: string): ScheduleShopRequest => ({
 });
 
 export default function Page() {
-  const [items, setItems] = useState<ScheduleShopRequest[]>(MOCK_SCHEDULE);
+  // ★ 初期値は localStorage > モックデータ の優先でロード
+  const [items, setItems] = useState<ScheduleShopRequest[]>(() => {
+    const stored = loadScheduleShopRequestsFromStorage();
+    if (stored.length > 0) return stored;
+    return MOCK_SCHEDULE;
+  });
+
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [keyword, setKeyword] = useState("");
   const [rangeView, setRangeView] = useState<"day" | "week">("day");
@@ -119,6 +117,11 @@ export default function Page() {
   const [editingIsNew, setEditingIsNew] = useState(false);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  // items が更新される度にストレージへ永続化
+  useEffect(() => {
+    saveScheduleShopRequestsToStorage(items);
+  }, [items]);
 
   const selectedDateLabel = useMemo(() => {
     if (selectedDate === TODAY) return "本日";

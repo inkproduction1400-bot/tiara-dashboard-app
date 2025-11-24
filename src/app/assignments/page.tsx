@@ -4,19 +4,57 @@
 import { useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
-  type ShopRequest,
   type ShopAssignment,
-  loadShopRequests,
-  saveShopRequests,
   loadAssignments,
   saveAssignments,
-  createEmptyShopRequest,
   createEmptyAssignment,
 } from "@/store/assignmentsStore";
+import {
+  type ScheduleShopRequest,
+  loadScheduleShopRequestsFromStorage,
+  saveScheduleShopRequestsToStorage,
+} from "@/lib/schedule.store";
+
+// 今日/明日 用の日付キー（YYYY-MM-DD）
+const dateKey = (offset: number = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
+
+const todayKey = () => dateKey(0);
+const tomorrowKey = () => dateKey(1);
+
+const formatDateLabel = (date: string) => {
+  if (date === todayKey()) return "本日";
+  if (date === tomorrowKey()) return "明日";
+  return date;
+};
+
+// 新規リクエストのひな形（スケジュール共通ストア用）
+const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
+  id: `shop_${Date.now()}`,
+  date,
+  code: "",
+  name: "",
+  requestedHeadcount: 0,
+  minHourly: undefined,
+  maxHourly: undefined,
+  minAge: undefined,
+  maxAge: undefined,
+  requireDrinkOk: false,
+  note: "",
+});
 
 export default function Page() {
-  // 共通ストアから初期値をロード（ローカル or localStorage）
-  const [items, setItems] = useState<ShopRequest[]>(() => loadShopRequests());
+  // スケジュール共通ストアからロード
+  const [items, setItems] = useState<ScheduleShopRequest[]>(() =>
+    loadScheduleShopRequestsFromStorage(),
+  );
+  // 割当キャストは従来どおりローカルストア
   const [assignments, setAssignments] = useState<ShopAssignment[]>(() =>
     loadAssignments(),
   );
@@ -27,7 +65,7 @@ export default function Page() {
   );
 
   // 店舗編集モーダル用
-  const [editing, setEditing] = useState<ShopRequest | null>(null);
+  const [editing, setEditing] = useState<ScheduleShopRequest | null>(null);
   const [editingIsNew, setEditingIsNew] = useState(false);
 
   // 店舗編集モーダル内：割当編集フォーム用
@@ -51,9 +89,11 @@ export default function Page() {
     let list = [...items];
 
     if (dateFilter === "today") {
-      list = list.filter((i) => i.requestedDate === "本日");
+      const t = todayKey();
+      list = list.filter((i) => i.date === t);
     } else if (dateFilter === "tomorrow") {
-      list = list.filter((i) => i.requestedDate === "明日");
+      const tm = tomorrowKey();
+      list = list.filter((i) => i.date === tm);
     }
 
     if (keyword.trim()) {
@@ -78,7 +118,7 @@ export default function Page() {
     return assignments.filter((a) => a.shopId === editing.id);
   }, [assignments, editing]);
 
-  const openEdit = (shop: ShopRequest) => {
+  const openEdit = (shop: ScheduleShopRequest) => {
     setEditing(shop);
     setEditingIsNew(false);
     setAssignmentDraft(null);
@@ -86,7 +126,7 @@ export default function Page() {
   };
 
   const openNew = () => {
-    const next = createEmptyShopRequest();
+    const next = createEmptyScheduleRequest(todayKey());
     setEditing(next);
     setEditingIsNew(true);
     setAssignmentDraft(null);
@@ -108,14 +148,14 @@ export default function Page() {
       const next = exists
         ? prev.map((i) => (i.id === editing.id ? editing : i))
         : [...prev, editing];
-      saveShopRequests(next);
+      saveScheduleShopRequestsToStorage(next);
       return next;
     });
 
     closeEdit();
   };
 
-  const deleteItem = (shop: ShopRequest) => {
+  const deleteItem = (shop: ScheduleShopRequest) => {
     if (
       !window.confirm(
         `店舗番号 ${shop.code} / ${shop.name} のリクエストを削除しますか？\n（この店舗の割当キャストも併せて削除されます）`,
@@ -126,7 +166,7 @@ export default function Page() {
 
     setItems((prev) => {
       const next = prev.filter((i) => i.id !== shop.id);
-      saveShopRequests(next);
+      saveScheduleShopRequestsToStorage(next);
       return next;
     });
 
@@ -305,7 +345,7 @@ export default function Page() {
                 <tr>
                   <th className="px-3 py-2 text-left w-[80px]">店舗番号</th>
                   <th className="px-3 py-2 text-left">店舗名</th>
-                  <th className="px-3 py-2 text-left w-[60px]">日付</th>
+                  <th className="px-3 py-2 text-left w-[100px]">日付</th>
                   <th className="px-3 py-2 text-right w-[80px]">希望人数</th>
                   <th className="px-3 py-2 text-right w-[120px]">
                     時給レンジ
@@ -344,7 +384,9 @@ export default function Page() {
                       >
                         <td className="px-3 py-2 font-mono">{shop.code}</td>
                         <td className="px-3 py-2">{shop.name}</td>
-                        <td className="px-3 py-2">{shop.requestedDate}</td>
+                        <td className="px-3 py-2">
+                          {formatDateLabel(shop.date)}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {shop.requestedHeadcount} 名
                         </td>
@@ -482,16 +524,16 @@ export default function Page() {
                     </label>
                     <select
                       className="tiara-input h-8 w-full text-xs"
-                      value={editing.requestedDate}
+                      value={editing.date}
                       onChange={(e) =>
                         setEditing({
                           ...editing,
-                          requestedDate: e.target.value,
+                          date: e.target.value,
                         })
                       }
                     >
-                      <option value="本日">本日</option>
-                      <option value="明日">明日</option>
+                      <option value={todayKey()}>本日</option>
+                      <option value={tomorrowKey()}>明日</option>
                     </select>
                   </div>
                   <div>

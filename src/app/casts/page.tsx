@@ -702,6 +702,30 @@ type CastDetailForm = {
   otherAgencies: string;
   reasonChoose: string;
   shopSelectionPoints: string;
+
+  // 追加フィールド
+  furigana: string;
+
+  tattoo: "" | "有" | "無";
+  needPickup: "" | "要" | "不要";
+  drinkLevel: "" | "NG" | "弱い" | "普通" | "強い";
+  hasExperience: "" | "あり" | "なし";
+  workHistory: string;
+
+  referrerName: string; // 紹介者名 / サイト名
+  compareOtherAgencies: string; // 他の派遣会社との比較
+  otherAgencyName: string; // 派遣会社名
+  otherNotes: string; // その他（備考）
+  thirtyKComment: string; // 30,000円到達への所感
+
+  idDocType: "" | "運転免許証" | "保険証" | "パスポート" | "マイナンバーカード";
+  residencyProof: "" | "済" | "未";
+  oathStatus: "" | "済" | "未";
+  idMemo: string; // 身分証関連の備考
+
+  // ジャンル・NG店舗
+  genres: string[];
+  ngShopMemo: string;
 };
 
 /**
@@ -759,6 +783,70 @@ function CastDetailModal({
       otherAgencies: sanitizeBackgroundField(detail.background?.otherAgencies),
       reasonChoose: detail.background?.reasonChoose ?? "",
       shopSelectionPoints: detail.background?.shopSelectionPoints ?? "",
+
+      // 追加フィールド
+      furigana:
+        (detail as any).furigana ??
+        (detail as any).displayNameKana ??
+        detail.displayName ??
+        cast.name,
+
+      tattoo:
+        detail.attributes?.tattoo == null
+          ? ""
+          : detail.attributes.tattoo
+          ? "有"
+          : "無",
+      needPickup:
+        detail.attributes?.needPickup == null
+          ? ""
+          : detail.attributes.needPickup
+          ? "要"
+          : "不要",
+      drinkLevel:
+        detail.attributes?.drinkLevel === "ng"
+          ? "NG"
+          : detail.attributes?.drinkLevel === "weak"
+          ? "弱い"
+          : detail.attributes?.drinkLevel === "strong"
+          ? "強い"
+          : detail.attributes?.drinkLevel === "normal"
+          ? "普通"
+          : detail.drinkOk == null
+          ? ""
+          : detail.drinkOk
+          ? "普通"
+          : "NG",
+      hasExperience:
+        detail.hasExperience == null
+          ? ""
+          : detail.hasExperience
+          ? "あり"
+          : "なし",
+      workHistory: detail.note ?? "",
+
+      referrerName: (detail.background as any)?.referrerName ?? "",
+      compareOtherAgencies:
+        (detail.background as any)?.compareOtherAgencies ?? "",
+      otherAgencyName: (detail.background as any)?.otherAgencyName ?? "",
+      otherNotes: (detail.background as any)?.otherNotes ?? "",
+      thirtyKComment: (detail.background as any)?.thirtyKComment ?? "",
+
+      idDocType:
+        ((detail.background as any)?.idDocType as CastDetailForm["idDocType"]) ??
+        "",
+      residencyProof:
+        ((detail.background as any)?.residencyProof as
+          CastDetailForm["residencyProof"]) ?? "",
+      oathStatus:
+        ((detail.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ??
+        "",
+      idMemo: (detail.background as any)?.idMemo ?? "",
+
+      genres: Array.isArray((detail.background as any)?.genres)
+        ? ((detail.background as any)?.genres as string[])
+        : [],
+      ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
     });
     setSaveDone(false);
     setSaveError(null);
@@ -832,20 +920,71 @@ function CastDetailModal({
           .map((x) => x.trim())
           .filter(Boolean) || [];
 
+      // 就業可否系
+      const tattooFlag =
+        form.tattoo === ""
+          ? null
+          : form.tattoo === "有"
+          ? true
+          : false;
+      const needPickupFlag =
+        form.needPickup === ""
+          ? null
+          : form.needPickup === "要"
+          ? true
+          : false;
+      const drinkLevelInternal =
+        form.drinkLevel === "NG"
+          ? "ng"
+          : form.drinkLevel === "弱い"
+          ? "weak"
+          : form.drinkLevel === "強い"
+          ? "strong"
+          : form.drinkLevel === "普通"
+          ? "normal"
+          : null;
+      const hasExperienceFlag =
+        form.hasExperience === ""
+          ? null
+          : form.hasExperience === "あり"
+          ? true
+          : false;
+
+      const background: any = {
+        howFound: form.howFound || null,
+        motivation: form.motivation || null,
+        otherAgencies: form.otherAgencies || null,
+        reasonChoose: form.reasonChoose || null,
+        shopSelectionPoints: form.shopSelectionPoints || null,
+        // 追加分
+        referrerName: form.referrerName || null,
+        compareOtherAgencies: form.compareOtherAgencies || null,
+        otherAgencyName: form.otherAgencyName || null,
+        otherNotes: form.otherNotes || null,
+        thirtyKComment: form.thirtyKComment || null,
+        idDocType: form.idDocType || null,
+        residencyProof: form.residencyProof || null,
+        oathStatus: form.oathStatus || null,
+        idMemo: form.idMemo || null,
+        genres: form.genres?.length ? form.genres : null,
+        ngShopMemo: form.ngShopMemo || null,
+      };
+
       const payload = {
         displayName: form.displayName || null,
         birthdate: form.birthdate || null,
         address: form.address || null,
         phone: form.phone || null,
         email: form.email || null,
-        // note は UI 上の備考欄未連動のため元の値を維持
-        note: detail.note ?? null,
+        // 勤務歴は暫定的に note に保存
+        note: form.workHistory || detail.note || null,
         attributes: {
           heightCm,
           clothingSize: form.clothingSize || null,
           shoeSizeCm,
-          tattoo: detail.attributes?.tattoo ?? null,
-          needPickup: detail.attributes?.needPickup ?? null,
+          tattoo: tattooFlag,
+          needPickup: needPickupFlag,
+          drinkLevel: drinkLevelInternal,
         },
         preferences: {
           desiredHourly,
@@ -854,17 +993,12 @@ function CastDetailModal({
           preferredTimeFrom: form.preferredTimeFrom || null,
           preferredTimeTo: form.preferredTimeTo || null,
           preferredArea: form.preferredArea || null,
-          // NG メモ・備考欄は未編集なので元値を維持
+          // NG メモ・備考欄は今のところ background 側で管理
           ngShopNotes: detail.preferences?.ngShopNotes ?? null,
           notes: detail.preferences?.notes ?? null,
         },
-        background: {
-          howFound: form.howFound || null,
-          motivation: form.motivation || null,
-          otherAgencies: form.otherAgencies || null,
-          reasonChoose: form.reasonChoose || null,
-          shopSelectionPoints: form.shopSelectionPoints || null,
-        },
+        background,
+        hasExperience: hasExperienceFlag,
       } as Parameters<typeof updateCast>[1];
 
       const updated = await updateCast(cast.id, payload);
@@ -961,8 +1095,12 @@ function CastDetailModal({
                   <div className="space-y-2 text-[13px] pr-1">
                     <MainInfoRow
                       label="ふりがな"
-                      value={displayName}
-                      readOnly
+                      value={form?.furigana ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, furigana: v } : prev,
+                        )
+                      }
                     />
                     <MainInfoRow
                       label="氏名"
@@ -1026,14 +1164,19 @@ function CastDetailModal({
                     {/* NG店舗（複数登録可） */}
                     <MainInfoRow
                       label="NG店舗（複数登録可）"
-                      value={
+                      value={form?.ngShopMemo ?? ""}
+                      placeholder={
                         detail?.ngShops
-                          ? `${detail.ngShops.length}件登録`
-                          : "—"
+                          ? `${detail.ngShops.length}件登録（例: 店舗名をカンマ区切りで記入）`
+                          : "例: 店舗名をカンマ区切りで記入"
                       }
-                      readOnly
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, ngShopMemo: v } : prev,
+                        )
+                      }
                     />
-
+                    {/* TODO: 将来的に NG店舗モーダル（店舗一覧から選択）をここに追加 */}
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
                       <div className="sm:w-28 text-[12px] text-muted shrink-0">
@@ -1074,8 +1217,12 @@ function CastDetailModal({
                 />
                 <InfoRow
                   label="紹介者名 / サイト名"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
+                  value={form?.referrerName ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, referrerName: v } : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="お仕事を始めるきっかけ"
@@ -1088,8 +1235,14 @@ function CastDetailModal({
                 />
                 <InfoRow
                   label="他の派遣会社との比較"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
+                  value={form?.compareOtherAgencies ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev
+                        ? { ...prev, compareOtherAgencies: v }
+                        : prev,
+                    )
+                  }
                 />
                 <InfoRow
                   label="比較状況"
@@ -1102,8 +1255,12 @@ function CastDetailModal({
                 />
                 <InfoRow
                   label="派遣会社名"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
+                  value={form?.otherAgencyName ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherAgencyName: v } : prev,
+                    )
+                  }
                 />
 
                 <div className="h-px bg-gray-200 my-1" />
@@ -1126,14 +1283,26 @@ function CastDetailModal({
                     )
                   }
                 />
-                <InfoRow label="その他（備考）" value="—" readOnly />
+                <InfoRow
+                  label="その他（備考）"
+                  value={form?.otherNotes ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherNotes: v } : prev,
+                    )
+                  }
+                />
 
                 <div className="h-px bg-gray-200 my-1" />
 
                 <InfoRow
                   label="30,000円到達への所感"
-                  value="（今後アンケート項目などで対応）"
-                  readOnly
+                  value={form?.thirtyKComment ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, thirtyKComment: v } : prev,
+                    )
+                  }
                 />
               </section>
 
@@ -1272,39 +1441,61 @@ function CastDetailModal({
                     <div className="font-semibold mb-1.5 text-[12px]">
                       就業可否
                     </div>
-                    <InfoRow
+                    <SelectRow
                       label="タトゥー"
-                      value={
-                        detail?.attributes?.tattoo == null
-                          ? "—"
-                          : detail.attributes.tattoo
-                          ? "有"
-                          : "無"
+                      value={form?.tattoo ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                tattoo: v as CastDetailForm["tattoo"],
+                              }
+                            : prev,
+                        )
                       }
-                      readOnly
+                      options={[
+                        { value: "有", label: "有" },
+                        { value: "無", label: "無" },
+                      ]}
                     />
-                    <InfoRow
+                    <SelectRow
                       label="送迎の要否"
-                      value={
-                        detail?.attributes?.needPickup == null
-                          ? "—"
-                          : detail.attributes.needPickup
-                          ? "要"
-                          : "不要"
+                      value={form?.needPickup ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                needPickup: v as CastDetailForm["needPickup"],
+                              }
+                            : prev,
+                        )
                       }
-                      readOnly
+                      options={[
+                        { value: "要", label: "要" },
+                        { value: "不要", label: "不要" },
+                      ]}
                     />
-                    <InfoRow
+                    <SelectRow
                       label="飲酒"
-                      value={
-                        detail?.attributes?.drinkLevel ??
-                        (detail?.drinkOk == null
-                          ? "—"
-                          : detail.drinkOk
-                          ? "普通"
-                          : "NG")
+                      value={form?.drinkLevel ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                drinkLevel: v as CastDetailForm["drinkLevel"],
+                              }
+                            : prev,
+                        )
                       }
-                      readOnly
+                      options={[
+                        { value: "NG", label: "NG" },
+                        { value: "弱い", label: "弱い" },
+                        { value: "普通", label: "普通" },
+                        { value: "強い", label: "強い" },
+                      ]}
                     />
                   </div>
 
@@ -1312,18 +1503,34 @@ function CastDetailModal({
                     <div className="font-semibold mb-1.5 text-[12px]">
                       水商売の経験
                     </div>
-                    <InfoRow
+                    <SelectRow
                       label="経験"
-                      value={
-                        detail?.hasExperience == null
-                          ? "—"
-                          : detail.hasExperience
-                          ? "あり"
-                          : "なし"
+                      value={form?.hasExperience ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                hasExperience:
+                                  v as CastDetailForm["hasExperience"],
+                              }
+                            : prev,
+                        )
                       }
-                      readOnly
+                      options={[
+                        { value: "あり", label: "あり" },
+                        { value: "なし", label: "なし" },
+                      ]}
                     />
-                    <InfoRow label="勤務歴" value="—" readOnly />
+                    <InfoRow
+                      label="勤務歴"
+                      value={form?.workHistory ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, workHistory: v } : prev,
+                        )
+                      }
+                    />
                   </div>
                 </div>
               </section>
@@ -1336,17 +1543,76 @@ function CastDetailModal({
 
                 <div className="grid grid-cols-1 gap-1.5">
                   <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
-                    <InfoRow label="身分証種類" value="運転免許証" readOnly />
-                    <InfoRow label="住民票・郵便物" value="◯" readOnly />
-                    <InfoRow
+                    <SelectRow
+                      label="身分証種類"
+                      value={form?.idDocType ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                idDocType: v as CastDetailForm["idDocType"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "運転免許証", label: "運転免許証" },
+                        { value: "保険証", label: "保険証" },
+                        { value: "パスポート", label: "パスポート" },
+                        { value: "マイナンバーカード", label: "マイナンバーカード" },
+                      ]}
+                    />
+                    <SelectRow
+                      label="住民票・郵便物"
+                      value={form?.residencyProof ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                residencyProof:
+                                  v as CastDetailForm["residencyProof"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "済", label: "済" },
+                        { value: "未", label: "未" },
+                      ]}
+                    />
+                    <SelectRow
                       label="宣誓（身分証のない・更新時）"
-                      value="◯"
-                      readOnly
+                      value={form?.oathStatus ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                oathStatus:
+                                  v as CastDetailForm["oathStatus"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "済", label: "済" },
+                        { value: "未", label: "未" },
+                      ]}
                     />
                   </div>
 
                   <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <InfoRow label="備考" value="特記事項なし" readOnly />
+                    <InfoRow
+                      label="備考"
+                      value={form?.idMemo ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, idMemo: v } : prev,
+                        )
+                      }
+                    />
                   </div>
                 </div>
               </section>
@@ -1467,7 +1733,7 @@ function ShiftEditModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
@@ -1560,7 +1826,7 @@ function ShiftEditModal({
           <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
             保存して閉じる
           </button>
         </div>
@@ -1636,6 +1902,39 @@ function InfoRow({
               : "bg-white border-gray-300"
           }`}
         />
+      </div>
+    </div>
+  );
+}
+
+/** セレクト専用の行パーツ（就業可否など） */
+function SelectRow({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
+      <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
+      <div className="flex-1 min-w-0">
+        <select
+          className="w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 bg-white border-gray-300 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">（選択してください）</option>
+          {options.map((opt) => (
+            <option key={opt.value || opt.label} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );

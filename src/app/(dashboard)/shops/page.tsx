@@ -252,7 +252,7 @@ export default function ShopsPage() {
                   (e.target.value || "") as ShopGenre | "",
                 );
               }}
-              className="tiara-input h-8 w-[120px] text-xs"
+              className="tiara-input h-9 min-w-[140px] text-[11px]"
             >
               <option value="">すべて</option>
               <option value="club">クラブ</option>
@@ -272,7 +272,7 @@ export default function ShopsPage() {
                   e.target.value as "kana" | "number" | "favorite",
                 );
               }}
-              className="tiara-input h-8 w-[140px] text-xs"
+              className="tiara-input h-9 min-w-[160px] text-[11px]"
             >
               <option value="kana">50音順</option>
               <option value="number">店舗番号順</option>
@@ -344,7 +344,7 @@ export default function ShopsPage() {
                 <button
                   key={r.id}
                   type="button"
-                  className="text-left rounded-xl border border-slate-200 bg-white/90 hover:border-sky-400 hover:shadow-md transition-colors px-3 py-3"
+                  className="text-left rounded-xl border border-slate-200 bg-white/90 hover:border-sky-400 hover:shadow-md transition-colors px-3 py-2"
                   onClick={() => setEditing(r)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -365,7 +365,7 @@ export default function ShopsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-2">
+                  <div className="mt-1">
                     <div className="text-sm font-semibold text-slate-900 line-clamp-1">
                       {r.name}
                     </div>
@@ -373,9 +373,10 @@ export default function ShopsPage() {
                       {getGenreLabel(r.genre ?? null)} /{" "}
                       {r.phone ?? "-"}
                     </div>
-                    <div className="mt-0.5 text-[10px] text-slate-400 font-mono">
+                    {/* dev shopId 表示は削除 */}
+                    {/* <div className="mt-0.5 text-[10px] text-slate-400 font-mono">
                       dev shopId: {r.id}
-                    </div>
+                    </div> */}
                   </div>
                 </button>
               ))}
@@ -507,7 +508,7 @@ function DisplayCountControl({
               (idx === 0 ? "" : "border-l border-slate-200") +
               " " +
               (isActive(opt)
-                ? "bg-slate-900 text-ink"
+                ? "bg-slate-200 text-slate-900"
                 : "bg-transparent text-slate-700")
             }
           >

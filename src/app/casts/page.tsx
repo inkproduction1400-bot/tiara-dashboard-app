@@ -1952,18 +1952,22 @@ function NgShopSelectModal({
   const [error, setError] = useState<string | null>(null);
   const [localSelected, setLocalSelected] = useState<string[]>(selectedIds ?? []);
 
+  // 追加: ジャンル絞り込み & 並び替え
+  const [genreFilter, setGenreFilter] = useState<string>("");
+  const [sortMode, setSortMode] = useState<"kana" | "number">("kana");
+
   useEffect(() => {
     setLocalSelected(selectedIds ?? []);
   }, [selectedIds]);
 
+  // 店舗一覧取得：limit を 10,000 にして「全件」取得する想定
   const fetchShops = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await listShops({
         q: q.trim() || undefined,
-        limit: 100,
-        offset: 0,
+        limit: 10_000, // 全件取得（API 側でクランプされる想定）
       });
       setItems((res as any).items ?? []);
     } catch (e: any) {
@@ -1975,7 +1979,7 @@ function NgShopSelectModal({
   };
 
   useEffect(() => {
-    // 初回ロード
+    // 初回ロードで全件取得
     fetchShops();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1996,6 +2000,59 @@ function NgShopSelectModal({
     onClose();
   };
 
+  // ジャンル候補（items から動的に生成）
+  const genreOptions = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((s: any) => {
+      const g: string | undefined =
+        (s.genre as string | undefined) ??
+        (Array.isArray(s.genres) ? s.genres[0] : undefined);
+      if (g && g.trim()) set.add(g.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [items]);
+
+  // フィルタ・並び替えを適用したリスト
+  const filteredItems = useMemo(() => {
+    let list: any[] = [...items];
+
+    // ジャンル絞り込み
+    if (genreFilter) {
+      list = list.filter((s) => {
+        const g: string | undefined =
+          (s.genre as string | undefined) ??
+          (Array.isArray(s.genres) ? s.genres[0] : undefined);
+        return g ? g.trim() === genreFilter : false;
+      });
+    }
+
+    // 並び替え
+    list.sort((a, b) => {
+      const nameA = String(a.name ?? a.shopName ?? "");
+      const nameB = String(b.name ?? b.shopName ?? "");
+      const numAraw =
+        (a.shopNumber as string | number | undefined) ??
+        (a.number as string | number | undefined) ??
+        "";
+      const numBraw =
+        (b.shopNumber as string | number | undefined) ??
+        (b.number as string | number | undefined) ??
+        "";
+
+      if (sortMode === "number") {
+        const numA = Number(String(numAraw).replace(/[^\d]/g, "")) || 0;
+        const numB = Number(String(numBraw).replace(/[^\d]/g, "")) || 0;
+        if (numA !== numB) return numA - numB;
+        return nameA.localeCompare(nameB, "ja");
+      }
+
+      // デフォルト: 50音順（店舗名）
+      return nameA.localeCompare(nameB, "ja");
+    });
+
+    return list as ShopListItem[];
+  }, [items, genreFilter, sortMode]);
+
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -2004,7 +2061,7 @@ function NgShopSelectModal({
           <div>
             <h4 className="text-sm font-semibold">NG店舗の選択</h4>
             <p className="text-[11px] text-muted">
-              検索してNGにしたい店舗を複数選択してください。
+              NGにしたい店舗を複数選択してください。
             </p>
           </div>
           <button
@@ -2015,14 +2072,42 @@ function NgShopSelectModal({
           </button>
         </div>
 
-        {/* 検索行 */}
-        <div className="flex items-center gap-2 mb-2">
+        {/* 検索 + ジャンル絞り込み + 並び替え */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {/* 検索テキスト：横幅を今の半分に調整 */}
           <input
-            className="tiara-input flex-1"
+            className="tiara-input w-full md:w-1/2"
             placeholder="店舗名・エリアなどで検索"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+
+          {/* ジャンル絞り込み */}
+          <select
+            className="tiara-input w-[120px] text-[11px]"
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
+          >
+            <option value="">ジャンル（すべて）</option>
+            {genreOptions.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+
+          {/* 並び替え */}
+          <select
+            className="tiara-input w-[140px] text-[11px]"
+            value={sortMode}
+            onChange={(e) =>
+              setSortMode(e.target.value === "number" ? "number" : "kana")
+            }
+          >
+            <option value="kana">並び順：50音順</option>
+            <option value="number">並び順：店舗番号順</option>
+          </select>
+
           <button
             type="button"
             className="px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white disabled:opacity-60"
@@ -2037,7 +2122,7 @@ function NgShopSelectModal({
           <div className="mb-2 text-[11px] text-red-500">エラー: {error}</div>
         )}
 
-        {/* 店舗一覧 */}
+        {/* 店舗一覧（フィルタ・並び替え後を表示） */}
         <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full text-[11px]">
             <thead className="bg-gray-50">
@@ -2049,7 +2134,7 @@ function NgShopSelectModal({
               </tr>
             </thead>
             <tbody>
-              {items.map((s: any) => {
+              {filteredItems.map((s: any) => {
                 const id = String(s.id);
                 const checked = localSelected.includes(id);
                 return (
@@ -2065,15 +2150,19 @@ function NgShopSelectModal({
                         onChange={() => toggleSelect(id)}
                       />
                     </td>
-                    <td className="px-2 py-1">{s.name ?? s.shopName}</td>
-                    <td className="px-2 py-1">{s.area ?? s.city ?? ""}</td>
+                    <td className="px-2 py-1">
+                      {s.name ?? s.shopName}
+                    </td>
+                    <td className="px-2 py-1">
+                      {s.area ?? s.city ?? ""}
+                    </td>
                     <td className="px-2 py-1 text-xs text-muted">
                       {s.address ?? ""}
                     </td>
                   </tr>
                 );
               })}
-              {!loading && items.length === 0 && (
+              {!loading && filteredItems.length === 0 && (
                 <tr>
                   <td
                     colSpan={4}

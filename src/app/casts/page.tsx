@@ -34,7 +34,8 @@ type CastRow = {
   legacyStaffId: number | null;
 };
 
-type SortMode = "kana" | "hourly";
+// ★ 並び替えモード：50音順 or 旧スタッフID順
+type SortMode = "kana" | "legacy";
 
 /** モーダルを document.body 直下に出すためのポータル */
 function ModalPortal({ children }: { children: React.ReactNode }) {
@@ -188,18 +189,31 @@ export default function Page() {
     });
 
     result = result.slice().sort((a, b) => {
-      if (sortMode === "hourly") {
-        const av = a.desiredHourly ?? 0;
-        const bv = b.desiredHourly ?? 0;
-        // 希望時給の高い順
-        if (av !== bv) return bv - av;
-        // 同額なら名前の50音順
-        return a.name.localeCompare(b.name, "ja");
+      if (sortMode === "legacy") {
+        // 旧スタッフID順（数値昇順, null は末尾）
+        const aNull = a.legacyStaffId == null;
+        const bNull = b.legacyStaffId == null;
+        if (aNull && bNull) {
+          // 両方 null → 名前 50音順
+          const cmpName = a.name.localeCompare(b.name, "ja");
+          if (cmpName !== 0) return cmpName;
+          return a.managementNumber.localeCompare(b.managementNumber, "ja");
+        }
+        if (aNull) return 1;
+        if (bNull) return -1;
+
+        const av = a.legacyStaffId as number;
+        const bv = b.legacyStaffId as number;
+        if (av !== bv) return av - bv;
+        // 同じ旧IDなら名前 50音順 → 管理番号
+        const cmpName = a.name.localeCompare(b.name, "ja");
+        if (cmpName !== 0) return cmpName;
+        return a.managementNumber.localeCompare(b.managementNumber, "ja");
       }
-      // 50音順（名前）
+
+      // デフォルト: 50音順（名前）→ 管理番号昇順
       const cmp = a.name.localeCompare(b.name, "ja");
       if (cmp !== 0) return cmp;
-      // 同名なら管理番号昇順
       return a.managementNumber.localeCompare(b.managementNumber, "ja");
     });
 
@@ -384,10 +398,10 @@ export default function Page() {
               <label className="flex items-center gap-1 text-xs text-muted">
                 <input
                   type="checkbox"
-                  checked={sortMode === "hourly"}
-                  onChange={() => setSortMode("hourly")}
+                  checked={sortMode === "legacy"}
+                  onChange={() => setSortMode("legacy")}
                 />
-                時給順
+                旧ID順
               </label>
               <button
                 className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"
@@ -1357,7 +1371,7 @@ function ShiftEditModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
@@ -1450,7 +1464,7 @@ function ShiftEditModal({
           <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">
             変更を破棄
           </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
+          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白">
             保存して閉じる
           </button>
         </div>

@@ -1,7 +1,7 @@
 // src/app/assignments/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   type ShopAssignment,
@@ -11,8 +11,7 @@ import {
 } from "@/store/assignmentsStore";
 import {
   type ScheduleShopRequest,
-  loadScheduleShopRequestsFromStorage,
-  saveScheduleShopRequestsToStorage,
+  loadScheduleShopRequests,
 } from "@/lib/schedule.store";
 
 // 今日/明日 用の日付キー（YYYY-MM-DD）
@@ -50,10 +49,8 @@ const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
 });
 
 export default function Page() {
-  // スケジュール共通ストアからロード
-  const [items, setItems] = useState<ScheduleShopRequest[]>(() =>
-    loadScheduleShopRequestsFromStorage(),
-  );
+  // スケジュール（本日＋明日分）は API からロード
+  const [items, setItems] = useState<ScheduleShopRequest[]>([]);
   // 割当キャストは従来どおりローカルストア
   const [assignments, setAssignments] = useState<ShopAssignment[]>(() =>
     loadAssignments(),
@@ -74,6 +71,28 @@ export default function Page() {
   const [assignmentDraftIsNew, setAssignmentDraftIsNew] = useState(false);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  // 初期ロード: 本日 + 明日の店舗リクエストを取得
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const today = todayKey();
+        const tomorrow = tomorrowKey();
+        const [todayList, tomorrowList] = await Promise.all([
+          loadScheduleShopRequests(today),
+          loadScheduleShopRequests(tomorrow),
+        ]);
+        setItems([...todayList, ...tomorrowList]);
+      } catch (err) {
+        console.error(
+          "failed to load schedule shop requests for assignments page",
+          err,
+        );
+        setItems([]);
+      }
+    };
+    void fetch();
+  }, []);
 
   // 店舗ごとの割当リスト（一覧表示用）
   const assignmentsByShop = useMemo(() => {
@@ -143,12 +162,12 @@ export default function Page() {
   const saveEdit = () => {
     if (!editing) return;
 
+    // いまはローカル state のみ更新（API 連携は後続タスク）
     setItems((prev) => {
       const exists = prev.some((i) => i.id === editing.id);
       const next = exists
         ? prev.map((i) => (i.id === editing.id ? editing : i))
         : [...prev, editing];
-      saveScheduleShopRequestsToStorage(next);
       return next;
     });
 
@@ -164,12 +183,10 @@ export default function Page() {
       return;
     }
 
-    setItems((prev) => {
-      const next = prev.filter((i) => i.id !== shop.id);
-      saveScheduleShopRequestsToStorage(next);
-      return next;
-    });
+    // スケジュール行を削除（ローカル state のみ）
+    setItems((prev) => prev.filter((i) => i.id !== shop.id));
 
+    // この店舗に紐づく割当キャストも削除（ローカルストア永続）
     setAssignments((prev) => {
       const next = prev.filter((a) => a.shopId !== shop.id);
       saveAssignments(next);
@@ -667,7 +684,7 @@ export default function Page() {
               </div>
 
               {/* この店舗の割当キャスト一覧 */}
-              <div className="mt-2 p-3 rounded-xl bg白/5 border border-white/10 space-y-3">
+              <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-muted">

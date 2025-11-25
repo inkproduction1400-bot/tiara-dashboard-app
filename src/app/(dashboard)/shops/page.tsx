@@ -308,7 +308,17 @@ export default function ShopsPage() {
                   onClick={() => setEditing(r)}
                 >
                   <td className="p-3 font-mono">{r.shopNumber ?? "-"}</td>
-                  <td className="p-3">{r.name}</td>
+
+                  {/* ★ 店舗名 + 開発用 shopId 表示 */}
+                  <td className="p-3">
+                    <div className="flex flex-col">
+                      <span>{r.name}</span>
+                      <span className="mt-0.5 text-[10px] text-slate-400 font-mono">
+                        dev shopId: {r.id}
+                      </span>
+                    </div>
+                  </td>
+
                   <td className="p-3">{r.genre ?? "-"}</td>
                   <td className="p-3">{r.phone ?? "-"}</td>
                   <td className="p-3 text-slate-400">
@@ -906,7 +916,8 @@ function ShopEditDrawer({
                   placeholder="メモ（任意）例: 週1で固定勤務"
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
-                  入力された管理番号をもとに、将来的にキャスト検索 → 専属登録する想定です（現状はID文字列を直接保存）。
+                  入力された管理番号をもとに、将来的にキャスト検索 →
+                  専属登録する想定です（現状はID文字列を直接保存）。
                 </p>
                 <button
                   type="button"
@@ -998,7 +1009,8 @@ function ShopEditDrawer({
                   placeholder="NG理由（任意）例: トラブル歴あり"
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
-                  入力された管理番号をもとに、将来的にキャスト検索 → NG登録する想定です（現状はID文字列を直接保存）。
+                  入力された管理番号をもとに、将来的にキャスト検索 →
+                  NG登録する想定です（現状はID文字列を直接保存）。
                 </p>
                 <button
                   type="button"

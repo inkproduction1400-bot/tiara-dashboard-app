@@ -4,19 +4,18 @@
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
-  type ScheduleShopRequest,
-  loadScheduleShopRequestsFromStorage,
-  saveScheduleShopRequestsToStorage,
-} from "@/lib/schedule.store";
+  listShopRequests,
+  createShopRequest,
+  updateShopRequest,
+  deleteShopRequest,
+  type ShopRequestRecord,
+  type CreateShopRequestPayload,
+  type UpdateShopRequestPayload,
+} from "@/lib/api.shop-requests";
 
-const todayKey = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = `${d.getMonth() + 1}`.padStart(2, "0");
-  const dd = `${d.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-};
-
+/**
+ * YYYY-MM-DD 文字列に対して日数加算
+ */
 const addDays = (base: string, diff: number) => {
   const [y, m, d] = base.split("-").map(Number);
   const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
@@ -27,68 +26,190 @@ const addDays = (base: string, diff: number) => {
   return `${yy}-${mm}-${dd}`;
 };
 
-const TODAY = todayKey();
-const TOMORROW = addDays(TODAY, 1);
-const DAY_AFTER = addDays(TODAY, 2);
+/**
+ * 今日を YYYY-MM-DD で返す
+ */
+const getTodayKey = (): string => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
-// 初期表示用のダミーデータ（ストレージに何も無い場合のみ使用）
-const MOCK_SCHEDULE: ScheduleShopRequest[] = [
-  {
-    id: "s1-" + TODAY,
-    date: TODAY,
-    code: "001",
-    name: "クラブ ティアラ本店",
-    requestedHeadcount: 5,
-    minHourly: 4500,
-    maxHourly: 6000,
-    minAge: 20,
-    maxAge: 32,
-    requireDrinkOk: true,
-    note: "本日のメイン店舗。売上見込み高め。",
-  },
-  {
-    id: "s2-" + TODAY,
-    date: TODAY,
-    code: "002",
-    name: "スナック フラワー",
-    requestedHeadcount: 3,
-    minHourly: 3500,
-    maxHourly: 4500,
-    minAge: 25,
-    maxAge: 40,
-    requireDrinkOk: false,
-    note: "落ち着いたお姉さん系。",
-  },
-  {
-    id: "s3-" + TOMORROW,
-    date: TOMORROW,
-    code: "003",
-    name: "ラウンジ プリマ",
-    requestedHeadcount: 4,
-    minHourly: 4000,
-    maxHourly: 5500,
-    minAge: 21,
-    maxAge: 30,
-    requireDrinkOk: true,
-    note: "常連さん来店予定。トーク上手め希望。",
-  },
-  {
-    id: "s4-" + DAY_AFTER,
-    date: DAY_AFTER,
-    code: "004",
-    name: "バー ルージュ",
-    requestedHeadcount: 2,
-    minHourly: 3800,
-    maxHourly: 5000,
-    minAge: 22,
-    maxAge: 35,
-    requireDrinkOk: false,
-    note: "単価は低め。新人の場数用。",
-  },
+const TODAY = getTodayKey();
+const TOMORROW = addDays(TODAY, 1);
+const DAY_AFTER = addDays(TODAY, 2); // いまは未使用だが将来の拡張用に残しておく
+
+/**
+ * 画面用のスケジュール行
+ * （API の ShopRequestRecord を UI 用に変換したもの）
+ */
+type UiShopRequest = {
+  id: string;
+  shopId: string | null;
+  date: string; // YYYY-MM-DD
+  code: string; // 店舗番号（shop.shopNumber）
+  name: string; // 店舗名（shop.name）
+  requestedHeadcount: number;
+  minHourly?: number;
+  maxHourly?: number;
+  minAge?: number;
+  maxAge?: number;
+  requireDrinkOk: boolean;
+  note?: string;
+};
+
+/**
+ * 時給レンジのプリセット
+ * （店舗管理ページの店舗編集モーダルと同じ構成）
+ */
+const HOURLY_RANGE_OPTIONS: {
+  label: string;
+  min?: number;
+  max?: number;
+}[] = [
+  { label: "（未設定）" },
+  { label: "2500円", min: 2500, max: 2500 },
+  { label: "2500円〜3000円", min: 2500, max: 3000 },
+  { label: "3000円", min: 3000, max: 3000 },
+  { label: "3000円〜3500円", min: 3000, max: 3500 },
+  { label: "3500円", min: 3500, max: 3500 },
+  { label: "3500円〜4000円", min: 3500, max: 4000 },
+  { label: "4000円", min: 4000, max: 4000 },
+  { label: "4000円〜4500円", min: 4000, max: 4500 },
+  { label: "4500円", min: 4500, max: 4500 },
+  { label: "4500円〜5000円", min: 4500, max: 5000 },
+  { label: "5000円", min: 5000, max: 5000 },
+  { label: "5000円〜5500円", min: 5000, max: 5500 },
+  { label: "5500円", min: 5500, max: 5500 },
+  { label: "5500円〜6000円", min: 5500, max: 6000 },
+  { label: "6000円以上", min: 6000, max: undefined },
 ];
 
-const createEmptyRequestForDate = (date: string): ScheduleShopRequest => ({
-  id: `new-${date}-${Date.now()}`,
+/**
+ * 年齢レンジのプリセット
+ * （店舗管理ページの「希望年齢」と揃える）
+ */
+const AGE_RANGE_OPTIONS: {
+  label: string;
+  min?: number;
+  max?: number;
+}[] = [
+  { label: "（未設定）" },
+  { label: "18〜19", min: 18, max: 19 },
+  { label: "20〜24", min: 20, max: 24 },
+  { label: "25〜29", min: 25, max: 29 },
+  { label: "30〜34", min: 30, max: 34 },
+  { label: "35〜39", min: 35, max: 39 },
+  // 必要になったら 40〜49 / 50歳以上 などをここに追加
+];
+
+/**
+ * min/max からプリセットラベルを逆算（時給）
+ */
+const getHourlyLabelFromRange = (min?: number, max?: number): string => {
+  const hit = HOURLY_RANGE_OPTIONS.find(
+    (opt) =>
+      (opt.min ?? null) === (min ?? null) &&
+      (opt.max ?? null) === (max ?? null),
+  );
+  return hit?.label ?? "（未設定）";
+};
+
+/**
+ * min/max からプリセットラベルを逆算（年齢）
+ */
+const getAgeLabelFromRange = (min?: number, max?: number): string => {
+  const hit = AGE_RANGE_OPTIONS.find(
+    (opt) =>
+      (opt.min ?? null) === (min ?? null) &&
+      (opt.max ?? null) === (max ?? null),
+  );
+  return hit?.label ?? "（未設定）";
+};
+
+/**
+ * API レコード → 画面用型に変換
+ */
+const mapRecordToUi = (rec: ShopRequestRecord): UiShopRequest => {
+  const date =
+    rec.requestDate && rec.requestDate.length >= 10
+      ? rec.requestDate.slice(0, 10)
+      : TODAY;
+
+  return {
+    id: rec.id,
+    shopId: rec.shopId ?? null,
+    date,
+    code: rec.shop?.shopNumber ?? "",
+    name: rec.shop?.name ?? "",
+    requestedHeadcount: rec.requestedHeadcount ?? 0,
+    minHourly: rec.minHourly ?? undefined,
+    maxHourly: rec.maxHourly ?? undefined,
+    minAge: rec.minAge ?? undefined,
+    maxAge: rec.maxAge ?? undefined,
+    requireDrinkOk: !!rec.requireDrinkOk,
+    note: rec.note ?? "",
+  };
+};
+
+/**
+ * UI 型 → API create 用ペイロード
+ */
+const uiToCreatePayload = (ui: UiShopRequest): CreateShopRequestPayload => {
+  const shopId = (ui.shopId ?? "").trim();
+  if (!shopId) {
+    // ★ 店舗マスタ連携前の暫定バリデーション
+    throw new Error(
+      "店舗ID（shopId）が未設定です。店舗管理画面などで shops.id を確認して入力してください。",
+    );
+  }
+
+  return {
+    shopId,
+    requestDate: ui.date,
+    requestedHeadcount: ui.requestedHeadcount,
+    minHourly: ui.minHourly,
+    maxHourly: ui.maxHourly,
+    minAge: ui.minAge,
+    maxAge: ui.maxAge,
+    requireDrinkOk: ui.requireDrinkOk,
+    note: ui.note,
+  };
+};
+
+/**
+ * UI 型 → API update 用ペイロード
+ */
+const uiToUpdatePayload = (ui: UiShopRequest): UpdateShopRequestPayload => {
+  const shopId = (ui.shopId ?? "").trim();
+
+  const payload: UpdateShopRequestPayload = {
+    requestDate: ui.date,
+    requestedHeadcount: ui.requestedHeadcount,
+    minHourly: ui.minHourly,
+    maxHourly: ui.maxHourly,
+    minAge: ui.minAge,
+    maxAge: ui.maxAge,
+    requireDrinkOk: ui.requireDrinkOk,
+    note: ui.note,
+  };
+
+  if (shopId) {
+    payload.shopId = shopId;
+  }
+
+  return payload;
+};
+
+/**
+ * 新規作成用のひな形
+ */
+const createEmptyRequestForDate = (date: string): UiShopRequest => ({
+  id: `tmp-${date}-${Date.now()}`,
+  // 開発中は手入力するため空文字で初期化
+  shopId: "",
   date,
   code: "",
   name: "",
@@ -102,26 +223,50 @@ const createEmptyRequestForDate = (date: string): ScheduleShopRequest => ({
 });
 
 export default function Page() {
-  // ★ 初期値は localStorage > モックデータ の優先でロード
-  const [items, setItems] = useState<ScheduleShopRequest[]>(() => {
-    const stored = loadScheduleShopRequestsFromStorage();
-    if (stored.length > 0) return stored;
-    return MOCK_SCHEDULE;
-  });
-
+  const [items, setItems] = useState<UiShopRequest[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
   const [keyword, setKeyword] = useState("");
   const [rangeView, setRangeView] = useState<"day" | "week">("day");
 
-  const [editing, setEditing] = useState<ScheduleShopRequest | null>(null);
+  const [editing, setEditing] = useState<UiShopRequest | null>(null);
   const [editingIsNew, setEditingIsNew] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
-  // items が更新される度にストレージへ永続化
+  /**
+   * 指定日の店舗リクエストを API から取得
+   */
+  const reloadForDate = async (targetDate: string) => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await listShopRequests({
+        date: targetDate,
+        take: 500,
+        offset: 0,
+      });
+      const list = (res.items ?? []).map(mapRecordToUi);
+      setItems(list);
+    } catch (e) {
+      console.error("failed to load shop-requests", e);
+      setItems([]);
+      setLoadError("店舗リクエストの取得に失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ★ 選択日付が変わるたびに API から店舗リクエストを取得
   useEffect(() => {
-    saveScheduleShopRequestsToStorage(items);
-  }, [items]);
+    void reloadForDate(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const selectedDateLabel = useMemo(() => {
     if (selectedDate === TODAY) return "本日";
@@ -130,26 +275,29 @@ export default function Page() {
   }, [selectedDate]);
 
   const dailyItems = useMemo(() => {
-    let list: ScheduleShopRequest[] = items.filter(
-      (i: ScheduleShopRequest) => i.date === selectedDate,
+    let list: UiShopRequest[] = items.filter(
+      (i: UiShopRequest) => i.date === selectedDate,
     );
 
     if (keyword.trim()) {
       const q = keyword.trim();
       list = list.filter(
-        (i: ScheduleShopRequest) =>
+        (i: UiShopRequest) =>
           i.name.includes(q) ||
           i.code.includes(q) ||
-          i.note?.includes(q),
+          (i.note ?? "").includes(q),
       );
     }
 
-    list.sort((a: ScheduleShopRequest, b: ScheduleShopRequest) =>
+    list.sort((a: UiShopRequest, b: UiShopRequest) =>
       a.code.localeCompare(b.code),
     );
     return list;
   }, [items, selectedDate, keyword]);
 
+  /**
+   * 1週間分のざっくりサマリー
+   */
   const weeklySummary = useMemo(() => {
     const base = selectedDate;
     const range: string[] = [];
@@ -158,7 +306,7 @@ export default function Page() {
     }
     const counts: Record<string, number> = {};
     for (const d of range) counts[d] = 0;
-    items.forEach((it: ScheduleShopRequest) => {
+    items.forEach((it: UiShopRequest) => {
       if (counts[it.date] != null) {
         counts[it.date] += 1;
       }
@@ -169,35 +317,69 @@ export default function Page() {
   const openNew = () => {
     setEditing(createEmptyRequestForDate(selectedDate));
     setEditingIsNew(true);
+    setSaveError(null);
   };
 
-  const openEdit = (req: ScheduleShopRequest) => {
+  const openEdit = (req: UiShopRequest) => {
     setEditing(req);
     setEditingIsNew(false);
+    setSaveError(null);
   };
 
   const closeEdit = () => {
     setEditing(null);
     setEditingIsNew(false);
+    setSaveError(null);
   };
 
-  const saveEdit = () => {
+  /**
+   * ★ API 経由で保存（新規 or 更新）
+   */
+  const saveEdit = async () => {
     if (!editing) return;
 
-    setItems((prev: ScheduleShopRequest[]) => {
-      const exists = prev.some((i: ScheduleShopRequest) => i.id === editing.id);
-      if (exists) {
-        return prev.map((i: ScheduleShopRequest) =>
-          i.id === editing.id ? editing : i,
-        );
-      }
-      return [...prev, editing];
-    });
+    setSaving(true);
+    setSaveError(null);
+    try {
+      if (editingIsNew) {
+        const payload = uiToCreatePayload(editing);
+        const created = await createShopRequest(payload);
+        const dateKey =
+          created.requestDate && created.requestDate.length >= 10
+            ? created.requestDate.slice(0, 10)
+            : selectedDate;
 
-    closeEdit();
+        setSelectedDate(dateKey);
+        await reloadForDate(dateKey);
+      } else {
+        const payload = uiToUpdatePayload(editing);
+        const updated = await updateShopRequest(editing.id, payload);
+        const dateKey =
+          updated.requestDate && updated.requestDate.length >= 10
+            ? updated.requestDate.slice(0, 10)
+            : selectedDate;
+
+        setSelectedDate(dateKey);
+        await reloadForDate(dateKey);
+      }
+
+      closeEdit();
+    } catch (e: unknown) {
+      console.error("failed to save shop-request", e);
+      if (e instanceof Error && e.message) {
+        setSaveError(e.message);
+      } else {
+        setSaveError("店舗リクエストの保存に失敗しました。");
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const deleteItem = (req: ScheduleShopRequest) => {
+  /**
+   * ★ API 経由で削除
+   */
+  const deleteItem = async (req: UiShopRequest) => {
     if (
       !window.confirm(
         `【${req.date}】店舗番号 ${req.code} / ${req.name} のリクエストを削除しますか？`,
@@ -205,12 +387,19 @@ export default function Page() {
     ) {
       return;
     }
-    setItems((prev: ScheduleShopRequest[]) =>
-      prev.filter((i: ScheduleShopRequest) => i.id !== req.id),
-    );
 
-    if (editing && editing.id === req.id) {
-      closeEdit();
+    try {
+      setSaving(true);
+      await deleteShopRequest(req.id);
+      await reloadForDate(selectedDate);
+      if (editing && editing.id === req.id) {
+        closeEdit();
+      }
+    } catch (e) {
+      console.error("failed to delete shop-request", e);
+      alert("削除に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -342,6 +531,16 @@ export default function Page() {
               </div>
             </div>
           </div>
+
+          {/* ローディング・エラー表示 */}
+          {loading && (
+            <p className="mt-1 text-xs text-muted">
+              店舗リクエストを取得中です…
+            </p>
+          )}
+          {loadError && !loading && (
+            <p className="mt-1 text-xs text-red-400">{loadError}</p>
+          )}
         </section>
 
         {/* メイン */}
@@ -386,17 +585,37 @@ export default function Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dailyItems.length === 0 ? (
+                  {loading ? (
                     <tr>
                       <td
                         className="px-3 py-4 text-center text-[11px] text-muted"
                         colSpan={8}
                       >
-                        この日付にはまだ店舗リクエストが登録されていません。
+                        データを読み込み中です…
+                      </td>
+                    </tr>
+                  ) : loadError ? (
+                    <tr>
+                      <td
+                        className="px-3 py-4 text-center text-[11px] text-red-300"
+                        colSpan={8}
+                      >
+                        {loadError}
+                      </td>
+                    </tr>
+                  ) : dailyItems.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-3 py-4 text-center text-[11px] text-muted"
+                        colSpan={8}
+                      >
+                        {selectedDate === TODAY
+                          ? "本日のリクエスト店舗がセットされていません。"
+                          : "この日付にはまだ店舗リクエストが登録されていません。"}
                       </td>
                     </tr>
                   ) : (
-                    dailyItems.map((req: ScheduleShopRequest) => (
+                    dailyItems.map((req: UiShopRequest) => (
                       <tr
                         key={req.id}
                         className="border-t border-white/5 hover:bg-slate-900/30"
@@ -439,7 +658,8 @@ export default function Page() {
                             <button
                               type="button"
                               className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-3 py-1 text-[11px]"
-                              onClick={() => deleteItem(req)}
+                              onClick={() => void deleteItem(req)}
+                              disabled={saving}
                             >
                               削除
                             </button>
@@ -583,6 +803,30 @@ export default function Page() {
                 </div>
               </div>
 
+              {/* ★ 開発用: 店舗ID 直接入力フィールド */}
+              <div>
+                <label className="block text-[11px] text-muted mb-1">
+                  店舗ID（開発用）
+                </label>
+                <input
+                  className="tiara-input h-8 w-full text-xs font-mono"
+                  placeholder="例）shops.id を貼り付け"
+                  value={editing.shopId ?? ""}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      shopId: e.target.value.trim() || "",
+                    })
+                  }
+                />
+                <p className="mt-1 text-[10px] text-muted">
+                  ※ 現状は店舗マスタ連携前のため、テスト時は{" "}
+                  <code className="mx-1">shops.id</code>（UUID）を Swagger や
+                  DB からコピーして貼り付けてください。
+                  本番ではプルダウン選択に置き換える予定です。
+                </p>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[11px] text-muted mb-1">
@@ -622,78 +866,69 @@ export default function Page() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* ★ 希望時給レンジ：プリセット式ドロップダウン */}
                 <div>
                   <label className="block text-[11px] text-muted mb-1">
                     希望時給レンジ（円）
                   </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      className="tiara-input h-8 w-full text-xs text-right"
-                      placeholder="min"
-                      value={editing.minHourly ?? ""}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          minHourly: e.target.value
-                            ? Number(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                    <span className="text-muted">〜</span>
-                    <input
-                      type="number"
-                      className="tiara-input h-8 w-full text-xs text-right"
-                      placeholder="max"
-                      value={editing.maxHourly ?? ""}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          maxHourly: e.target.value
-                            ? Number(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </div>
+                  <select
+                    className="tiara-input h-8 w-full text-xs"
+                    value={getHourlyLabelFromRange(
+                      editing.minHourly,
+                      editing.maxHourly,
+                    )}
+                    onChange={(e) => {
+                      const label = e.target.value;
+                      const opt = HOURLY_RANGE_OPTIONS.find(
+                        (o) => o.label === label,
+                      );
+                      setEditing({
+                        ...editing,
+                        minHourly: opt?.min,
+                        maxHourly: opt?.max,
+                      });
+                    }}
+                  >
+                    {HOURLY_RANGE_OPTIONS.map((opt) => (
+                      <option key={opt.label} value={opt.label}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted">
+                    店舗管理ページの「時給」と同じプリセットで揃えています。
+                  </p>
                 </div>
 
+                {/* ★ 希望年齢レンジ：プリセット式ドロップダウン */}
                 <div>
                   <label className="block text-[11px] text-muted mb-1">
                     希望年齢レンジ（歳）
                   </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      className="tiara-input h-8 w-full text-xs text-right"
-                      placeholder="min"
-                      value={editing.minAge ?? ""}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          minAge: e.target.value
-                            ? Number(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                    <span className="text-muted">〜</span>
-                    <input
-                      type="number"
-                      className="tiara-input h-8 w-full text-xs text-right"
-                      placeholder="max"
-                      value={editing.maxAge ?? ""}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          maxAge: e.target.value
-                            ? Number(e.target.value)
-                            : undefined,
-                        })
-                      }
-                    />
-                  </div>
+                  <select
+                    className="tiara-input h-8 w-full text-xs"
+                    value={getAgeLabelFromRange(
+                      editing.minAge,
+                      editing.maxAge,
+                    )}
+                    onChange={(e) => {
+                      const label = e.target.value;
+                      const opt = AGE_RANGE_OPTIONS.find(
+                        (o) => o.label === label,
+                      );
+                      setEditing({
+                        ...editing,
+                        minAge: opt?.min,
+                        maxAge: opt?.max,
+                      });
+                    }}
+                  >
+                    {AGE_RANGE_OPTIONS.map((opt) => (
+                      <option key={opt.label} value={opt.label}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -710,6 +945,10 @@ export default function Page() {
                   placeholder="例）NGキャスト: A101 / A205 など。客層・希望タイプ・注意事項などを記載。"
                 />
               </div>
+
+              {saveError && (
+                <p className="text-[11px] text-red-400">{saveError}</p>
+              )}
             </div>
 
             <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
@@ -717,15 +956,17 @@ export default function Page() {
                 type="button"
                 className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
                 onClick={closeEdit}
+                disabled={saving}
               >
                 キャンセル
               </button>
               <button
                 type="button"
-                className="tiara-btn text-xs"
-                onClick={saveEdit}
+                className="tiara-btn text-xs disabled:opacity-60"
+                onClick={() => void saveEdit()}
+                disabled={saving}
               >
-                {editingIsNew ? "追加（ローカル）" : "保存（ローカル）"}
+                {editingIsNew ? "追加（API保存）" : "保存（API保存）"}
               </button>
             </footer>
           </div>

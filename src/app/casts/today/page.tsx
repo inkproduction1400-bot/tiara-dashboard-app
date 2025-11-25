@@ -8,8 +8,8 @@ import {
   listCasts as fetchCastList,
 } from "@/lib/api.casts";
 import {
-  loadScheduleShopRequestsFromStorage,
   type ScheduleShopRequest,
+  loadScheduleShopRequests,
 } from "@/lib/schedule.store";
 
 type DrinkLevel = "ng" | "weak" | "normal" | "strong" | null;
@@ -43,7 +43,7 @@ type Shop = {
   requireDrinkOk?: boolean;
 };
 
-// ===== スケジュール連携: 本日分の店舗をスケジュールストアから取得 =====
+// ===== スケジュール連携: 本日分の店舗を取得 =====
 
 // 本日の日付キー（YYYY-MM-DD）
 const todayKey = () => {
@@ -117,6 +117,9 @@ export default function Page() {
   // 全キャスト（シフトに関係なく /casts から取得）
   const [allCasts, setAllCasts] = useState<Cast[]>([]);
 
+  // 本日分の店舗（スケジュールAPI連携）
+  const [todayShops, setTodayShops] = useState<Shop[]>([]);
+
   const [staged, setStaged] = useState<Cast[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<string>("");
   const [keyword, setKeyword] = useState("");
@@ -144,28 +147,41 @@ export default function Page() {
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
   // ★ スケジュールで登録された「本日分の店舗」をロード（無ければ空配列）
-  const todayShops: Shop[] = useMemo(() => {
-    const allReq: ScheduleShopRequest[] = loadScheduleShopRequestsFromStorage();
-    const today = todayKey();
+  useEffect(() => {
+    let cancelled = false;
 
-    const todaysReq = allReq.filter((req) => req.date === today);
+    const run = async () => {
+      try {
+        const today = todayKey();
+        const reqs: ScheduleShopRequest[] =
+          await loadScheduleShopRequests(today);
 
-    // 本日分が 0 件なら空配列（ダミー店舗は出さない）
-    if (todaysReq.length === 0) {
-      return [];
-    }
+        if (cancelled) return;
 
-    // ScheduleShopRequest → Shop へマッピング
-    return todaysReq.map<Shop>((req) => ({
-      id: req.id, // スケジュール側の id を採用
-      code: req.code,
-      name: req.name,
-      minHourly: req.minHourly,
-      maxHourly: req.maxHourly,
-      minAge: req.minAge,
-      maxAge: req.maxAge,
-      requireDrinkOk: req.requireDrinkOk,
-    }));
+        const shops: Shop[] = reqs.map((req) => ({
+          id: req.id, // スケジュール側の id を採用
+          code: req.code,
+          name: req.name,
+          minHourly: req.minHourly,
+          maxHourly: req.maxHourly,
+          minAge: req.minAge,
+          maxAge: req.maxAge,
+          requireDrinkOk: req.requireDrinkOk,
+        }));
+        setTodayShops(shops);
+      } catch (e) {
+        console.error("failed to load today shops from schedule", e);
+        if (!cancelled) {
+          setTodayShops([]);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectedShop = useMemo(
@@ -238,7 +254,7 @@ export default function Page() {
       }
     };
 
-    run();
+    void run();
 
     return () => {
       cancelled = true;
@@ -416,11 +432,11 @@ export default function Page() {
               <span className="font-semibold ml-1">{todayCasts.length}</span> 名
             </span>
             {/* ここは将来 API 連携で置き換え */}
-            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
+            <span className="inline-flex items-center rounded-full bg白 text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
               配属済数：
               <span className="font-semibold ml-1">{154}</span> 名
             </span>
-            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
+            <span className="inline-flex items-center rounded-full bg白 text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
               明日の出勤予定：
               <span className="font-semibold ml-1">{667}</span> 名
             </span>

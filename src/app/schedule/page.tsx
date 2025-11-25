@@ -12,6 +12,10 @@ import {
   type CreateShopRequestPayload,
   type UpdateShopRequestPayload,
 } from "@/lib/api.shop-requests";
+import {
+  listShops,
+  type ShopListItem,
+} from "@/lib/api.shops";
 
 /**
  * YYYY-MM-DD 文字列に対して日数加算
@@ -131,6 +135,23 @@ const getAgeLabelFromRange = (min?: number, max?: number): string => {
 };
 
 /**
+ * 「店舗ごとの前回セット条件」を localStorage に持たせる
+ */
+type LastCondition = {
+  shopId: string;
+  requestedHeadcount: number;
+  requireDrinkOk: boolean;
+  minHourly?: number;
+  maxHourly?: number;
+  minAge?: number;
+  maxAge?: number;
+};
+
+type LastConditionMap = Record<string, LastCondition>;
+
+const LAST_COND_STORAGE_KEY = "tiara:shopRequests:lastConditions:v1";
+
+/**
  * API レコード → 画面用型に変換
  */
 const mapRecordToUi = (rec: ShopRequestRecord): UiShopRequest => {
@@ -240,6 +261,78 @@ export default function Page() {
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
+  // ★ 店舗マスタ一覧（id / 店舗番号 / 店舗名）
+  const [shops, setShops] = useState<ShopListItem[]>([]);
+
+  // ★ 店舗ごとの前回条件
+  const [lastConditions, setLastConditions] = useState<LastConditionMap>({});
+
+  /**
+   * 前回条件を localStorage から読み込み
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(LAST_COND_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as LastConditionMap;
+      setLastConditions(parsed);
+    } catch (e) {
+      console.error("failed to load lastConditions from localStorage", e);
+    }
+  }, []);
+
+  /**
+   * 前回条件を更新＆localStorage 保存
+   */
+  const updateLastConditionForShop = (shopId: string, ui: UiShopRequest) => {
+    setLastConditions((prev) => {
+      const next: LastConditionMap = {
+        ...prev,
+        [shopId]: {
+          shopId,
+          requestedHeadcount: ui.requestedHeadcount,
+          requireDrinkOk: ui.requireDrinkOk,
+          minHourly: ui.minHourly,
+          maxHourly: ui.maxHourly,
+          minAge: ui.minAge,
+          maxAge: ui.maxAge,
+        },
+      };
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            LAST_COND_STORAGE_KEY,
+            JSON.stringify(next),
+          );
+        } catch (e) {
+          console.error("failed to save lastConditions to localStorage", e);
+        }
+      }
+      return next;
+    });
+  };
+
+  /**
+   * 指定店舗の前回条件を UI モデルに反映
+   */
+  const applyLastConditionToUi = (
+    base: UiShopRequest,
+    shopId: string,
+  ): UiShopRequest => {
+    const cond = lastConditions[shopId];
+    if (!cond) return base;
+    return {
+      ...base,
+      requestedHeadcount: cond.requestedHeadcount,
+      requireDrinkOk: cond.requireDrinkOk,
+      minHourly: cond.minHourly,
+      maxHourly: cond.maxHourly,
+      minAge: cond.minAge,
+      maxAge: cond.maxAge,
+    };
+  };
+
   /**
    * 指定日の店舗リクエストを API から取得
    */
@@ -268,6 +361,25 @@ export default function Page() {
     void reloadForDate(selectedDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  /**
+   * ★ 画面初期表示時に /shops を叩いて店舗マスタ一覧を取得
+   */
+  useEffect(() => {
+    const loadShops = async () => {
+      try {
+        const res = await listShops({
+          q: "",
+          limit: 1000,
+          offset: 0,
+        });
+        setShops(res.items ?? []);
+      } catch (e) {
+        console.error("failed to load shops for schedule page", e);
+      }
+    };
+    void loadShops();
+  }, []);
 
   const selectedDateLabel = useMemo(() => {
     if (selectedDate === TODAY) return "本日";
@@ -335,6 +447,7 @@ export default function Page() {
 
   /**
    * ★ API 経由で保存（新規 or 更新）
+   *    + 保存成功時に「前回条件」を localStorage に記録
    */
   const saveEdit = async () => {
     if (!editing) return;
@@ -350,6 +463,11 @@ export default function Page() {
             ? created.requestDate.slice(0, 10)
             : selectedDate;
 
+        // ★ 前回条件を記録
+        if (editing.shopId) {
+          updateLastConditionForShop(editing.shopId, editing);
+        }
+
         setSelectedDate(dateKey);
         await reloadForDate(dateKey);
       } else {
@@ -359,6 +477,11 @@ export default function Page() {
           updated.requestDate && updated.requestDate.length >= 10
             ? updated.requestDate.slice(0, 10)
             : selectedDate;
+
+        // ★ 前回条件を記録
+        if (editing.shopId) {
+          updateLastConditionForShop(editing.shopId, editing);
+        }
 
         setSelectedDate(dateKey);
         await reloadForDate(dateKey);
@@ -409,6 +532,23 @@ export default function Page() {
   const moveDate = (diff: number) =>
     setSelectedDate((prev) => addDays(prev, diff));
 
+  /**
+   * 店舗番号 / 店舗名 / 店舗ID から店舗を検索して
+   * shopId / code / name を揃えつつ前回条件も反映するヘルパー
+   */
+  const selectShopAndApplyLastCondition = (shop: ShopListItem) => {
+    setEditing((prev) => {
+      if (!prev) return prev;
+      const base: UiShopRequest = {
+        ...prev,
+        shopId: shop.id,
+        code: shop.shopNumber ?? prev.code,
+        name: shop.name ?? prev.name,
+      };
+      return applyLastConditionToUi(base, shop.id);
+    });
+  };
+
   return (
     <AppShell>
       <div className="h-full flex flex-col gap-3">
@@ -432,7 +572,7 @@ export default function Page() {
           </header>
 
           {/* 日付選択・フィルタ */}
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+          <div className="mt-2 flex flex-wrap items中心 gap-3 text-xs">
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">表示日付</span>
               <div className="inline-flex items-center gap-1">
@@ -787,6 +927,16 @@ export default function Page() {
                     onChange={(e) =>
                       setEditing({ ...editing, code: e.target.value })
                     }
+                    onBlur={() => {
+                      if (!editing) return;
+                      const code = editing.code.trim();
+                      if (!code || shops.length === 0) return;
+                      const hit = shops.find(
+                        (s) => s.shopNumber === code,
+                      );
+                      if (!hit) return;
+                      selectShopAndApplyLastCondition(hit);
+                    }}
                   />
                 </div>
                 <div className="col-span-2">
@@ -800,6 +950,14 @@ export default function Page() {
                     onChange={(e) =>
                       setEditing({ ...editing, name: e.target.value })
                     }
+                    onBlur={() => {
+                      if (!editing) return;
+                      const name = editing.name.trim();
+                      if (!name || shops.length === 0) return;
+                      const hit = shops.find((s) => s.name === name);
+                      if (!hit) return;
+                      selectShopAndApplyLastCondition(hit);
+                    }}
                   />
                 </div>
               </div>
@@ -819,12 +977,19 @@ export default function Page() {
                       shopId: e.target.value.trim() || "",
                     })
                   }
+                  onBlur={() => {
+                    if (!editing) return;
+                    const sid = (editing.shopId ?? "").trim();
+                    if (!sid || shops.length === 0) return;
+                    const hit = shops.find((s) => s.id === sid);
+                    if (!hit) return;
+                    selectShopAndApplyLastCondition(hit);
+                  }}
                 />
                 <p className="mt-1 text-[10px] text-muted">
-                  ※ 現状は店舗マスタ連携前のため、テスト時は{" "}
-                  <code className="mx-1">shops.id</code>（UUID）を Swagger や
-                  DB からコピーして貼り付けてください。
-                  本番ではプルダウン選択に置き換える予定です。
+                  ※ 店舗番号・店舗名・店舗ID のいずれかを入力 → フォーカスを外すと、
+                  店舗マスタに一致する店舗があれば残りの項目も自動で埋まります。
+                  一致した店舗には「前回セット時の条件」も自動で復元されます。
                 </p>
               </div>
 
@@ -955,7 +1120,7 @@ export default function Page() {
               )}
             </div>
 
-            <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
+            <footer className="px-4 py-3 border-t border白/10 flex items-center justify-end gap-2">
               <button
                 type="button"
                 className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"

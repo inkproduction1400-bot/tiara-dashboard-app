@@ -328,7 +328,7 @@ export default function ShopsPage() {
           }
         />
 
-        {/* 店舗カード 2列レイアウト */}
+        {/* 店舗カード グリッドレイアウト（md:2列 / xl:4列） */}
         <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5 p-3">
           {loading ? (
             <div className="h-full flex items-center justify-center text-[11px] text-muted">
@@ -339,7 +339,7 @@ export default function ShopsPage() {
               該当データがありません
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
               {pagedItems.map((r) => (
                 <button
                   key={r.id}
@@ -374,9 +374,6 @@ export default function ShopsPage() {
                       {r.phone ?? "-"}
                     </div>
                     {/* dev shopId 表示は削除 */}
-                    {/* <div className="mt-0.5 text-[10px] text-slate-400 font-mono">
-                      dev shopId: {r.id}
-                    </div> */}
                   </div>
                 </button>
               ))}

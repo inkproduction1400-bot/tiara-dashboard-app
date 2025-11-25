@@ -12,6 +12,7 @@ import {
   type CreateShopRequestPayload,
   type UpdateShopRequestPayload,
 } from "@/lib/api.shop-requests";
+import { listShops, type ShopListItem } from "@/lib/api.shops";
 
 /**
  * YYYY-MM-DD 文字列に対して日数加算
@@ -88,25 +89,7 @@ const HOURLY_RANGE_OPTIONS: {
 ];
 
 /**
- * 年齢レンジのプリセット
- * （店舗管理ページの「希望年齢」と揃える）
- */
-const AGE_RANGE_OPTIONS: {
-  label: string;
-  min?: number;
-  max?: number;
-}[] = [
-  { label: "（未設定）" },
-  { label: "18〜19", min: 18, max: 19 },
-  { label: "20〜24", min: 20, max: 24 },
-  { label: "25〜29", min: 25, max: 29 },
-  { label: "30〜34", min: 30, max: 34 },
-  { label: "35〜39", min: 35, max: 39 },
-  // 必要になったら 40〜49 / 50歳以上 などをここに追加
-];
-
-/**
- * min/max からプリセットラベルを逆算（時給）
+ * min/max からプリセットラベルを逆算
  */
 const getHourlyLabelFromRange = (min?: number, max?: number): string => {
   const hit = HOURLY_RANGE_OPTIONS.find(
@@ -118,16 +101,29 @@ const getHourlyLabelFromRange = (min?: number, max?: number): string => {
 };
 
 /**
- * min/max からプリセットラベルを逆算（年齢）
+ * 店舗参照用の軽量型
  */
-const getAgeLabelFromRange = (min?: number, max?: number): string => {
-  const hit = AGE_RANGE_OPTIONS.find(
-    (opt) =>
-      (opt.min ?? null) === (min ?? null) &&
-      (opt.max ?? null) === (max ?? null),
-  );
-  return hit?.label ?? "（未設定）";
+type ShopRef = {
+  id: string;
+  shopNumber: string;
+  name: string;
 };
+
+/**
+ * 店舗ごとの「前回セット時」の条件
+ */
+type LastShopSettings = {
+  requestedHeadcount: number;
+  requireDrinkOk: boolean;
+  minHourly?: number;
+  maxHourly?: number;
+  minAge?: number;
+  maxAge?: number;
+};
+
+type LastSettingsMap = Record<string, LastShopSettings>;
+
+const LAST_SETTINGS_STORAGE_KEY = "tiara:schedule:lastShopSettings:v1";
 
 /**
  * API レコード → 画面用型に変換
@@ -239,6 +235,35 @@ export default function Page() {
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
+  // 店舗マスタ（自動補完用）
+  const [shops, setShops] = useState<ShopRef[]>([]);
+  const [shopsError, setShopsError] = useState<string | null>(null);
+
+  // 店舗ごとの「前回セット時」の条件（localStorage と同期）
+  const [lastSettingsByShopId, setLastSettingsByShopId] =
+    useState<LastSettingsMap>(() => {
+      if (typeof window === "undefined") return {};
+      try {
+        const raw = window.localStorage.getItem(LAST_SETTINGS_STORAGE_KEY);
+        if (!raw) return {};
+        return JSON.parse(raw) as LastSettingsMap;
+      } catch {
+        return {};
+      }
+    });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        LAST_SETTINGS_STORAGE_KEY,
+        JSON.stringify(lastSettingsByShopId),
+      );
+    } catch {
+      // storage 書き込み失敗時は無視
+    }
+  }, [lastSettingsByShopId]);
+
   /**
    * 指定日の店舗リクエストを API から取得
    */
@@ -267,6 +292,72 @@ export default function Page() {
     void reloadForDate(selectedDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
+
+  // ★ 画面初期表示時に店舗マスタを取得（自動補完用）
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShops = async () => {
+      try {
+        const res = await listShops({ q: "", limit: 1000, offset: 0 });
+        if (cancelled) return;
+        const list: ShopRef[] = (res.items ?? []).map((s: ShopListItem) => ({
+          id: s.id,
+          shopNumber: s.shopNumber ?? "",
+          name: s.name ?? "",
+        }));
+        setShops(list);
+      } catch (e) {
+        console.error("failed to load shops for schedule page", e);
+        if (!cancelled) {
+          setShopsError(
+            "店舗情報の取得に失敗しました。店舗番号・店舗名の自動補完は利用できません。",
+          );
+        }
+      }
+    };
+
+    void loadShops();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const findShopByCode = (code: string): ShopRef | undefined =>
+    shops.find((s) => s.shopNumber === code);
+
+  const findShopByName = (name: string): ShopRef | undefined =>
+    shops.find((s) => s.name === name);
+
+  const findShopById = (id: string): ShopRef | undefined =>
+    shops.find((s) => s.id === id);
+
+  /**
+   * 店舗が確定したときに、店舗情報 & 「前回セット時」の条件を editing に反映
+   */
+  const applyShopSelection = (
+    prev: UiShopRequest,
+    shop: ShopRef,
+  ): UiShopRequest => {
+    const base: UiShopRequest = {
+      ...prev,
+      shopId: shop.id,
+      code: shop.shopNumber || prev.code,
+      name: shop.name || prev.name,
+    };
+
+    const last = lastSettingsByShopId[shop.id];
+    if (last) {
+      base.requestedHeadcount = last.requestedHeadcount;
+      base.requireDrinkOk = last.requireDrinkOk;
+      base.minHourly = last.minHourly;
+      base.maxHourly = last.maxHourly;
+      base.minAge = last.minAge;
+      base.maxAge = last.maxAge;
+    }
+
+    return base;
+  };
 
   const selectedDateLabel = useMemo(() => {
     if (selectedDate === TODAY) return "本日";
@@ -341,28 +432,42 @@ export default function Page() {
     setSaving(true);
     setSaveError(null);
     try {
+      let dateKey = selectedDate;
+
       if (editingIsNew) {
         const payload = uiToCreatePayload(editing);
         const created = await createShopRequest(payload);
-        const dateKey =
+        dateKey =
           created.requestDate && created.requestDate.length >= 10
             ? created.requestDate.slice(0, 10)
             : selectedDate;
-
-        setSelectedDate(dateKey);
-        await reloadForDate(dateKey);
       } else {
         const payload = uiToUpdatePayload(editing);
         const updated = await updateShopRequest(editing.id, payload);
-        const dateKey =
+        dateKey =
           updated.requestDate && updated.requestDate.length >= 10
             ? updated.requestDate.slice(0, 10)
             : selectedDate;
-
-        setSelectedDate(dateKey);
-        await reloadForDate(dateKey);
       }
 
+      // 「前回セット時」の条件を更新
+      const shopIdForSettings = (editing.shopId ?? "").trim();
+      if (shopIdForSettings) {
+        setLastSettingsByShopId((prev) => ({
+          ...prev,
+          [shopIdForSettings]: {
+            requestedHeadcount: editing.requestedHeadcount,
+            requireDrinkOk: editing.requireDrinkOk,
+            minHourly: editing.minHourly,
+            maxHourly: editing.maxHourly,
+            minAge: editing.minAge,
+            maxAge: editing.maxAge,
+          },
+        }));
+      }
+
+      setSelectedDate(dateKey);
+      await reloadForDate(dateKey);
       closeEdit();
     } catch (e: unknown) {
       console.error("failed to save shop-request", e);
@@ -422,9 +527,14 @@ export default function Page() {
                 日付ごとに「店舗の必要人数・条件」を登録します。
                 ここで登録した予定を元に、割当確認・マッチング画面の店舗条件へ反映していく想定です。
               </p>
+              {shopsError && (
+                <p className="mt-0.5 text-[11px] text-amber-300">
+                  {shopsError}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 border border-white/10">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg白/15 border border-white/10">
                 build: {buildStamp}
               </span>
             </div>
@@ -474,7 +584,7 @@ export default function Page() {
                     selectedDate === TODAY
                       ? "bg-slate-900 text-ink"
                       : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                  } text-[11px`}
                   onClick={jumpToToday}
                 >
                   本日
@@ -485,7 +595,7 @@ export default function Page() {
                     selectedDate === TOMORROW
                       ? "bg-slate-900 text-ink"
                       : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                  } text-[11px`}
                   onClick={jumpToTomorrow}
                 >
                   明日
@@ -512,7 +622,7 @@ export default function Page() {
                     rangeView === "day"
                       ? "bg-slate-900 text-ink"
                       : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                  } text-[11px`}
                   onClick={() => setRangeView("day")}
                 >
                   1日
@@ -523,7 +633,7 @@ export default function Page() {
                     rangeView === "week"
                       ? "bg-slate-900 text-ink"
                       : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                  } text-[11px`}
                   onClick={() => setRangeView("week")}
                 >
                   選択日から1週間
@@ -786,6 +896,16 @@ export default function Page() {
                     onChange={(e) =>
                       setEditing({ ...editing, code: e.target.value })
                     }
+                    onBlur={(e) => {
+                      if (!editing) return;
+                      const code = e.target.value.trim();
+                      if (!code) return;
+                      const shop = findShopByCode(code);
+                      if (!shop) return;
+                      setEditing((prev) =>
+                        prev ? applyShopSelection(prev, shop) : prev,
+                      );
+                    }}
                   />
                 </div>
                 <div className="col-span-2">
@@ -799,6 +919,16 @@ export default function Page() {
                     onChange={(e) =>
                       setEditing({ ...editing, name: e.target.value })
                     }
+                    onBlur={(e) => {
+                      if (!editing) return;
+                      const name = e.target.value.trim();
+                      if (!name) return;
+                      const shop = findShopByName(name);
+                      if (!shop) return;
+                      setEditing((prev) =>
+                        prev ? applyShopSelection(prev, shop) : prev,
+                      );
+                    }}
                   />
                 </div>
               </div>
@@ -818,6 +948,16 @@ export default function Page() {
                       shopId: e.target.value.trim() || "",
                     })
                   }
+                  onBlur={(e) => {
+                    if (!editing) return;
+                    const id = e.target.value.trim();
+                    if (!id) return;
+                    const shop = findShopById(id);
+                    if (!shop) return;
+                    setEditing((prev) =>
+                      prev ? applyShopSelection(prev, shop) : prev,
+                    );
+                  }}
                 />
                 <p className="mt-1 text-[10px] text-muted">
                   ※ 現状は店舗マスタ連携前のため、テスト時は{" "}
@@ -900,35 +1040,41 @@ export default function Page() {
                   </p>
                 </div>
 
-                {/* ★ 希望年齢レンジ：プリセット式ドロップダウン */}
                 <div>
                   <label className="block text-[11px] text-muted mb-1">
                     希望年齢レンジ（歳）
                   </label>
-                  <select
-                    className="tiara-input h-8 w-full text-xs"
-                    value={getAgeLabelFromRange(
-                      editing.minAge,
-                      editing.maxAge,
-                    )}
-                    onChange={(e) => {
-                      const label = e.target.value;
-                      const opt = AGE_RANGE_OPTIONS.find(
-                        (o) => o.label === label,
-                      );
-                      setEditing({
-                        ...editing,
-                        minAge: opt?.min,
-                        maxAge: opt?.max,
-                      });
-                    }}
-                  >
-                    {AGE_RANGE_OPTIONS.map((opt) => (
-                      <option key={opt.label} value={opt.label}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      className="tiara-input h-8 w-full text-xs text-right"
+                      placeholder="min"
+                      value={editing.minAge ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          minAge: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
+                        })
+                      }
+                    />
+                    <span className="text-muted">〜</span>
+                    <input
+                      type="number"
+                      className="tiara-input h-8 w-full text-xs text-right"
+                      placeholder="max"
+                      value={editing.maxAge ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          maxAge: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
 

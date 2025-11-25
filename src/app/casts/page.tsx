@@ -2001,16 +2001,7 @@ function NgShopSelectModal({
   };
 
   // ジャンル候補（items から動的に生成）
-  const genreOptions = useMemo(() => {
-    const set = new Set<string>();
-    items.forEach((s: any) => {
-      const g: string | undefined =
-        (s.genre as string | undefined) ??
-        (Array.isArray(s.genres) ? s.genres[0] : undefined);
-      if (g && g.trim()) set.add(g.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [items]);
+  const genreOptions = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
 
   // フィルタ・並び替えを適用したリスト
   const filteredItems = useMemo(() => {

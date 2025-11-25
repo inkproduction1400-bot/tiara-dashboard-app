@@ -110,6 +110,15 @@ export default function Page() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // ★ ページング
+  const [limit, setLimit] = useState(40); // 1ページ最大件数（2列なので 20×2 のイメージ）
+  const [offset, setOffset] = useState(0);
+
+  // フィルタ変更時は先頭ページに戻す
+  useEffect(() => {
+    setOffset(0);
+  }, [q, staffFilter, sortMode]);
+
   // 一覧取得：初回に最大 10,000 件を一括ロード（検索はフロント側で実施）
   useEffect(() => {
     let canceled = false;
@@ -219,6 +228,65 @@ export default function Page() {
 
     return result;
   }, [q, staffFilter, sortMode, baseRows]);
+
+  // ★ ページング後の 2 列用データ
+  const total = rows.length;
+  const safeOffset = Math.min(offset, Math.max(total - 1, 0));
+  const pagedRows = total ? rows.slice(safeOffset, safeOffset + limit) : [];
+  const leftRows = pagedRows.filter((_, idx) => idx % 2 === 0);
+  const rightRows = pagedRows.filter((_, idx) => idx % 2 === 1);
+
+  const pageStart = total === 0 ? 0 : safeOffset + 1;
+  const pageEnd = total === 0 ? 0 : Math.min(safeOffset + limit, total);
+  const canPrev = safeOffset > 0;
+  const canNext = safeOffset + limit < total;
+
+  const pagination = (
+    <div className="flex items-center justify-end gap-2 text-[11px] text-muted">
+      <span>
+        {total
+          ? `${total.toLocaleString()}件中 ${pageStart.toLocaleString()}〜${pageEnd.toLocaleString()}件を表示`
+          : "0件"}
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="px-2 py-1 rounded-lg border border-gray-300 bg-gray-50 disabled:opacity-50"
+          disabled={!canPrev}
+          onClick={() => {
+            if (!canPrev) return;
+            setOffset(Math.max(safeOffset - limit, 0));
+          }}
+        >
+          前へ
+        </button>
+        <button
+          type="button"
+          className="px-2 py-1 rounded-lg border border-gray-300 bg-gray-50 disabled:opacity-50"
+          disabled={!canNext}
+          onClick={() => {
+            if (!canNext) return;
+            setOffset(safeOffset + limit);
+          }}
+        >
+          次へ
+        </button>
+        <select
+          className="tiara-input h-[26px] text-[11px] w-[70px]"
+          value={limit}
+          onChange={(e) => {
+            const v = Number(e.target.value) || 40;
+            setLimit(v);
+            setOffset(0);
+          }}
+        >
+          <option value={20}>20件</option>
+          <option value={40}>40件</option>
+          <option value={80}>80件</option>
+        </select>
+      </div>
+    </div>
+  );
 
   // 行クリック → 詳細 API 取得
   const handleRowClick = (r: CastRow) => {
@@ -334,6 +402,62 @@ export default function Page() {
     setDeleteError(null);
   };
 
+  // 一覧テーブル（2列用共通）
+  const renderTable = (slice: CastRow[]) => (
+    <div className="overflow-auto rounded-xl border border-gray-200 bg-white">
+      <table className="w-full text-[12px]">
+        <thead className="bg-gray-50 text-muted">
+          <tr>
+            <th className="text-left px-2 py-1 w-24">管理番号</th>
+            <th className="text-left px-2 py-1">名前</th>
+            <th className="text-left px-2 py-1 w-10">年齢</th>
+            <th className="text-left px-2 py-1 w-20">希望時給</th>
+            <th className="text-left px-2 py-1 w-20">旧ID</th>
+            <th className="text-left px-2 py-1 w-24">担当者</th>
+            <th className="text-left px-2 py-1 w-16">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {slice.map((r) => (
+            <tr
+              key={r.id}
+              className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+              onClick={() => handleRowClick(r)}
+            >
+              <td className="px-2 py-1 font-mono text-[11px]">
+                {r.managementNumber}
+              </td>
+              <td className="px-2 py-1 truncate">{r.name}</td>
+              <td className="px-2 py-1 text-center">
+                {r.age != null ? r.age : "-"}
+              </td>
+              <td className="px-2 py-1">
+                {r.desiredHourly
+                  ? `¥${r.desiredHourly.toLocaleString()}`
+                  : "-"}
+              </td>
+              <td className="px-2 py-1 font-mono text-[11px]">
+                {r.legacyStaffId != null ? r.legacyStaffId : "-"}
+              </td>
+              <td className="px-2 py-1 truncate">
+                {r.ownerStaffName || "-"}
+              </td>
+              <td className="px-2 py-1">
+                <button
+                  type="button"
+                  className="text-[10px] px-2 py-0.5 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
+                  onClick={(e) => handleClickDelete(e, r)}
+                >
+                  削除
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <AppShell>
       <section className="tiara-panel h-full flex flex-col p-3 bg-white text-ink">
@@ -347,7 +471,7 @@ export default function Page() {
           <div className="text-[11px] text-muted">
             {loading
               ? "一覧を読み込み中…"
-              : `${rows.length.toLocaleString()} 件表示中`}
+              : `${total.toLocaleString()} 件中 ${pageStart.toLocaleString()}〜${pageEnd.toLocaleString()} 件表示中`}
             {loadError && (
               <span className="ml-2 text-red-400">（{loadError}）</span>
             )}
@@ -409,6 +533,7 @@ export default function Page() {
                   setQ("");
                   setStaffFilter("");
                   setSortMode("kana");
+                  setOffset(0);
                 }}
               >
                 クリア
@@ -417,61 +542,32 @@ export default function Page() {
           </div>
         </div>
 
-        {/* テーブル */}
-        <div className="mt-3 overflow-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-muted">
-              <tr>
-                <th className="text-left px-3 py-2 w-28">管理番号</th>
-                <th className="text-left px-3 py-2">名前</th>
-                <th className="text-left px-3 py-2 w-16">年齢</th>
-                <th className="text-left px-3 py-2 w-24">希望時給</th>
-                <th className="text-left px-3 py-2 w-24">旧スタッフID</th>
-                <th className="text-left px-3 py-2 w-32">担当者</th>
-                <th className="text-left px-3 py-2 w-20">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRowClick(r)}
-                >
-                  <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
-                  <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2">
-                    {r.age != null ? r.age : "-"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.desiredHourly
-                      ? `¥${r.desiredHourly.toLocaleString()}`
-                      : "-"}
-                  </td>
-                  <td className="px-3 py-2 font-mono">
-                    {r.legacyStaffId != null ? r.legacyStaffId : "-"}
-                  </td>
-                  <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      className="text-[11px] px-2 py-1 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
-                      onClick={(e) => handleClickDelete(e, r)}
-                    >
-                      削除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td className="px-3 py-6 text-center text-muted" colSpan={7}>
-                    該当データがありません
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* 一覧（2列＋ページング） */}
+        <div className="mt-3 flex flex-col gap-2 flex-1">
+          {/* 上部ページング */}
+          {pagination}
+
+          {loading && (
+            <div className="mt-4 text-center text-xs text-muted">
+              一覧を読み込み中…
+            </div>
+          )}
+
+          {!loading && total === 0 && (
+            <div className="mt-4 text-center text-sm text-muted">
+              該当データがありません
+            </div>
+          )}
+
+          {total > 0 && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {renderTable(leftRows)}
+              {renderTable(rightRows)}
+            </div>
+          )}
+
+          {/* 下部ページング */}
+          {total > 0 && <div className="mt-2">{pagination}</div>}
         </div>
 
         {/* キャスト詳細モーダル（ポータル経由で body 直下に出す） */}
@@ -792,7 +888,7 @@ function CastDetailModal({
         {/* 本体：横幅広め・高さは 90vh に収める（中身はスクロール） */}
         <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center justify_between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">
                 キャスト詳細（{displayName}）

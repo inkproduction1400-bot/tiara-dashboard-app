@@ -12,6 +12,10 @@ import {
   type CastDetail,
   type CastListItem,
 } from "@/lib/api.casts";
+import {
+  listShops,
+  type ShopListItem,
+} from "@/lib/api.shops";
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -36,6 +40,10 @@ type CastRow = {
 
 // ★ 並び替えモード：50音順 or 旧スタッフID順
 type SortMode = "kana" | "legacy";
+
+/** ジャンル選択肢（複数選択） */
+const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
+type CastGenre = (typeof CAST_GENRE_OPTIONS)[number];
 
 /** モーダルを document.body 直下に出すためのポータル */
 function ModalPortal({ children }: { children: React.ReactNode }) {
@@ -724,8 +732,10 @@ type CastDetailForm = {
   idMemo: string; // 身分証関連の備考
 
   // ジャンル・NG店舗
-  genres: string[];
+  genres: CastGenre[];
   ngShopMemo: string;
+  ngShopIds: string[];
+  ngShopNames: string[];
 };
 
 /**
@@ -740,6 +750,7 @@ function CastDetailModal({
   onUpdated,
 }: CastDetailModalProps) {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [ngModalOpen, setNgModalOpen] = useState(false);
   const [form, setForm] = useState<CastDetailForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -753,6 +764,25 @@ function CastDetailModal({
       setSaveError(null);
       return;
     }
+
+    // ジャンル
+    const rawGenres = (detail.background as any)?.genres;
+    const genres: CastGenre[] = Array.isArray(rawGenres)
+      ? (rawGenres as any[]).filter((g: any): g is CastGenre =>
+          CAST_GENRE_OPTIONS.includes(g as CastGenre),
+        )
+      : [];
+
+    // NG店舗（API: detail.ngShops）
+    const existingNgShops: any[] = Array.isArray((detail as any).ngShops)
+      ? ((detail as any).ngShops as any[])
+      : [];
+    const ngShopIds: string[] = existingNgShops
+      .map((s) => String(s.id ?? s.shopId ?? ""))
+      .filter(Boolean);
+    const ngShopNames: string[] = existingNgShops
+      .map((s) => (s.name ?? s.shopName ?? "") as string)
+      .filter((n) => n && n.trim());
 
     setForm({
       displayName: detail.displayName ?? cast.name,
@@ -843,10 +873,10 @@ function CastDetailModal({
         "",
       idMemo: (detail.background as any)?.idMemo ?? "",
 
-      genres: Array.isArray((detail.background as any)?.genres)
-        ? ((detail.background as any)?.genres as string[])
-        : [],
+      genres,
       ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
+      ngShopIds,
+      ngShopNames,
     });
     setSaveDone(false);
     setSaveError(null);
@@ -999,6 +1029,8 @@ function CastDetailModal({
         },
         background,
         hasExperience: hasExperienceFlag,
+        // ★ NG店舗ID（モーダルで更新）
+        ngShopIds: form.ngShopIds?.length ? form.ngShopIds : null,
       } as Parameters<typeof updateCast>[1];
 
       const updated = await updateCast(cast.id, payload);
@@ -1148,6 +1180,46 @@ function CastDetailModal({
                         )
                       }
                     />
+                    {/* ジャンル（クラブ・キャバ・スナック・ガルバ 複数選択） */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                      <div className="sm:w-32 text-[12px] text-muted shrink-0">
+                        ジャンル
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap gap-1">
+                          {CAST_GENRE_OPTIONS.map((g) => {
+                            const active = form?.genres?.includes(g) ?? false;
+                            return (
+                              <button
+                                key={g}
+                                type="button"
+                                onClick={() =>
+                                  setForm((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          genres: prev.genres.includes(g)
+                                            ? prev.genres.filter(
+                                                (x) => x !== g,
+                                              )
+                                            : [...prev.genres, g],
+                                        }
+                                      : prev,
+                                  )
+                                }
+                                className={`px-3 py-1 rounded-full text-[11px] border ${
+                                  active
+                                    ? "bg-indigo-500 text-white border-indigo-500"
+                                    : "bg-white text-ink/80 border-gray-300"
+                                }`}
+                              >
+                                {g}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                     {/* ティアラ査定時給 */}
                     <MainInfoRow
                       label="ティアラ査定時給"
@@ -1166,9 +1238,9 @@ function CastDetailModal({
                       label="NG店舗（複数登録可）"
                       value={form?.ngShopMemo ?? ""}
                       placeholder={
-                        detail?.ngShops
-                          ? `${detail.ngShops.length}件登録（例: 店舗名をカンマ区切りで記入）`
-                          : "例: 店舗名をカンマ区切りで記入"
+                        detail && (detail as any).ngShops
+                          ? `${((detail as any).ngShops as any[]).length}件登録（例: 備考を記入）`
+                          : "例: 備考を記入"
                       }
                       onChange={(v) =>
                         setForm((prev) =>
@@ -1176,7 +1248,23 @@ function CastDetailModal({
                         )
                       }
                     />
-                    {/* TODO: 将来的に NG店舗モーダル（店舗一覧から選択）をここに追加 */}
+                    {form && (
+                      <div className="flex items-center justify-between gap-2 pl-0.5">
+                        <div className="text-[11px] text-muted">
+                          選択中:{" "}
+                          {form.ngShopNames.length
+                            ? form.ngShopNames.join(" / ")
+                            : "未選択"}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setNgModalOpen(true)}
+                          className="px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white"
+                        >
+                          店舗から選択
+                        </button>
+                      </div>
+                    )}
                     {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
                       <div className="sm:w-28 text-[12px] text-muted shrink-0">
@@ -1628,6 +1716,19 @@ function CastDetailModal({
           castName={displayName}
         />
       )}
+
+      {/* NG店舗選択モーダル */}
+      {ngModalOpen && form && (
+        <NgShopSelectModal
+          onClose={() => setNgModalOpen(false)}
+          selectedIds={form.ngShopIds}
+          onChange={(ids, names) => {
+            setForm((prev) =>
+              prev ? { ...prev, ngShopIds: ids, ngShopNames: names } : prev,
+            );
+          }}
+        />
+      )}
     </>
   );
 }
@@ -1829,6 +1930,185 @@ function ShiftEditModal({
           <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
             保存して閉じる
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** NG店舗選択モーダル */
+function NgShopSelectModal({
+  onClose,
+  selectedIds,
+  onChange,
+}: {
+  onClose: () => void;
+  selectedIds: string[];
+  onChange: (ids: string[], names: string[]) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState<ShopListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localSelected, setLocalSelected] = useState<string[]>(selectedIds ?? []);
+
+  useEffect(() => {
+    setLocalSelected(selectedIds ?? []);
+  }, [selectedIds]);
+
+  const fetchShops = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listShops({
+        q: q.trim() || undefined,
+        limit: 100,
+        offset: 0,
+      });
+      setItems((res as any).items ?? []);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? "店舗一覧の取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // 初回ロード
+    fetchShops();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleSelect = (id: string) => {
+    setLocalSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const handleApply = () => {
+    const idSet = new Set(localSelected);
+    const names = items
+      .filter((s: any) => idSet.has(String(s.id)))
+      .map((s: any) => String(s.name ?? s.shopName ?? ""))
+      .filter((n) => n && n.trim());
+    onChange(localSelected, names);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center px-3">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="text-sm font-semibold">NG店舗の選択</h4>
+            <p className="text-[11px] text-muted">
+              検索してNGにしたい店舗を複数選択してください。
+            </p>
+          </div>
+          <button
+            className="px-3 py-1 rounded-lg text-[11px] border border-red-400/80 bg-red-500/80 text-white"
+            onClick={onClose}
+          >
+            閉じる
+          </button>
+        </div>
+
+        {/* 検索行 */}
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            className="tiara-input flex-1"
+            placeholder="店舗名・エリアなどで検索"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white disabled:opacity-60"
+            onClick={fetchShops}
+            disabled={loading}
+          >
+            {loading ? "検索中…" : "検索"}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-2 text-[11px] text-red-500">エラー: {error}</div>
+        )}
+
+        {/* 店舗一覧 */}
+        <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full text-[11px]">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-10 px-2 py-1 text-left">NG</th>
+                <th className="px-2 py-1 text-left">店舗名</th>
+                <th className="px-2 py-1 text-left">エリア</th>
+                <th className="px-2 py-1 text-left">住所</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((s: any) => {
+                const id = String(s.id);
+                const checked = localSelected.includes(id);
+                return (
+                  <tr
+                    key={id}
+                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleSelect(id)}
+                  >
+                    <td className="px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSelect(id)}
+                      />
+                    </td>
+                    <td className="px-2 py-1">{s.name ?? s.shopName}</td>
+                    <td className="px-2 py-1">{s.area ?? s.city ?? ""}</td>
+                    <td className="px-2 py-1 text-xs text-muted">
+                      {s.address ?? ""}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && items.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-3 text-center text-[11px] text-muted"
+                  >
+                    該当する店舗がありません
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* フッター */}
+        <div className="mt-3 flex items-center justify-between text-[11px]">
+          <div className="text-muted">
+            選択中: {localSelected.length} 件
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50 text-ink"
+              onClick={() => {
+                setLocalSelected([]);
+              }}
+            >
+              すべて解除
+            </button>
+            <button
+              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60"
+              disabled={loading}
+              onClick={handleApply}
+            >
+              この内容で登録
+            </button>
+          </div>
         </div>
       </div>
     </div>

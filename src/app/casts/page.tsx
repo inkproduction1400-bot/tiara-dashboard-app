@@ -1,1532 +1,1921 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
-import { createPortal } from "react-dom";
 import {
-  listCasts,
-  getCast,
-  updateCast,
-  deleteCast,
-  type CastDetail,
-  type CastListItem,
+  listTodayCasts,
+  listCasts as fetchCastList,
 } from "@/lib/api.casts";
+import {
+  type ScheduleShopRequest,
+  loadScheduleShopRequests,
+} from "@/lib/schedule.store";
 
-/**
- * 一覧用キャスト行（API からの view model）
- * - 管理番号（4桁数字）
- * - 名前
- * - 年齢（生年月日からフロントで自動算出。なければ API の age）
- * - 希望時給
- * - キャストID（A001 など）※現状はプレースホルダ
- * - 担当者名 ※現状はプレースホルダ
- * - 旧システムのスタッフID（legacyStaffId）
- */
-type CastRow = {
+// ====== 追加: 型定義 ======
+
+type DrinkLevel = "ng" | "weak" | "normal" | "strong" | null;
+
+// キャストのジャンル（複数選択用）
+type CastGenre = "club" | "cabaret" | "snack" | "gb";
+
+// 店舗ジャンル（NG登録モーダルの絞り込み用）
+type ShopGenre = "club" | "cabaret" | "snack" | "gb";
+
+// 年齢レンジフィルタ
+type AgeRangeFilter =
+  | ""
+  | "18-19"
+  | "20-24"
+  | "25-29"
+  | "30-34"
+  | "35-39"
+  | "40-49"
+  | "50-";
+
+// 共通のセレクト用型
+type YesNo = "yes" | "no" | "";
+type DoneStatus = "done" | "notYet" | "";
+type IdType = "license" | "insurance" | "passport" | "mynumber" | "";
+
+// Cast マスタに紐づく詳細項目もここで持つ（API連携は今後）
+type Cast = {
   id: string;
-  managementNumber: string; // 管理番号（4桁など）
+  code: string;
   name: string;
-  age: number | null;
-  desiredHourly: number | null;
-  castCode: string;
-  ownerStaffName: string;
-  legacyStaffId: number | null;
+  age: number;
+  desiredHourly: number;
+  /** 飲酒レベル: NG / 弱い / 普通 / 強い / 未登録(null) */
+  drinkLevel: DrinkLevel;
+  photoUrl?: string;
+  /** このキャストがNGの店舗ID一覧（将来APIから付与 or 更新） */
+  ngShopIds?: string[];
+  /** 旧ID（既存仕様：管理番号・名前・旧IDで検索できる想定） */
+  oldId?: string;
+  /** キャストのジャンル（クラブ / キャバ / スナック / ガルバ など複数） */
+  genres?: CastGenre[];
+
+  // ---- 詳細モーダル用の追加項目 ----
+  furigana?: string;
+  payText?: string; // 時給 / 月給
+  tattoo?: YesNo;
+  shuttle?: YesNo; // 送迎
+  experience?: YesNo; // 経験
+  workHistory?: string; // 勤務歴
+  referrerName?: string; // 紹介者名
+  otherAgencyComparison?: string; // 他の派遣会社との比較
+  otherAgencyName?: string; // 派遣会社名
+  miscNote?: string; // その他
+  salary30kNote?: string; // 30,000円到達への所感
+  idType?: IdType; // 身分証種類
+  juminhyoPost?: DoneStatus; // 住民票・郵便物
+  oath?: DoneStatus; // 宣誓
+  remarks?: string; // 備考
 };
 
-type SortMode = "kana" | "hourly";
+type Shop = {
+  id: string;
+  code: string;
+  name: string;
+  /** 最低時給（未指定なら無制限） */
+  minHourly?: number;
+  /** 最大時給（未指定なら無制限） */
+  maxHourly?: number;
+  /** 最低年齢 */
+  minAge?: number;
+  /** 最高年齢 */
+  maxAge?: number;
+  /** true の場合は「NG 以外で飲めるキャスト」のみマッチ */
+  requireDrinkOk?: boolean;
+  /** 店舗ジャンル（将来の拡張を想定） */
+  genre?: ShopGenre | null;
+};
 
-/** モーダルを document.body 直下に出すためのポータル */
-function ModalPortal({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
+// キャスト詳細モーダルのフォーム用
+type CastForm = {
+  furigana: string;
+  payText: string;
+  tattoo: YesNo;
+  shuttle: YesNo;
+  drinkLevel: DrinkLevel | "";
+  experience: YesNo;
+  workHistory: string;
+  referrerName: string;
+  otherAgencyComparison: string;
+  otherAgencyName: string;
+  miscNote: string;
+  salary30kNote: string;
+  idType: IdType;
+  juminhyoPost: DoneStatus;
+  oath: DoneStatus;
+  remarks: string;
+};
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+// ===== スケジュール連携: 本日分の店舗を取得 =====
 
-  if (!mounted) return null;
-  return createPortal(children, document.body);
-}
+// 本日の日付キー（YYYY-MM-DD）
+const todayKey = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const dd = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
-/** 旧システム由来のゴミ値（NULL 配列 / PHP シリアライズなど）を空文字に正規化 */
-function sanitizeBackgroundField(raw?: string | null): string {
-  if (raw == null) return "";
-  const v = String(raw).trim();
-  if (!v) return "";
+// 並び替え：要件 + 既存（時給／年齢）も残しておく
+type SortKey =
+  | "default"
+  | "hourlyDesc"
+  | "ageAsc"
+  | "ageDesc"
+  | "kana"
+  | "oldId";
 
-  const lower = v.toLowerCase();
+type DrinkSort = "none" | "okFirst" | "ngFirst";
 
-  // 単純な NULL 文字列
-  if (lower === "null" || lower === "none") return "";
+// NG登録モード
+type NgMode = "shopToCast" | "castToShop";
 
-  // PHP シリアライズっぽい a:6:{...}
-  if (v.startsWith("a:")) return "";
-
-  // [[null,null]] など配列文字列っぽいもの
-  if (v.startsWith("[[") || v.startsWith("{{")) return "";
-  if (/^\[.*null.*\]$/.test(lower)) return "";
-
-  return v;
-}
-
-/** 生年月日(YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD など)から年齢を計算 */
-function calcAgeFromBirthdate(birthdate?: string | null): number | null {
-  if (!birthdate) return null;
-  const src = birthdate.trim();
-  if (!src) return null;
-
-  const safe = src.replace(/\./g, "-").replace(/\//g, "-");
-  const d = new Date(safe);
-  if (Number.isNaN(d.getTime())) return null;
-
-  const today = new Date();
-  let age = today.getFullYear() - d.getFullYear();
-  const m = today.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
-    age -= 1;
+/** boolean/文字列から4段階の飲酒レベルに変換するヘルパー */
+const mapDrinkLevel = (raw: any): DrinkLevel => {
+  // すでに enum 的な文字列ならそれを優先
+  if (raw === "ng" || raw === "weak" || raw === "normal" || raw === "strong") {
+    return raw;
   }
-  if (age < 0 || age > 130) return null;
-  return age;
-}
+  // 旧データ boolean 対応
+  if (raw === true) return "normal";
+  if (raw === false) return "ng";
+  return null; // 未登録
+};
+
+/** 飲酒レベルを数値スコアに変換（ソート用） */
+const drinkScore = (level: DrinkLevel): number => {
+  switch (level) {
+    case "ng":
+      return 0;
+    case "weak":
+      return 1;
+    case "normal":
+      return 2;
+    case "strong":
+      return 3;
+    default:
+      return -1; // 未登録は最後寄せ
+  }
+};
+
+/** キャストの「番号ソート用キー」（管理番号が優先 / 数字抽出） */
+const castNumberKey = (cast: Cast): number => {
+  const s = cast.code ?? "";
+  const m = s.match(/\d+/);
+  if (!m) return 999999;
+  const n = Number.parseInt(m[0], 10);
+  return Number.isNaN(n) ? 999999 : n;
+};
+
+/** キャストの「50音ソート用キー」（名前ベース） */
+const castKanaKey = (cast: Cast): string => {
+  return cast.name ?? "";
+};
+
+/** 店舗の「番号ソート用キー」（codeから数字を抽出） */
+const shopNumberKey = (shop: Shop): number => {
+  const s = shop.code ?? "";
+  const m = s.match(/\d+/);
+  if (!m) return 999999;
+  const n = Number.parseInt(m[0], 10);
+  return Number.isNaN(n) ? 999999 : n;
+};
+
+/** 店舗の「50音ソート用キー」（店舗名ベース） */
+const shopKanaKey = (shop: Shop): string => {
+  return shop.name ?? "";
+};
+
+/** キャストのジャンルラベル */
+const CAST_GENRE_LABEL: Record<CastGenre, string> = {
+  club: "クラブ",
+  cabaret: "キャバ",
+  snack: "スナック",
+  gb: "ガルバ",
+};
+
+/** 店舗ジャンルラベル */
+const SHOP_GENRE_LABEL: Record<ShopGenre, string> = {
+  club: "クラブ",
+  cabaret: "キャバ",
+  snack: "スナック",
+  gb: "ガルバ",
+};
+
+/** 年齢レンジ判定 */
+const isInAgeRange = (age: number, range: AgeRangeFilter): boolean => {
+  if (!range) return true;
+  if (!age || age <= 0) return false;
+
+  switch (range) {
+    case "18-19":
+      return age >= 18 && age <= 19;
+    case "20-24":
+      return age >= 20 && age <= 24;
+    case "25-29":
+      return age >= 25 && age <= 29;
+    case "30-34":
+      return age >= 30 && age <= 34;
+    case "35-39":
+      return age >= 35 && age <= 39;
+    case "40-49":
+      return age >= 40 && age <= 49;
+    case "50-":
+      return age >= 50;
+    default:
+      return true;
+  }
+};
+
+/**
+ * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
+ */
+const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
+  if (!shop) return true;
+
+  if (cast.ngShopIds?.includes(shop.id)) return false;
+
+  if (shop.minHourly != null && cast.desiredHourly < shop.minHourly) return false;
+  if (shop.maxHourly != null && cast.desiredHourly > shop.maxHourly) return false;
+
+  if (shop.minAge != null && cast.age < shop.minAge) return false;
+  if (shop.maxAge != null && cast.age > shop.maxAge) return false;
+
+  // 「飲酒OKのみ」は NG 以外（弱い / 普通 / 強い）を許可
+  if (shop.requireDrinkOk) {
+    const canDrink =
+      cast.drinkLevel === "weak" ||
+      cast.drinkLevel === "normal" ||
+      cast.drinkLevel === "strong";
+    if (!canDrink) return false;
+  }
+
+  return true;
+};
+
+const buildCastForm = (cast: Cast): CastForm => ({
+  furigana: cast.furigana ?? "",
+  payText: cast.payText ?? "",
+  tattoo: cast.tattoo ?? "",
+  shuttle: cast.shuttle ?? "",
+  drinkLevel: cast.drinkLevel ?? "",
+  experience: cast.experience ?? "",
+  workHistory: cast.workHistory ?? "",
+  referrerName: cast.referrerName ?? "",
+  otherAgencyComparison: cast.otherAgencyComparison ?? "",
+  otherAgencyName: cast.otherAgencyName ?? "",
+  miscNote: cast.miscNote ?? "",
+  salary30kNote: cast.salary30kNote ?? "",
+  idType: cast.idType ?? "",
+  juminhyoPost: cast.juminhyoPost ?? "",
+  oath: cast.oath ?? "",
+  remarks: cast.remarks ?? "",
+});
 
 export default function Page() {
-  const [q, setQ] = useState("");
-  const [staffFilter, setStaffFilter] = useState<string>("");
-  const [sortMode, setSortMode] = useState<SortMode>("kana");
+  // 本日出勤キャスト一覧（/casts/today）
+  const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
+  // 全キャスト（シフトに関係なく /casts から取得）
+  const [allCasts, setAllCasts] = useState<Cast[]>([]);
 
-  const [baseRows, setBaseRows] = useState<CastRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // 本日分の店舗（スケジュールAPI連携）
+  const [todayShops, setTodayShops] = useState<Shop[]>([]);
 
-  const [selected, setSelected] = useState<CastRow | null>(null);
-  const [detail, setDetail] = useState<CastDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [staged, setStaged] = useState<Cast[]>([]);
+  const [selectedShopId, setSelectedShopId] = useState<string>("");
+  const [keyword, setKeyword] = useState("");
+  const [担当者, set担当者] = useState<string>("all");
+  const [itemsPerPage, setItemsPerPage] = useState<50 | 100>(50);
+  const [statusTab, setStatusTab] = useState<
+    "today" | "all" | "matched" | "unassigned"
+  >("today");
 
-  // 削除モーダル用
-  const [deleteTarget, setDeleteTarget] = useState<CastRow | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // 並び替え（時給／年齢／50音／旧スタッフID）
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
 
-  // 一覧取得：初回に最大 10,000 件を一括ロード（検索はフロント側で実施）
+  // 追加: キャストジャンル・年齢レンジでの絞り込み
+  const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
+  const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // ローディング・エラー表示用
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 店舗選択モーダル用
+  const [shopModalOpen, setShopModalOpen] = useState(false);
+  const [shopSearch, setShopSearch] = useState("");
+
+  // キャスト詳細モーダル用
+  const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
+  const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
+  const [castForm, setCastForm] = useState<CastForm | null>(null);
+
+  // NG登録モーダル用
+  const [ngModalOpen, setNgModalOpen] = useState(false);
+  const [ngMode, setNgMode] = useState<NgMode>("shopToCast");
+  const [ngFilterGenre, setNgFilterGenre] = useState<ShopGenre | "">("");
+  const [ngFilterName, setNgFilterName] = useState("");
+  const [ngFilterCode, setNgFilterCode] = useState("");
+  const [ngSortKey, setNgSortKey] = useState<"number" | "kana">("number");
+  const [ngSelectedShopIds, setNgSelectedShopIds] = useState<string[]>([]);
+
+  const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  // ★ スケジュールで登録された「本日分の店舗」をロード（無ければ空配列）
   useEffect(() => {
-    let canceled = false;
+    let cancelled = false;
 
-    async function run() {
-      setLoading(true);
-      setLoadError(null);
-
+    const run = async () => {
       try {
-        // API 側は take のみ受付（offset は送らない）
-        const res = await listCasts({
-          limit: 10_000, // 安全な最大件数（API 側で 1〜10,000 にクランプされる想定）
-        });
+        const today = todayKey();
+        const reqs: ScheduleShopRequest[] =
+          await loadScheduleShopRequests(today);
 
-        if (canceled) return;
+        if (cancelled) return;
 
-        const allItems: CastListItem[] = res.items ?? [];
+        const shops: Shop[] = reqs.map((req) => ({
+          id: req.id, // スケジュール側の id を採用
+          code: req.code,
+          name: req.name,
+          minHourly: req.minHourly,
+          maxHourly: req.maxHourly,
+          minAge: req.minAge,
+          maxAge: req.maxAge,
+          requireDrinkOk: req.requireDrinkOk,
+          // もしスケジュール側に genre があれば取り込む（無ければ undefined）
+          genre: (req as any).genre ?? null,
+        }));
+        setTodayShops(shops);
+      } catch (e) {
+        console.error("failed to load today shops from schedule", e);
+        if (!cancelled) {
+          setTodayShops([]);
+        }
+      }
+    };
 
-        const mapped: CastRow[] = allItems.map((c: CastListItem | any) => {
-          const birthdate: string | null = (c as any).birthdate ?? null;
-          const ageFromBirth =
-            calcAgeFromBirthdate(birthdate) ?? ((c as any).age ?? null);
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedShop = useMemo(
+    () => todayShops.find((s: Shop) => s.id === selectedShopId) ?? null,
+    [todayShops, selectedShopId],
+  );
+
+  // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [todayResp, allResp] = await Promise.all([
+          listTodayCasts(),
+          fetchCastList({ limit: 10_000 }),
+        ]);
+
+        if (cancelled) return;
+
+        // 本日出勤キャスト
+        const todayList: Cast[] = todayResp.items.map((item) => ({
+          id: item.castId,
+          code: item.managementNumber ?? item.castId.slice(0, 8),
+          name: item.displayName,
+          age: item.age ?? 0,
+          desiredHourly: item.desiredHourly ?? 0,
+          drinkLevel: mapDrinkLevel(
+            (item as any).drinkLevel ?? (item as any).drinkOk,
+          ),
+          photoUrl: "/images/sample-cast.jpg",
+          ngShopIds: (item as any).ngShopIds ?? [],
+          oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
+          genres: ((item as any).genres ?? []) as CastGenre[],
+        }));
+
+        const todayMap = new Map(todayList.map((c) => [c.id, c]));
+
+        // 全キャスト（/casts）。本日出勤分は todayList を優先し、それ以外はデフォルト値で補完
+        const allList: Cast[] = allResp.items.map((item) => {
+          const fromToday = todayMap.get(item.userId);
+          if (fromToday) return fromToday;
 
           return {
-            id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
-            managementNumber: (c as any).managementNumber ?? "----",
-            name: (c as any).displayName ?? "(名前未設定)",
-            age: ageFromBirth,
-            // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
-            desiredHourly: (c as any).desiredHourly ?? null,
-            castCode: "-", // 仕様確定後に API フィールドと紐付け
-            ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
-            legacyStaffId: (c as any).legacyStaffId ?? null,
+            id: item.userId,
+            code: item.managementNumber ?? item.userId.slice(0, 8),
+            name: item.displayName,
+            age: item.age ?? 0,
+            desiredHourly: 0, // /casts 側では希望時給はまだ無いので 0 で補完
+            drinkLevel: mapDrinkLevel(
+              (item as any).drinkLevel ?? (item as any).drinkOk,
+            ),
+            photoUrl: "/images/sample-cast.jpg",
+            ngShopIds: (item as any).ngShopIds ?? [],
+            oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
+            genres: ((item as any).genres ?? []) as CastGenre[],
           };
         });
 
-        setBaseRows(mapped);
+        setTodayCasts(todayList);
+        setAllCasts(allList);
       } catch (e: any) {
         console.error(e);
-        if (!canceled) {
-          setLoadError(e?.message ?? "キャスト一覧の取得に失敗しました");
+        if (!cancelled) {
+          setError(e?.message ?? "データ取得に失敗しました");
         }
       } finally {
-        if (!canceled) {
+        if (!cancelled) {
           setLoading(false);
         }
       }
-    }
+    };
 
-    run();
+    void run();
 
     return () => {
-      canceled = true;
+      cancelled = true;
     };
   }, []);
 
-  // 担当者ドロップダウン用の一覧
-  const staffOptions = useMemo(() => {
-    const set = new Set<string>();
-    baseRows.forEach((r) => {
-      if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [baseRows]);
+  // 絞り込み条件が変わったら 1 ページ目に戻す
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    statusTab,
+    keyword,
+    selectedShopId,
+    itemsPerPage,
+    sortKey,
+    drinkSort,
+    castGenreFilter,
+    ageRangeFilter,
+  ]);
 
-  // 検索＋担当者フィルタ＋ソート（完全にフロント側で実施）
-  const rows = useMemo(() => {
-    const query = q.trim();
-    let result = baseRows.filter((r) => {
-      if (staffFilter && r.ownerStaffName !== staffFilter) return false;
-      if (!query) return true;
+  // NGモーダルが開いた時点で、対象キャストの既存NG店舗を初期選択にする
+  useEffect(() => {
+    if (ngModalOpen && selectedCast) {
+      setNgSelectedShopIds(selectedCast.ngShopIds ?? []);
+    }
+  }, [ngModalOpen, selectedCast]);
 
-      // 管理番号 / 名前 / 旧スタッフID に含まれていればヒット（旧ID検索対応）
-      const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
-      const hay = `${r.managementNumber} ${r.name} ${legacy}`;
-      return hay.includes(query);
-    });
+  const {
+    items: filteredCasts,
+    total: filteredTotal,
+    totalPages,
+    page: effectivePage,
+  } = useMemo(() => {
+    const todayIds = new Set(todayCasts.map((c) => c.id));
+    const matchedIds = new Set(staged.map((c) => c.id));
 
-    result = result.slice().sort((a, b) => {
-      if (sortMode === "hourly") {
-        const av = a.desiredHourly ?? 0;
-        const bv = b.desiredHourly ?? 0;
-        // 希望時給の高い順
-        if (av !== bv) return bv - av;
-        // 同額なら名前の50音順
-        return a.name.localeCompare(b.name, "ja");
-      }
-      // 50音順（名前）
-      const cmp = a.name.localeCompare(b.name, "ja");
-      if (cmp !== 0) return cmp;
-      // 同名なら管理番号昇順
-      return a.managementNumber.localeCompare(b.managementNumber, "ja");
-    });
+    // ① ベース集合の選択（タブの役割）
+    // - 未配属 / 本日出勤 / マッチ済み：本日出勤キャストのみ
+    // - 全キャスト：シフトに関係なく全キャスト
+    let base: Cast[];
+    if (statusTab === "all") {
+      base = allCasts;
+    } else {
+      base = allCasts.filter((c) => todayIds.has(c.id));
+    }
 
-    return result;
-  }, [q, staffFilter, sortMode, baseRows]);
+    // ② タブごとの追加フィルタ
+    if (statusTab === "unassigned") {
+      base = base.filter((c) => !matchedIds.has(c.id));
+    } else if (statusTab === "matched") {
+      base = base.filter((c) => matchedIds.has(c.id));
+    }
 
-  // 行クリック → 詳細 API 取得
-  const handleRowClick = (r: CastRow) => {
-    setSelected(r);
-    setDetail(null);
-    setDetailError(null);
-    setDetailLoading(true);
+    let list: Cast[] = [...base];
 
-    let canceled = false;
+    // ③ 店舗条件フィルタ
+    if (selectedShop && statusTab !== "all") {
+      list = list.filter((c: Cast) => matchesShopConditions(c, selectedShop));
+    }
 
-    (async () => {
-      try {
-        const d = await getCast(r.id);
-        if (canceled) return;
-        setDetail(d);
-      } catch (e: any) {
-        console.error(e);
-        if (!canceled) {
-          setDetailError(e?.message ?? "キャスト詳細の取得に失敗しました");
-        }
-      } finally {
-        if (!canceled) {
-          setDetailLoading(false);
-        }
-      }
-    })();
+    // ④ キーワード（管理番号・名前・旧ID）
+    if (keyword.trim()) {
+      const q = keyword.trim();
+      list = list.filter((c: Cast) => {
+        const inName = c.name?.includes(q);
+        const inCode = c.code?.includes(q);
+        const inOld = c.oldId?.includes(q);
+        return inName || inCode || inOld;
+      });
+    }
 
-    return () => {
-      canceled = true;
+    // ⑤ キャストジャンル絞り込み
+    if (castGenreFilter) {
+      list = list.filter((c) => c.genres?.includes(castGenreFilter));
+    }
+
+    // ⑥ 年齢レンジ絞り込み
+    if (ageRangeFilter) {
+      list = list.filter((c) => isInAgeRange(c.age, ageRangeFilter));
+    }
+
+    // ⑦ 並び替え
+    switch (sortKey) {
+      case "hourlyDesc":
+        list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
+        break;
+      case "ageAsc":
+        list.sort((a: Cast, b: Cast) => a.age - b.age);
+        break;
+      case "ageDesc":
+        list.sort((a: Cast, b: Cast) => b.age - a.age);
+        break;
+      case "kana":
+        list.sort((a: Cast, b: Cast) =>
+          castKanaKey(a).localeCompare(castKanaKey(b), "ja"),
+        );
+        break;
+      case "oldId":
+        list.sort((a: Cast, b: Cast) =>
+          (a.oldId ?? "").localeCompare(b.oldId ?? "", "ja"),
+        );
+        break;
+      case "default":
+      default:
+        // デフォルト：管理番号の昇順
+        list.sort((a: Cast, b: Cast) => castNumberKey(a) - castNumberKey(b));
+        break;
+    }
+
+    // ⑧ 飲酒ソート（チェックボックスで制御）
+    if (drinkSort === "okFirst") {
+      // 強い → 普通 → 弱い → NG → 未登録
+      list.sort(
+        (a: Cast, b: Cast) =>
+          drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel),
+      );
+    } else if (drinkSort === "ngFirst") {
+      // NG → 弱い → 普通 → 強い → 未登録
+      list.sort(
+        (a: Cast, b: Cast) =>
+          drinkScore(a.drinkLevel) - drinkScore(b.drinkLevel),
+      );
+    }
+
+    // ⑨ ページネーション
+    const total = list.length;
+    const perPage = itemsPerPage || 50;
+    const tp = Math.max(1, Math.ceil(total / perPage));
+    const page = Math.min(currentPage, tp);
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    const paged = list.slice(start, end);
+
+    return {
+      items: paged,
+      total,
+      totalPages: tp,
+      page,
     };
-  };
+  }, [
+    allCasts,
+    todayCasts,
+    staged,
+    selectedShop,
+    keyword,
+    sortKey,
+    drinkSort,
+    itemsPerPage,
+    statusTab,
+    currentPage,
+    castGenreFilter,
+    ageRangeFilter,
+  ]);
 
-  const handleCloseModal = () => {
-    setSelected(null);
-    setDetail(null);
-    setDetailError(null);
-    setDetailLoading(false);
-  };
-
-  // 保存成功時：detail と一覧の表示を更新（年齢も生年月日から再計算）
-  const handleDetailUpdated = (updated: CastDetail) => {
-    setDetail(updated);
-
-    const updatedAge =
-      calcAgeFromBirthdate(updated.birthdate ?? null) ?? null;
-
-    setSelected((prev) =>
-      prev
-        ? {
-            ...prev,
-            name: updated.displayName ?? prev.name,
-            managementNumber:
-              updated.managementNumber ?? prev.managementNumber,
-            desiredHourly:
-              updated.preferences?.desiredHourly ?? prev.desiredHourly,
-            age: updatedAge ?? prev.age,
-          }
-        : prev,
-    );
-
-    setBaseRows((prev) =>
-      prev.map((r) =>
-        r.id === updated.userId
-          ? {
-              ...r,
-              name: updated.displayName ?? r.name,
-              managementNumber: updated.managementNumber ?? r.managementNumber,
-              desiredHourly:
-                updated.preferences?.desiredHourly ?? r.desiredHourly,
-              age:
-                calcAgeFromBirthdate(updated.birthdate ?? null) ?? r.age,
-            }
-          : r,
-      ),
-    );
-  };
-
-  // 削除ボタン押下 → 確認モーダル表示
-  const handleClickDelete = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    row: CastRow,
-  ) => {
-    e.stopPropagation(); // 行クリック（詳細表示）を止める
-    setDeleteTarget(row);
-    setDeleteError(null);
-  };
-
-  // 削除確定処理
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleteBusy(true);
-    setDeleteError(null);
-    try {
-      await deleteCast(deleteTarget.id);
-      // 一覧から除外
-      setBaseRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      // 詳細を開いていたら閉じる
-      if (selected && selected.id === deleteTarget.id) {
-        handleCloseModal();
-      }
-      setDeleteTarget(null);
-    } catch (e: any) {
-      console.error(e);
-      setDeleteError(e?.message ?? "削除に失敗しました");
-    } finally {
-      setDeleteBusy(false);
+  const formatDrinkLabel = (cast: Cast) => {
+    switch (cast.drinkLevel) {
+      case "ng":
+        return "飲酒: NG";
+      case "weak":
+        return "飲酒: 弱い";
+      case "normal":
+        return "飲酒: 普通";
+      case "strong":
+        return "飲酒: 強い";
+      default:
+        return "飲酒: 未登録";
     }
   };
 
-  const handleCancelDelete = () => {
-    if (deleteBusy) return;
-    setDeleteTarget(null);
-    setDeleteError(null);
+  const filteredShops = useMemo(() => {
+    const q = shopSearch.trim().toLowerCase();
+    if (!q) return todayShops;
+    return todayShops.filter(
+      (s: Shop) =>
+        s.code.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q),
+    );
+  }, [shopSearch, todayShops]);
+
+  // NG登録モーダル用 店舗リスト（ジャンル・名前・ID・並び替え）
+  const ngCandidateShops = useMemo(() => {
+    let list = [...todayShops];
+
+    if (ngFilterGenre) {
+      list = list.filter((s) => s.genre === ngFilterGenre);
+    }
+
+    if (ngFilterName.trim()) {
+      const q = ngFilterName.trim().toLowerCase();
+      list = list.filter((s) => s.name.toLowerCase().includes(q));
+    }
+
+    if (ngFilterCode.trim()) {
+      const q = ngFilterCode.trim().toLowerCase();
+      list = list.filter((s) => s.code.toLowerCase().includes(q));
+    }
+
+    if (ngSortKey === "number") {
+      list.sort((a, b) => shopNumberKey(a) - shopNumberKey(b));
+    } else {
+      list.sort((a, b) =>
+        shopKanaKey(a).localeCompare(shopKanaKey(b), "ja"),
+      );
+    }
+
+    return list;
+  }, [todayShops, ngFilterGenre, ngFilterName, ngFilterCode, ngSortKey]);
+
+  const handleSelectShop = (shop: Shop) => {
+    setSelectedShopId(shop.id);
+    setShopModalOpen(false);
+
+    // 割当候補は、選択した店舗条件に合わないものを除外
+    setStaged((prev: Cast[]) =>
+      prev.filter((c: Cast) => matchesShopConditions(c, shop)),
+    );
+  };
+
+  const openCastDetail = (cast: Cast) => {
+    setSelectedCast(cast);
+    setCastForm(buildCastForm(cast));
+    setCastDetailModalOpen(true);
+  };
+
+  const closeCastDetail = () => {
+    setCastDetailModalOpen(false);
+    setSelectedCast(null);
+    setCastForm(null);
+  };
+
+  const closeNgModal = () => {
+    setNgModalOpen(false);
+  };
+
+  const toggleNgShopSelection = (shopId: string) => {
+    setNgSelectedShopIds((prev) =>
+      prev.includes(shopId)
+        ? prev.filter((id) => id !== shopId)
+        : [...prev, shopId],
+    );
+  };
+
+  const handleNgSave = () => {
+    if (!selectedCast) return;
+    const uniqueIds = Array.from(new Set(ngSelectedShopIds));
+
+    setAllCasts((prev) =>
+      prev.map((c) =>
+        c.id === selectedCast.id ? { ...c, ngShopIds: uniqueIds } : c,
+      ),
+    );
+    setTodayCasts((prev) =>
+      prev.map((c) =>
+        c.id === selectedCast.id ? { ...c, ngShopIds: uniqueIds } : c,
+      ),
+    );
+    setSelectedCast((prev) =>
+      prev ? { ...prev, ngShopIds: uniqueIds } : prev,
+    );
+    setNgModalOpen(false);
+  };
+
+  const handleCastDetailSave = () => {
+    if (!selectedCast || !castForm) return;
+
+    const updated: Cast = {
+      ...selectedCast,
+      furigana: castForm.furigana,
+      payText: castForm.payText,
+      tattoo: castForm.tattoo,
+      shuttle: castForm.shuttle,
+      drinkLevel: (castForm.drinkLevel || null) as DrinkLevel,
+      experience: castForm.experience,
+      workHistory: castForm.workHistory,
+      referrerName: castForm.referrerName,
+      otherAgencyComparison: castForm.otherAgencyComparison,
+      otherAgencyName: castForm.otherAgencyName,
+      miscNote: castForm.miscNote,
+      salary30kNote: castForm.salary30kNote,
+      idType: castForm.idType,
+      juminhyoPost: castForm.juminhyoPost,
+      oath: castForm.oath,
+      remarks: castForm.remarks,
+    };
+
+    setAllCasts((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c)),
+    );
+    setTodayCasts((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c)),
+    );
+    setSelectedCast(updated);
+    alert("キャスト情報を保存しました（デモ：画面内のみ反映）");
   };
 
   return (
     <AppShell>
-      <section className="tiara-panel h-full flex flex-col p-3 bg-white text-ink">
-        <header className="pb-2 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold">キャスト管理</h2>
-            <p className="text-xs text-muted">
-              管理番号・名前・旧IDで検索／担当者と並び替えでソート
-            </p>
-          </div>
-          <div className="text-[11px] text-muted">
-            {loading
-              ? "一覧を読み込み中…"
-              : `${rows.length.toLocaleString()} 件表示中`}
-            {loadError && (
-              <span className="ml-2 text-red-400">（{loadError}）</span>
-            )}
-          </div>
-        </header>
+      <div className="h-full flex flex-col gap-3">
+        {/* 上部：統計バー & コントロール（タイトル文言は非表示） */}
+        <section className="tiara-panel p-3 flex flex-col gap-2">
+          <header className="flex items-center justify-between">
+            <div />
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-600">
+              build: {buildStamp}
+            </span>
+          </header>
 
-        {/* フィルタ行 */}
-        <div className="mt-3 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)] gap-3">
-          {/* 左：キーワード検索 */}
-          <div className="flex flex-col gap-2">
-            <input
-              className="tiara-input"
-              placeholder="管理番号・名前・旧IDで検索"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+          {/* 統計ピル */}
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
+              本日の出勤：
+              <span className="font-semibold ml-1">{todayCasts.length}</span> 名
+            </span>
+            {/* ここは将来 API 連携で置き換え */}
+            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
+              配属済数：
+              <span className="font-semibold ml-1">{154}</span> 名
+            </span>
+            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
+              明日の出勤予定：
+              <span className="font-semibold ml-1">{667}</span> 名
+            </span>
           </div>
 
-          {/* 右：担当者＆並び替え */}
-          <div className="flex flex-col md:flex-row gap-2 md:items-center justify-end">
-            {/* 担当者ドロップダウン */}
+          {/* 検索・担当者・件数・並び替え・飲酒・ジャンル・年齢レンジ */}
+          <div className="mt-1 flex flex-wrap items-start gap-3 text-xs">
+            {/* キーワード */}
             <div className="flex items-center gap-1">
-              <span className="text-xs text-muted">担当者</span>
+              <span className="text-muted whitespace-nowrap">
+                キーワード（管理番号・名前・旧ID）
+              </span>
+              <input
+                className="tiara-input h-8 w-[260px] text-xs"
+                placeholder="管理番号・名前・旧IDで検索"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+
+            {/* 担当者（ダミー） */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">担当者</span>
               <select
-                className="tiara-input min-w-[120px]"
-                value={staffFilter}
-                onChange={(e) => setStaffFilter(e.target.value)}
+                className="tiara-input h-8 w-[140px] text-xs"
+                value={担当者}
+                onChange={(e) => set担当者(e.target.value)}
               >
-                <option value="">（すべて）</option>
-                {staffOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
+                <option value="all">（すべて）</option>
+                <option value="nagai">永井</option>
+                <option value="kitamura">北村</option>
               </select>
             </div>
 
-            {/* 並び替え：チェックボタン風（実際はラジオ的な挙動） */}
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "kana"}
-                  onChange={() => setSortMode("kana")}
-                />
-                50音順
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "hourly"}
-                  onChange={() => setSortMode("hourly")}
-                />
-                時給順
-              </label>
+            {/* 表示件数 */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">表示件数</span>
+              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-[11px] ${
+                    itemsPerPage === 50
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
+                  onClick={() => setItemsPerPage(50)}
+                >
+                  50件
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-[11px] ${
+                    itemsPerPage === 100
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
+                  onClick={() => setItemsPerPage(100)}
+                >
+                  100件
+                </button>
+              </div>
+            </div>
+
+            {/* 並び替え（ドロップダウン：要件＋既存） */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">並び替え</span>
+              <select
+                className="tiara-input h-8 w-[220px] text-xs"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+              >
+                <option value="default">デフォルト（管理番号昇順）</option>
+                <option value="kana">50音順（名前）</option>
+                <option value="oldId">旧スタッフID順</option>
+                <option value="hourlyDesc">時給が高い順</option>
+                <option value="ageAsc">年齢が若い順</option>
+                <option value="ageDesc">年齢が高い順</option>
+              </select>
+            </div>
+
+            {/* 飲酒ソート（チェックボックス） */}
+            <div className="flex flex-col gap-1">
+              <span className="text-muted whitespace-nowrap">飲酒</span>
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3"
+                    checked={drinkSort === "okFirst"}
+                    onChange={(e) =>
+                      setDrinkSort(e.target.checked ? "okFirst" : "none")
+                    }
+                  />
+                  <span>飲める順（強い→普通→弱い→NG）</span>
+                </label>
+                <label className="inline-flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3"
+                    checked={drinkSort === "ngFirst"}
+                    onChange={(e) =>
+                      setDrinkSort(e.target.checked ? "ngFirst" : "none")
+                    }
+                  />
+                  <span>飲めない順（NG→弱い→普通→強い）</span>
+                </label>
+              </div>
+            </div>
+
+            {/* キャストジャンルフィルタ */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">ジャンル</span>
+              <select
+                className="tiara-input h-8 w-[140px] text-xs"
+                value={castGenreFilter}
+                onChange={(e) =>
+                  setCastGenreFilter(
+                    (e.target.value || "") as CastGenre | "",
+                  )
+                }
+              >
+                <option value="">すべて</option>
+                <option value="club">クラブ</option>
+                <option value="cabaret">キャバ</option>
+                <option value="snack">スナック</option>
+                <option value="gb">ガルバ</option>
+              </select>
+            </div>
+
+            {/* 年齢レンジフィルタ */}
+            <div className="flex items-center gap-1">
+              <span className="text-muted whitespace-nowrap">年齢レンジ</span>
+              <select
+                className="tiara-input h-8 w-[150px] text-xs"
+                value={ageRangeFilter}
+                onChange={(e) =>
+                  setAgeRangeFilter(e.target.value as AgeRangeFilter)
+                }
+              >
+                <option value="">すべて</option>
+                <option value="18-19">18〜19歳</option>
+                <option value="20-24">20〜24歳</option>
+                <option value="25-29">25〜29歳</option>
+                <option value="30-34">30〜34歳</option>
+                <option value="35-39">35〜39歳</option>
+                <option value="40-49">40〜49歳</option>
+                <option value="50-">50歳以上</option>
+              </select>
+            </div>
+          </div>
+
+          {/* ステータスタブ + ページ送り（上部） */}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: "unassigned", label: "未配属" },
+                { id: "today", label: "本日出勤" },
+                { id: "matched", label: "マッチ済み" },
+                { id: "all", label: "全キャスト" },
+              ].map((tab) => {
+                const active = statusTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={
+                      "px-3 py-1 rounded-full border text-xs " +
+                      (active
+                        ? "bg-sky-600 text-white border-sky-600"
+                        : "bg-white text-slate-700 border-slate-200")
+                    }
+                    onClick={() => setStatusTab(tab.id as typeof statusTab)}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ページ情報 & ページ送り（上） */}
+            <div className="inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2 ml-2">
               <button
-                className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"
-                onClick={() => {
-                  setQ("");
-                  setStaffFilter("");
-                  setSortMode("kana");
-                }}
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.max(1, p - 1))
+                }
+                disabled={effectivePage <= 1}
+              >
+                ←
+              </button>
+              <span className="text-xs">
+                {effectivePage} / {totalPages}　全 {filteredTotal} 名
+              </span>
+              <button
+                type="button"
+                className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={effectivePage >= totalPages}
+              >
+                →
+              </button>
+            </div>
+          </div>
+
+          {/* ローディング・エラー表示 */}
+          {loading && (
+            <p className="mt-1 text-xs text-muted">
+              本日出勤キャストを読込中...
+            </p>
+          )}
+          {error && !loading && (
+            <p className="mt-1 text-xs text-red-500">
+              データ取得エラー: {error}
+            </p>
+          )}
+        </section>
+
+        {/* メイン：左カード一覧 + 右割当パネル */}
+        <div className="flex-1 flex gap-3">
+          {/* キャストカード一覧 */}
+          <section className="tiara-panel grow p-3 flex flex-col">
+            <div
+              className="mt-1 grid gap-3 grid-cols-1 md:grid-cols-2"
+            >
+              {!loading &&
+                filteredCasts.map((cast: Cast) => (
+                  <div
+                    key={cast.id}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", cast.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onClick={() => openCastDetail(cast)}
+                  >
+                    <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
+                      {cast.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={cast.photoUrl}
+                          alt={cast.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                          PHOTO
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-3 pt-1.5 pb-2.5 flex flex-col gap-0.5">
+                      <div className="font-semibold text-[13px] leading-tight truncate">
+                        {cast.name}
+                      </div>
+                      <div className="text-[11px] leading-tight">
+                        <span className="text-slate-500 mr-1">時給</span>
+                        <span className="font-semibold">
+                          ¥{cast.desiredHourly.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 leading-tight">
+                        年齢{" "}
+                        <span className="font-medium text-slate-700">
+                          {cast.age} 歳
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 leading-tight">
+                        {formatDrinkLabel(cast)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* 下部ページ送り（店舗管理ページと同様に上下配置） */}
+            <div className="mt-3 flex justify-end">
+              <div className="inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2">
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.max(1, p - 1))
+                  }
+                  disabled={effectivePage <= 1}
+                >
+                  ←
+                </button>
+                <span className="text-xs">
+                  {effectivePage} / {totalPages}　全 {filteredTotal} 名
+                </span>
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={effectivePage >= totalPages}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* 右：店舗セット & D&D 割当 */}
+          <aside
+            className="tiara-panel w-[320px] shrink-0 p-3 flex flex-col"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const castId = e.dataTransfer.getData("text/plain");
+              if (!castId) return;
+              const cast =
+                allCasts.find((c: Cast) => c.id === castId) ?? null;
+              if (!cast) return;
+
+              if (selectedShop && !matchesShopConditions(cast, selectedShop)) {
+                alert(
+                  "このキャストは、選択中の店舗条件／NGにより割当不可です。",
+                );
+                return;
+              }
+
+              setStaged((prev: Cast[]) =>
+                prev.some((x: Cast) => x.id === cast.id) ? prev : [...prev, cast],
+              );
+            }}
+          >
+            <header className="pb-2 border-b border-gray-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm">店舗セット</h3>
+              </div>
+
+              {/* 本日のスケジュール有無メッセージ */}
+              {todayShops.length === 0 ? (
+                <p className="text-[11px] text-red-500">
+                  本日のスケジュール登録がありません。
+                  スケジュール画面から店舗リクエストを登録してください。
+                </p>
+              ) : (
+                <div className="space-y-1 text-[11px] text-muted">
+                  <div className="flex items-center justify-between">
+                    <span>店舗：</span>
+                    <span className="font-medium text-ink">
+                      {selectedShop
+                        ? `${selectedShop.code} / ${selectedShop.name}`
+                        : "未選択"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>更新：</span>
+                    <span>-</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  className="tiara-btn text-xs w-full"
+                  onClick={() => setShopModalOpen(true)}
+                  disabled={todayShops.length === 0}
+                >
+                  店舗をセット
+                </button>
+              </div>
+            </header>
+
+            {/* D&D 受け皿 */}
+            <div className="mt-3 flex-1 min-h-0">
+              <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 h-full flex flex-col">
+                <div className="px-3 py-2 border-b border-gray-200">
+                  <p className="text-xs text-muted">
+                    ここにキャストカードをドラッグ＆ドロップ
+                  </p>
+                </div>
+                <div className="flex-1 overflow-auto px-2 py-2 space-y-2">
+                  {staged.length === 0 ? (
+                    <div className="text-xs text-muted">
+                      割当候補はまだ選択されていません。
+                    </div>
+                  ) : (
+                    staged.map((c: Cast) => (
+                      <div
+                        key={c.id}
+                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
+                            {c.photoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={c.photoUrl}
+                                alt={c.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[10px] text-ink/80">
+                                {c.name.slice(0, 2)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold truncate">{c.name}</span>
+                            <span className="text-[10px] text-muted">
+                              {c.code} / {c.age}歳 / ¥
+                              {c.desiredHourly.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 下：ボタン */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-gray-300 bg-white text-ink px-4 py-2 text-sm"
+                onClick={() => setStaged([])}
+                disabled={staged.length === 0}
               >
                 クリア
               </button>
+              <button
+                type="button"
+                className="tiara-btn text-sm"
+                onClick={() => {
+                  if (!selectedShop) {
+                    alert("店舗が未選択です。");
+                    return;
+                  }
+                  if (staged.length === 0) {
+                    alert("割当候補がありません。");
+                    return;
+                  }
+                  alert(
+                    `${selectedShop.name} への割当を確定（デモ）\n\n` +
+                      staged
+                        .map(
+                          (c: Cast) =>
+                            `${c.code} ${c.name}（¥${c.desiredHourly.toLocaleString()}）`,
+                        )
+                        .join("\n"),
+                  );
+                }}
+                disabled={staged.length === 0}
+              >
+                確定
+              </button>
             </div>
-          </div>
+          </aside>
         </div>
+      </div>
 
-        {/* テーブル */}
-        <div className="mt-3 overflow-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-muted">
-              <tr>
-                <th className="text-left px-3 py-2 w-28">管理番号</th>
-                <th className="text-left px-3 py-2">名前</th>
-                <th className="text-left px-3 py-2 w-16">年齢</th>
-                <th className="text-left px-3 py-2 w-24">希望時給</th>
-                <th className="text-left px-3 py-2 w-24">旧スタッフID</th>
-                <th className="text-left px-3 py-2 w-32">担当者</th>
-                <th className="text-left px-3 py-2 w-20">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRowClick(r)}
+      {/* 店舗選択モーダル */}
+      {shopModalOpen && (
+        <div className="固定 inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShopModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h2 className="text-sm font-semibold text-gray-900">店舗を選択</h2>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-gray-900"
+                onClick={() => setShopModalOpen(false)}
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2 text-xs bg-white">
+              <label className="text-muted whitespace-nowrap">
+                店舗番号・店舗名
+              </label>
+              <input
+                className="tiara-input h-8 text-xs flex-1"
+                placeholder="例）001 / ティアラ本店"
+                value={shopSearch}
+                onChange={(e) => setShopSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 bg-white">
+              {filteredShops.length === 0 ? (
+                todayShops.length === 0 ? (
+                  <p className="text-xs text-muted">
+                    本日のスケジュール登録がありません。
+                    スケジュール画面から店舗リクエストを登録してください。
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted">
+                    条件に一致する店舗がありません。
+                  </p>
+                )
+              ) : (
+                <div
+                  className="grid gap-3"
+                  style={{
+                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                  }}
                 >
-                  <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
-                  <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2">
-                    {r.age != null ? r.age : "-"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.desiredHourly
-                      ? `¥${r.desiredHourly.toLocaleString()}`
-                      : "-"}
-                  </td>
-                  <td className="px-3 py-2 font-mono">
-                    {r.legacyStaffId != null ? r.legacyStaffId : "-"}
-                  </td>
-                  <td className="px-3 py-2">{r.ownerStaffName || "-"}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      className="text-[11px] px-2 py-1 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
-                      onClick={(e) => handleClickDelete(e, r)}
-                    >
-                      削除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td className="px-3 py-6 text-center text-muted" colSpan={7}>
-                    該当データがありません
-                  </td>
-                </tr>
+                  {filteredShops.map((shop: Shop) => {
+                    const active = shop.id === selectedShopId;
+                    return (
+                      <button
+                        key={shop.id}
+                        type="button"
+                        onClick={() => handleSelectShop(shop)}
+                        className={
+                          "text左 rounded-xl border px-3 py-2 text-xs transition-colors " +
+                          (active
+                            ? "bg-sky-600/10 border-sky-400 text-ink"
+                            : "bg-white border-gray-200 text-gray-900 hover:border-sky-400")
+                        }
+                      >
+                        <div className="text-[11px] text-muted">
+                          店舗番号
+                          <span className="ml-1 font-mono text-gray-900">
+                            {shop.code}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-sm font-semibold truncate">
+                          {shop.name}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* キャスト詳細モーダル（ポータル経由で body 直下に出す） */}
-        {selected && (
-          <ModalPortal>
-            <CastDetailModal
-              cast={selected}
-              detail={detail}
-              detailLoading={detailLoading}
-              detailError={detailError}
-              onClose={handleCloseModal}
-              onUpdated={handleDetailUpdated}
-            />
-          </ModalPortal>
-        )}
-
-        {/* 削除確認モーダル */}
-        {deleteTarget && (
-          <ModalPortal>
-            <DeleteCastModal
-              target={deleteTarget}
-              busy={deleteBusy}
-              error={deleteError}
-              onCancel={handleCancelDelete}
-              onConfirm={handleConfirmDelete}
-            />
-          </ModalPortal>
-        )}
-      </section>
-    </AppShell>
-  );
-}
-
-type CastDetailModalProps = {
-  cast: CastRow;
-  detail: CastDetail | null;
-  detailLoading: boolean;
-  detailError: string | null;
-  onClose: () => void;
-  onUpdated: (d: CastDetail) => void;
-};
-
-/**
- * シフトカレンダー用の簡易データ型
- */
-type ShiftSlot = "free" | "21:00" | "21:30" | "22:00" | null;
-
-type ShiftDay = {
-  date: Date;
-  inCurrentMonth: boolean;
-  slot: ShiftSlot;
-};
-
-/**
- * 指定月のカレンダーデータ生成（前後の月の分も含めて 6 行分を返す）
- */
-function buildMonthDays(year: number, month: number): ShiftDay[] {
-  const first = new Date(year, month, 1);
-  const firstWeekday = first.getDay(); // 0=日
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const days: ShiftDay[] = [];
-
-  // 前月
-  if (firstWeekday > 0) {
-    const prevMonthDays = new Date(year, month, 0).getDate();
-    for (let i = firstWeekday - 1; i >= 0; i--) {
-      const d = prevMonthDays - i;
-      days.push({
-        date: new Date(year, month - 1, d),
-        inCurrentMonth: false,
-        slot: null,
-      });
-    }
-  }
-
-  // 当月
-  for (let d = 1; d <= daysInMonth; d++) {
-    days.push({
-      date: new Date(year, month, d),
-      inCurrentMonth: true,
-      slot: null,
-    });
-  }
-
-  // 次月
-  while (days.length % 7 !== 0) {
-    const nextIndex = days.length - (firstWeekday + daysInMonth);
-    days.push({
-      date: new Date(year, month + 1, nextIndex + 1),
-      inCurrentMonth: false,
-      slot: null,
-    });
-  }
-
-  // 6 行そろえる
-  while (days.length < 42) {
-    const last = days[days.length - 1].date;
-    const next = new Date(last);
-    next.setDate(last.getDate() + 1);
-    days.push({
-      date: next,
-      inCurrentMonth: false,
-      slot: null,
-    });
-  }
-
-  return days;
-}
-
-/** Cast 詳細モーダル用のフォーム state 型 */
-type CastDetailForm = {
-  displayName: string;
-  birthdate: string;
-  address: string;
-  phone: string;
-  email: string;
-  // 希望時給（テキスト入力だが中身は数値を期待）
-  tiaraHourly: string;
-  // 希望出勤日（"月/火" などを想定）
-  preferredDays: string;
-  preferredTimeFrom: string;
-  preferredTimeTo: string;
-  preferredArea: string;
-  // プロフィール
-  heightCm: string;
-  clothingSize: string;
-  shoeSizeCm: string;
-  // 背景
-  howFound: string;
-  motivation: string;
-  otherAgencies: string;
-  reasonChoose: string;
-  shopSelectionPoints: string;
-};
-
-/**
- * キャスト詳細モーダル
- */
-function CastDetailModal({
-  cast,
-  detail,
-  detailLoading,
-  detailError,
-  onClose,
-  onUpdated,
-}: CastDetailModalProps) {
-  const [shiftModalOpen, setShiftModalOpen] = useState(false);
-  const [form, setForm] = useState<CastDetailForm | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveDone, setSaveDone] = useState(false);
-
-  // detail 取得完了時にフォーム初期化
-  useEffect(() => {
-    if (!detail) {
-      setForm(null);
-      setSaveDone(false);
-      setSaveError(null);
-      return;
-    }
-
-    setForm({
-      displayName: detail.displayName ?? cast.name,
-      birthdate: detail.birthdate ?? "",
-      address: detail.address ?? "",
-      phone: detail.phone ?? "",
-      email: detail.email ?? "",
-      tiaraHourly:
-        detail.preferences?.desiredHourly != null
-          ? String(detail.preferences.desiredHourly)
-          : "",
-      preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
-      preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
-      preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
-      preferredArea: detail.preferences?.preferredArea ?? "",
-      heightCm:
-        detail.attributes?.heightCm != null
-          ? String(detail.attributes.heightCm)
-          : "",
-      clothingSize: detail.attributes?.clothingSize ?? "",
-      shoeSizeCm:
-        detail.attributes?.shoeSizeCm != null
-          ? String(detail.attributes.shoeSizeCm)
-          : "",
-      // ★ SQLそのまま表示されたくない3項目は sanitize
-      howFound: sanitizeBackgroundField(detail.background?.howFound),
-      motivation: sanitizeBackgroundField(detail.background?.motivation),
-      otherAgencies: sanitizeBackgroundField(detail.background?.otherAgencies),
-      reasonChoose: detail.background?.reasonChoose ?? "",
-      shopSelectionPoints: detail.background?.shopSelectionPoints ?? "",
-    });
-    setSaveDone(false);
-    setSaveError(null);
-  }, [detail, cast.name]);
-
-  // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-
-  const todayLabel = `${today.getMonth() + 1}/${today.getDate()}`;
-  const tomorrowLabel = `${tomorrow.getMonth() + 1}/${tomorrow.getDate()}`;
-
-  const todaySlot: ShiftSlot = "free";
-  const tomorrowSlot: ShiftSlot = "21:30";
-
-  const formatSlot = (slot: ShiftSlot) => {
-    if (!slot) return "—";
-    if (slot === "free") return "FREE";
-    return slot;
-  };
-
-  const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
-  const managementNumber = detail?.managementNumber ?? cast.managementNumber;
-  const legacyStaffId =
-    detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
-
-  const birthdateStr =
-    form?.birthdate || detail?.birthdate || null;
-  const computedAge = calcAgeFromBirthdate(birthdateStr);
-  const birth =
-    birthdateStr != null && birthdateStr !== ""
-      ? computedAge != null
-        ? `${birthdateStr}（${computedAge}歳）`
-        : birthdateStr
-      : "—";
-
-  const address = form?.address || "—";
-  const phone = form?.phone || "—";
-  const email = form?.email || "—";
-  const tiaraHourlyLabel =
-    form?.tiaraHourly && form.tiaraHourly.trim()
-      ? `¥${Number(
-          form.tiaraHourly.replace(/[^\d]/g, "") || "0",
-        ).toLocaleString()}`
-      : "—";
-
-  const handleSave = async () => {
-    if (!detail || !form) return;
-    setSaving(true);
-    setSaveError(null);
-    setSaveDone(false);
-    try {
-      // 数値系のパース
-      const hourlyRaw = form.tiaraHourly.replace(/[^\d]/g, "");
-      const desiredHourly =
-        hourlyRaw.trim().length > 0 ? Number(hourlyRaw) || null : null;
-
-      const heightRaw = form.heightCm.replace(/[^\d]/g, "");
-      const heightCm =
-        heightRaw.trim().length > 0 ? Number(heightRaw) || null : null;
-
-      const shoeRaw = form.shoeSizeCm.replace(/[^\d]/g, "");
-      const shoeSizeCm =
-        shoeRaw.trim().length > 0 ? Number(shoeRaw) || null : null;
-
-      // 出勤希望日を配列へ
-      const preferredDays =
-        form.preferredDays
-          .split(/[\/、,\s]+/)
-          .map((x) => x.trim())
-          .filter(Boolean) || [];
-
-      const payload = {
-        displayName: form.displayName || null,
-        birthdate: form.birthdate || null,
-        address: form.address || null,
-        phone: form.phone || null,
-        email: form.email || null,
-        // note は UI 上の備考欄未連動のため元の値を維持
-        note: detail.note ?? null,
-        attributes: {
-          heightCm,
-          clothingSize: form.clothingSize || null,
-          shoeSizeCm,
-          tattoo: detail.attributes?.tattoo ?? null,
-          needPickup: detail.attributes?.needPickup ?? null,
-        },
-        preferences: {
-          desiredHourly,
-          desiredMonthly: detail.preferences?.desiredMonthly ?? null,
-          preferredDays,
-          preferredTimeFrom: form.preferredTimeFrom || null,
-          preferredTimeTo: form.preferredTimeTo || null,
-          preferredArea: form.preferredArea || null,
-          // NG メモ・備考欄は未編集なので元値を維持
-          ngShopNotes: detail.preferences?.ngShopNotes ?? null,
-          notes: detail.preferences?.notes ?? null,
-        },
-        background: {
-          howFound: form.howFound || null,
-          motivation: form.motivation || null,
-          otherAgencies: form.otherAgencies || null,
-          reasonChoose: form.reasonChoose || null,
-          shopSelectionPoints: form.shopSelectionPoints || null,
-        },
-      } as Parameters<typeof updateCast>[1];
-
-      const updated = await updateCast(cast.id, payload);
-      onUpdated(updated);
-      setSaveDone(true);
-    } catch (e: any) {
-      console.error(e);
-      setSaveError(e?.message ?? "保存に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <>
-      {/* viewport 基準で中央固定 */}
-      <div className="fixed inset-0 z-[100] flex items-center justify-center px-3 py-6">
-        {/* オーバーレイ */}
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-
-        {/* 本体：横幅広め・高さは 90vh に収める（中身はスクロール） */}
-        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
-          {/* ヘッダー */}
-          <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-3">
-              <h3 className="text-sm font-semibold">
-                キャスト詳細（{displayName}）
-              </h3>
-              <span className="text-[10px] text-muted">
-                管理番号: {managementNumber} / 旧スタッフID:{" "}
-                {legacyStaffId ?? "-"} / キャストID: {cast.castCode}
-              </span>
-              {detailLoading && (
-                <span className="text-[10px] text-emerald-600">
-                  詳細読み込み中…
-                </span>
-              )}
-              {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-500">{detailError}</span>
-              )}
-              {!detailLoading && saveDone && !saveError && (
-                <span className="text-[10px] text-emerald-600">
-                  保存しました
-                </span>
-              )}
-              {saveError && (
-                <span className="text-[10px] text-red-500">
-                  保存エラー: {saveError}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {/* ① 文言変更：LINE → チャット */}
-              <button className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
-                チャットで連絡
-              </button>
-              {/* ② 保存ボタン */}
-              <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                onClick={handleSave}
-                disabled={!detail || !form || saving}
-              >
-                {saving ? "保存中…" : "保存"}
-              </button>
-              {/* ③ 閉じるボタン */}
-              <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white"
-                onClick={onClose}
-              >
-                × 閉じる
-              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* コンテンツ（ここをスクロールさせる） */}
-          <div className="flex-1 overflow-auto px-4 py-2 bg-white">
-            {/* 2x2 グリッド */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2 h-full">
-              {/* 左上：登録情報① */}
-              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 flex flex-col">
-                <h4 className="text-[11px] font-semibold mb-2">
-                  登録情報①（プロフィール・希望・確認）
-                </h4>
+      {/* キャスト詳細モーダル */}
+      {castDetailModalOpen && selectedCast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeCastDetail}
+          />
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h2 className="text-sm font-semibold text-gray-900">キャスト詳細</h2>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-gray-900"
+                onClick={closeCastDetail}
+              >
+                ✕
+              </button>
+            </header>
 
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 flex-1">
-                  {/* 写真 */}
-                  <div>
-                    <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
-                      写真
-                    </div>
+            <div className="flex-1 overflow-auto p-4 flex gap-4 bg-white">
+              <div className="w-40 shrink-0">
+                <div className="w-full aspect-[3/4] rounded-xl overflow-hidden bg-gray-200 flex items-center justify-center">
+                  {selectedCast.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedCast.photoUrl}
+                      alt={selectedCast.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-500">NO PHOTO</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col gap-3 text-xs text-gray-900">
+                <div>
+                  <div className="text-[11px] text-muted">
+                    管理番号 / ID / 旧ID
                   </div>
-
-                  {/* 氏名など */}
-                  <div className="space-y-2 text-[13px] pr-1">
-                    <MainInfoRow
-                      label="ふりがな"
-                      value={displayName}
-                      readOnly
-                    />
-                    <MainInfoRow
-                      label="氏名"
-                      value={form?.displayName ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, displayName: v } : prev,
-                        )
-                      }
-                    />
-                    <MainInfoRow
-                      label="生年月日"
-                      value={form?.birthdate ?? ""}
-                      placeholder={birth === "—" ? "" : birth}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, birthdate: v } : prev,
-                        )
-                      }
-                    />
-                    <MainInfoRow
-                      label="現住所"
-                      value={form?.address ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, address: v } : prev,
-                        )
-                      }
-                    />
-                    <MainInfoRow
-                      label="TEL"
-                      value={form?.phone ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, phone: v } : prev,
-                        )
-                      }
-                    />
-                    <MainInfoRow
-                      label="アドレス"
-                      value={form?.email ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, email: v } : prev,
-                        )
-                      }
-                    />
-                    {/* ティアラ査定時給 */}
-                    <MainInfoRow
-                      label="ティアラ査定時給"
-                      value={form?.tiaraHourly ?? ""}
-                      placeholder={
-                        tiaraHourlyLabel === "—" ? "例: 2500" : tiaraHourlyLabel
-                      }
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, tiaraHourly: v } : prev,
-                        )
-                      }
-                    />
-                    {/* NG店舗（複数登録可） */}
-                    <MainInfoRow
-                      label="NG店舗（複数登録可）"
-                      value={
-                        detail?.ngShops
-                          ? `${detail.ngShops.length}件登録`
-                          : "—"
-                      }
-                      readOnly
-                    />
-
-                    {/* ★ シフト情報（直近2日）＋シフト編集ボタン */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                      <div className="sm:w-28 text-[12px] text-muted shrink-0">
-                        シフト情報（直近2日）
-                      </div>
-                      <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <div className="w-full text-[12px] px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-slate-900">
-                          本日 {todayLabel}: {formatSlot(todaySlot)} / 翌日{" "}
-                          {tomorrowLabel}: {formatSlot(tomorrowSlot)}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShiftModalOpen(true)}
-                          className="whitespace-nowrap px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white"
-                        >
-                          シフト編集
-                        </button>
-                      </div>
-                    </div>
+                  <div className="mt-0.5 text-sm font-semibold">
+                    {selectedCast.code} / {selectedCast.id}
+                    {selectedCast.oldId ? (
+                      <span className="ml-2 text-[11px] text-gray-500">
+                        旧ID: {selectedCast.oldId}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
-              </section>
 
-              {/* 右上：登録情報② */}
-              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 text-[11px] space-y-1.5">
-                <h4 className="text-[11px] font-semibold mb-1">
-                  登録情報②（動機・比較・選定理由）
-                </h4>
-
-                <InfoRow
-                  label="知った経路"
-                  value={form?.howFound ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, howFound: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="紹介者名 / サイト名"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
-                />
-                <InfoRow
-                  label="お仕事を始めるきっかけ"
-                  value={form?.motivation ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, motivation: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="他の派遣会社との比較"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
-                />
-                <InfoRow
-                  label="比較状況"
-                  value={form?.otherAgencies ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, otherAgencies: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="派遣会社名"
-                  value="（今後 detail.background 拡張で対応）"
-                  readOnly
-                />
-
-                <div className="h-px bg-gray-200 my-1" />
-
-                <InfoRow
-                  label="ティアラを選んだ理由"
-                  value={form?.reasonChoose ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, reasonChoose: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="派遣先のお店選びで重要なポイント"
-                  value={form?.shopSelectionPoints ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, shopSelectionPoints: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow label="その他（備考）" value="—" readOnly />
-
-                <div className="h-px bg-gray-200 my-1" />
-
-                <InfoRow
-                  label="30,000円到達への所感"
-                  value="（今後アンケート項目などで対応）"
-                  readOnly
-                />
-              </section>
-
-              {/* 左下：基本情報 */}
-              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 space-y-1.5 text-[11px]">
-                <h4 className="text-[11px] font-semibold mb-1">
-                  基本情報（プロフィール・希望条件・就業可否）
-                </h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <div className="font-semibold mb-1.5 text-[12px]">
-                      プロフィール
+                {/* 基本情報＋要件フィールド */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[11px] text-muted">名前</div>
+                    <div className="mt-0.5 text-sm font-semibold">
+                      {selectedCast.name}
                     </div>
-                    <InfoRow
-                      label="身長"
-                      value={form?.heightCm ?? ""}
-                      placeholder={
-                        detail?.attributes?.heightCm != null
-                          ? `${detail.attributes.heightCm} cm`
-                          : ""
-                      }
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, heightCm: v } : prev,
-                        )
-                      }
-                    />
-                    <InfoRow
-                      label="服のサイズ"
-                      value={form?.clothingSize ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, clothingSize: v } : prev,
-                        )
-                      }
-                    />
-                    <InfoRow
-                      label="靴のサイズ"
-                      value={form?.shoeSizeCm ?? ""}
-                      placeholder={
-                        detail?.attributes?.shoeSizeCm != null
-                          ? `${detail.attributes.shoeSizeCm} cm`
-                          : ""
-                      }
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, shoeSizeCm: v } : prev,
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">ふりがな</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.furigana ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, furigana: e.target.value } : prev,
                         )
                       }
                     />
                   </div>
 
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <div className="font-semibold mb-1.5 text-[12px]">
-                      希望条件
+                  <div>
+                    <div className="text-[11px] text-muted">年齢</div>
+                    <div className="mt-0.5 text-sm font-semibold">
+                      {selectedCast.age} 歳
                     </div>
-                    <InfoRow
-                      label="出勤希望"
-                      value={form?.preferredDays ?? ""}
-                      placeholder={
-                        detail?.preferences?.preferredDays?.length
-                          ? detail.preferences.preferredDays.join(" / ")
-                          : ""
-                      }
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, preferredDays: v } : prev,
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">時給 / 月給</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.payText ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, payText: e.target.value } : prev,
                         )
                       }
                     />
-                    <InfoRow
-                      label="時間帯"
-                      value={
-                        form
-                          ? `${form.preferredTimeFrom ?? ""}${
-                              form.preferredTimeFrom || form.preferredTimeTo
-                                ? "〜"
-                                : ""
-                            }${form.preferredTimeTo ?? ""}`
-                          : ""
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">希望時給</div>
+                    <div className="mt-0.5 text-sm font-semibold">
+                      ¥{selectedCast.desiredHourly.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">タトゥー</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.tattoo ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, tattoo: e.target.value as YesNo } : prev,
+                        )
                       }
-                      placeholder={
-                        detail?.preferences?.preferredTimeFrom &&
-                        detail.preferences?.preferredTimeTo
-                          ? `${detail.preferences.preferredTimeFrom}〜${detail.preferences.preferredTimeTo}`
-                          : ""
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">送迎</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.shuttle ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, shuttle: e.target.value as YesNo } : prev,
+                        )
                       }
-                      onChange={(v) => {
-                        // 簡易パース（"HH:MM〜HH:MM" を想定）
-                        const [from, to] = v.split("〜");
-                        setForm((prev) =>
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">飲酒</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.drinkLevel ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
                           prev
                             ? {
                                 ...prev,
-                                preferredTimeFrom: from?.trim() ?? "",
-                                preferredTimeTo: to?.trim() ?? "",
+                                drinkLevel: e.target
+                                  .value as CastForm["drinkLevel"],
                               }
                             : prev,
-                        );
-                      }}
-                    />
-                    <InfoRow
-                      label="希望エリア"
-                      value={form?.preferredArea ?? ""}
-                      placeholder={detail?.preferences?.preferredArea ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, preferredArea: v } : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="ng">NG</option>
+                      <option value="weak">弱い</option>
+                      <option value="normal">普通</option>
+                      <option value="strong">強い</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">経験</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.experience ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, experience: e.target.value as YesNo }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
+                  </div>
+
+                  {/* キャストジャンル（複数登録可能） */}
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">ジャンル</div>
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {selectedCast.genres && selectedCast.genres.length > 0 ? (
+                        selectedCast.genres.map((g) => (
+                          <span
+                            key={g}
+                            className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[11px]"
+                          >
+                            {CAST_GENRE_LABEL[g] ?? g}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-gray-400">
+                          未設定
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* NG店舗 + その他項目 */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* NG店舗（登録ボタン→モーダル） */}
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">NG店舗</div>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
+                        onClick={() => setNgModalOpen(true)}
+                      >
+                        NG店舗を登録
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        登録済み: {selectedCast.ngShopIds?.length ?? 0} 件
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">勤務歴</div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.workHistory ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, workHistory: e.target.value } : prev,
                         )
                       }
                     />
-                    <InfoRow
-                      label="時給・月給"
-                      value={
-                        detail?.preferences
-                          ? [
-                              detail.preferences.desiredHourly != null
-                                ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
-                                : null,
-                              detail.preferences.desiredMonthly != null
-                                ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" / ") || "—"
-                          : "—"
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">紹介者名</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.referrerName ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, referrerName: e.target.value } : prev,
+                        )
                       }
-                      readOnly
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <div className="font-semibold mb-1.5 text-[12px]">
-                      就業可否
+                  <div>
+                    <div className="text-[11px] text-muted">派遣会社名</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.otherAgencyName ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, otherAgencyName: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">
+                      他の派遣会社との比較
                     </div>
-                    <InfoRow
-                      label="タトゥー"
-                      value={
-                        detail?.attributes?.tattoo == null
-                          ? "—"
-                          : detail.attributes.tattoo
-                          ? "有"
-                          : "無"
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.otherAgencyComparison ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, otherAgencyComparison: e.target.value }
+                            : prev,
+                        )
                       }
-                      readOnly
-                    />
-                    <InfoRow
-                      label="送迎の要否"
-                      value={
-                        detail?.attributes?.needPickup == null
-                          ? "—"
-                          : detail.attributes.needPickup
-                          ? "要"
-                          : "不要"
-                      }
-                      readOnly
-                    />
-                    <InfoRow
-                      label="飲酒"
-                      value={
-                        detail?.attributes?.drinkLevel ??
-                        (detail?.drinkOk == null
-                          ? "—"
-                          : detail.drinkOk
-                          ? "普通"
-                          : "NG")
-                      }
-                      readOnly
                     />
                   </div>
 
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <div className="font-semibold mb-1.5 text-[12px]">
-                      水商売の経験
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">
+                      30,000円到達への所感
                     </div>
-                    <InfoRow
-                      label="経験"
-                      value={
-                        detail?.hasExperience == null
-                          ? "—"
-                          : detail.hasExperience
-                          ? "あり"
-                          : "なし"
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.salary30kNote ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, salary30kNote: e.target.value }
+                            : prev,
+                        )
                       }
-                      readOnly
-                    />
-                    <InfoRow label="勤務歴" value="—" readOnly />
-                  </div>
-                </div>
-              </section>
-
-              {/* 右下：身分証＋備考 */}
-              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
-                <h4 className="text-[11px] font-semibold">
-                  身分証明書確認 / 申告・備考
-                </h4>
-
-                <div className="grid grid-cols-1 gap-1.5">
-                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
-                    <InfoRow label="身分証種類" value="運転免許証" readOnly />
-                    <InfoRow label="住民票・郵便物" value="◯" readOnly />
-                    <InfoRow
-                      label="宣誓（身分証のない・更新時）"
-                      value="◯"
-                      readOnly
                     />
                   </div>
 
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <InfoRow label="備考" value="特記事項なし" readOnly />
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">その他</div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.miscNote ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, miscNote: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">身分証種類</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.idType ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, idType: e.target.value as IdType }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="license">運転免許証</option>
+                      <option value="insurance">保険証</option>
+                      <option value="passport">パスポート</option>
+                      <option value="mynumber">マイナンバーカード</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">
+                      住民票・郵便物
+                    </div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.juminhyoPost ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                juminhyoPost: e.target.value as DoneStatus,
+                              }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="done">済</option>
+                      <option value="notYet">未</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">宣誓</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.oath ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, oath: e.target.value as DoneStatus }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="done">済</option>
+                      <option value="notYet">未</option>
+                    </select>
                   </div>
                 </div>
-              </section>
+
+                {/* 備考 */}
+                <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                  <div className="text-[11px] text-muted">備考</div>
+                  <textarea
+                    className="mt-1 w-full tiara-input min-h-[60px] text-xs"
+                    value={castForm?.remarks ?? ""}
+                    onChange={(e) =>
+                      setCastForm((prev) =>
+                        prev ? { ...prev, remarks: e.target.value } : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
             </div>
+
+            <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
+              <button
+                type="button"
+                className="rounded-xl border border-gray-300 bg-white text-ink px-4 py-1.5 text-xs"
+                onClick={closeCastDetail}
+              >
+                閉じる
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs"
+                onClick={handleCastDetailSave}
+              >
+                保存（デモ）
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs"
+                onClick={() => {
+                  if (!selectedCast) return;
+                  setStaged((prev: Cast[]) =>
+                    prev.some((x: Cast) => x.id === selectedCast.id)
+                      ? prev
+                      : [...prev, selectedCast],
+                  );
+                  closeCastDetail();
+                }}
+              >
+                割当候補に追加（デモ）
+              </button>
+            </footer>
           </div>
         </div>
-      </div>
-
-      {/* シフト編集モーダル */}
-      {shiftModalOpen && (
-        <ShiftEditModal
-          onClose={() => setShiftModalOpen(false)}
-          castName={displayName}
-        />
       )}
-    </>
-  );
-}
 
-/** 削除確認モーダル */
-function DeleteCastModal({
-  target,
-  busy,
-  error,
-  onCancel,
-  onConfirm,
-}: {
-  target: CastRow;
-  busy: boolean;
-  error: string | null;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
-      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
-        <h4 className="text-sm font-semibold text-ink mb-2">
-          キャスト削除の確認
-        </h4>
-        <p className="text-xs text-red-500 mb-2">
-          このキャストを削除すると、元に戻せません。
-        </p>
-        <p className="text-xs text-ink/90 mb-3">
-          管理番号: <span className="font-mono">{target.managementNumber}</span>
-          <br />
-          名前: <span className="font-semibold">{target.name}</span>
-          {target.legacyStaffId != null && (
-            <>
-              <br />
-              旧スタッフID:{" "}
-              <span className="font-mono">{target.legacyStaffId}</span>
-            </>
-          )}
-        </p>
-        {error && (
-          <p className="text-xs text-red-500 mb-2">削除エラー: {error}</p>
-        )}
-        <div className="mt-3 flex items-center justify-end gap-2 text-xs">
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-ink disabled:opacity-60"
-            onClick={onCancel}
-            disabled={busy}
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-lg border border-red-400/70 bg-red-500/90 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-            onClick={onConfirm}
-            disabled={busy}
-          >
-            {busy ? "削除中…" : "削除する"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+      {/* NG登録モーダル */}
+      {ngModalOpen && selectedCast && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={closeNgModal} />
+          <div className="relative z-10 w-full max-w-4xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h2 className="text-sm font-semibold text-gray-900">
+                NG登録（{selectedCast.name}）
+              </h2>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-gray-900"
+                onClick={closeNgModal}
+              >
+                ✕
+              </button>
+            </header>
 
-/** シフト編集モーダル */
-function ShiftEditModal({
-  onClose,
-  castName,
-}: {
-  onClose: () => void;
-  castName: string;
-}) {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth()); // 0-origin
+            {/* 上部: NG種別 + 絞り込み */}
+            <div className="px-4 py-3 border-b border-gray-200 bg-white flex flex-col gap-3 text-xs">
+              {/* NG種別 */}
+              <div className="flex items-center gap-3">
+                <span className="text-muted whitespace-nowrap">NG種別</span>
+                <div className="inline-flex rounded-full bg-gray-100 border border-gray-300 overflow-hidden">
+                  <button
+                    type="button"
+                    className={
+                      "px-3 py-1 " +
+                      (ngMode === "shopToCast"
+                        ? "bg-red-600 text-white"
+                        : "bg-transparent text-gray-700")
+                    }
+                    onClick={() => setNgMode("shopToCast")}
+                  >
+                    店舗からNG
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      "px-3 py-1 border-l border-gray-300 " +
+                      (ngMode === "castToShop"
+                        ? "bg-red-600 text-white"
+                        : "bg-transparent text-gray-700")
+                    }
+                    onClick={() => setNgMode("castToShop")}
+                  >
+                    キャストからNG
+                  </button>
+                </div>
+              </div>
 
-  const days = useMemo(() => buildMonthDays(year, month), [year, month]);
+              {/* 絞り込み（ジャンル / 名前 / ID / 並び替え） */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-muted whitespace-nowrap">ジャンル</span>
+                  <select
+                    className="tiara-input h-8 w-[140px] text-xs"
+                    value={ngFilterGenre}
+                    onChange={(e) =>
+                      setNgFilterGenre(
+                        (e.target.value || "") as ShopGenre | "",
+                      )
+                    }
+                  >
+                    <option value="">すべて</option>
+                    <option value="club">クラブ</option>
+                    <option value="cabaret">キャバ</option>
+                    <option value="snack">スナック</option>
+                    <option value="gb">ガルバ</option>
+                  </select>
+                </div>
 
-  const prevMonth = () => {
-    setMonth((m) => {
-      if (m === 0) {
-        setYear((y) => y - 1);
-        return 11;
-      }
-      return m - 1;
-    });
-  };
+                <div className="flex items-center gap-1">
+                  <span className="text-muted whitespace-nowrap">店舗名</span>
+                  <input
+                    className="tiara-input h-8 w-[200px] text-xs"
+                    placeholder="店舗名で検索"
+                    value={ngFilterName}
+                    onChange={(e) => setNgFilterName(e.target.value)}
+                  />
+                </div>
 
-  const nextMonth = () => {
-    setMonth((m) => {
-      if (m === 11) {
-        setYear((y) => y + 1);
-        return 0;
-      }
-      return m + 1;
-    });
-  };
+                <div className="flex items-center gap-1">
+                  <span className="text-muted whitespace-nowrap">店舗番号</span>
+                  <input
+                    className="tiara-input h-8 w-[140px] text-xs"
+                    placeholder="店舗番号で検索"
+                    value={ngFilterCode}
+                    onChange={(e) => setNgFilterCode(e.target.value)}
+                  />
+                </div>
 
-  const monthLabel = `${year}年 ${month + 1}月`;
+                <div className="flex items-center gap-1">
+                  <span className="text-muted whitespace-nowrap">並び替え</span>
+                  <select
+                    className="tiara-input h-8 w-[160px] text-xs"
+                    value={ngSortKey}
+                    onChange={(e) =>
+                      setNgSortKey(e.target.value as "number" | "kana")
+                    }
+                  >
+                    <option value="number">番号順</option>
+                    <option value="kana">50音順</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
-            <p className="text-[11px] text-muted">
-              キャストアプリから連携されたシフト情報を月ごとに確認・調整します。
-            </p>
+            {/* 店舗一覧 */}
+            <div className="flex-1 overflow-auto bg-white">
+              {ngCandidateShops.length === 0 ? (
+                <div className="p-4 text-xs text-muted">
+                  対象店舗がありません。
+                  本日のスケジュールに店舗が登録されていない可能性があります。
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="p-2 w-10 text-center">NG</th>
+                      <th className="p-2 w-24 text-left">店舗番号</th>
+                      <th className="p-2 text-left">店舗名</th>
+                      <th className="p-2 w-24 text-left">ジャンル</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ngCandidateShops.map((shop) => {
+                      const checked = ngSelectedShopIds.includes(shop.id);
+                      return (
+                        <tr
+                          key={shop.id}
+                          className="border-b border-gray-100 hover:bg-sky-50/60"
+                          onClick={() => toggleNgShopSelection(shop.id)}
+                        >
+                          <td className="p-2 text-center">
+                            <input
+                              type="checkbox"
+                              className="h-3 w-3"
+                              checked={checked}
+                              onChange={() => toggleNgShopSelection(shop.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </td>
+                          <td className="p-2 font-mono">{shop.code}</td>
+                          <td className="p-2">{shop.name}</td>
+                          <td className="p-2">
+                            {shop.genre
+                              ? SHOP_GENRE_LABEL[shop.genre] ?? shop.genre
+                              : "-"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <footer className="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-between text-[11px] text-gray-600">
+              <div>
+                ・上記一覧からNG店舗を選択して「登録」ボタンで保存します。
+                <br />
+                ・現在はフロント側の一時保持のみで、API連携は今後の実装予定です。
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-gray-800"
+                  onClick={closeNgModal}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  className="px-4 py-1.5 rounded-xl bg-red-600 text-white"
+                  onClick={handleNgSave}
+                >
+                  登録
+                </button>
+              </div>
+            </footer>
           </div>
-          <button
-            className="px-3 py-1 rounded-lg text-[11px] border border-red-400/80 bg-red-500/80 text-white"
-            onClick={onClose}
-          >
-            閉じる
-          </button>
         </div>
-
-        {/* 月切り替え */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <button
-              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
-              onClick={prevMonth}
-            >
-              ← 前月
-            </button>
-            <span className="text-[13px] font-semibold">{monthLabel}</span>
-            <button
-              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
-              onClick={nextMonth}
-            >
-              次月 →
-            </button>
-          </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted">
-            <span>free = 出勤なし</span>
-            <span>21:00 / 21:30 / 22:00 = 出勤予定</span>
-          </div>
-        </div>
-
-        {/* カレンダー */}
-        <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-[11px]">
-            <thead>
-              <tr className="bg-gray-50">
-                {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
-                  <th key={w} className="py-1 border-b border-gray-200">
-                    {w}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 6 }).map((_, rowIdx) => (
-                <tr key={rowIdx} className="border-t border-gray-100">
-                  {days.slice(rowIdx * 7, rowIdx * 7 + 7).map((d, i) => {
-                    const dayNum = d.date.getDate();
-                    const isToday =
-                      d.date.toDateString() === now.toDateString();
-                    return (
-                      <td
-                        key={i}
-                        className={`align-top h-20 px-1.5 py-1 border-l border-gray-100 ${
-                          d.inCurrentMonth ? "" : "opacity-40"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span
-                            className={`text-[10px] ${
-                              isToday ? "text-emerald-600 font-semibold" : ""
-                            }`}
-                          >
-                            {dayNum}
-                          </span>
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-100 border border-gray-300">
-                            -
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-muted">
-                          シフト: 未設定
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">
-            変更を破棄
-          </button>
-          <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
-            保存して閉じる
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 登録情報①用：文字を大きくしてメイン情報を強調する行（編集可） */
-function MainInfoRow({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange?: (v: string) => void;
-  readOnly?: boolean;
-  placeholder?: string;
-}) {
-  const effectiveReadOnly = readOnly || !onChange;
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
-      <div className="flex-1 min-w-0">
-        <input
-          type="text"
-          value={value ?? ""}
-          placeholder={placeholder}
-          onChange={(e) => onChange?.(e.target.value)}
-          readOnly={effectiveReadOnly}
-          className={`w-full text-[13px] px-3 py-1.5 rounded-lg border text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
-            effectiveReadOnly
-              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
-              : "bg-white border-gray-300"
-          }`}
-        />
-      </div>
-    </div>
-  );
-}
-
-/** ラベル＋値（1行）の小さい行パーツ（サブ情報用・編集可） */
-function InfoRow({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange?: (v: string) => void;
-  readOnly?: boolean;
-  placeholder?: string;
-}) {
-  const effectiveReadOnly = readOnly || !onChange;
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
-      <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
-      <div className="flex-1 min-w-0">
-        <input
-          type="text"
-          value={value ?? ""}
-          placeholder={placeholder}
-          onChange={(e) => onChange?.(e.target.value)}
-          readOnly={effectiveReadOnly}
-          className={`w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
-            effectiveReadOnly
-              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
-              : "bg-white border-gray-300"
-          }`}
-        />
-      </div>
-    </div>
+      )}
+    </AppShell>
   );
 }

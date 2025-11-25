@@ -80,22 +80,16 @@ export default function Sidebar() {
           prefetch={false}
           aria-label="TIARA ダッシュボードへ"
         >
-          {/* 高さ基準で比率維持（横長 1920x540 でも潰れない） */}
-          <div className="relative mx-auto h-12 xl:h-14 w-full">
-            <div className="relative brand__logo-box h-12 xl:h-14 w-full">
-              <div className="brand__logo-box relative w-[140px] h-[42px]">
-                <div className="brand__logo-box relative w-[148px] h-[42px]">
-                  <Image
-                    src="/img/logo4.png"
-                    alt="TIARA"
-                    fill
-                    priority
-                    className="object-contain"
-                    sizes="148px"
-                  />
-                </div>
-              </div>
-            </div>
+          {/* CSS側の .brand__logo-box に合わせてシンプルに */}
+          <div className="brand__logo-box">
+            <Image
+              src="/img/logo4.png"
+              alt="TIARA"
+              fill
+              priority
+              className="object-contain"
+              sizes="188px"
+            />
           </div>
         </Link>
       </div>

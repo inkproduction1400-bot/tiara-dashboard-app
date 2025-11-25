@@ -11,23 +11,17 @@ import {
   type UpdateShopPayload,
   type ShopGenre,
   type ShopRank,
-  type ShopDrinkPreference,
   type ShopIdRequirement,
-  type ShopPreferredAgeRange,
-  // ★ 専属指名 / NGキャスト用 API
+  // ★ 専属指名 / NGキャスト用 API（表示専用）
   listShopFixedCasts,
   listShopNgCasts,
-  upsertShopFixedCast,
-  deleteShopFixedCast,
-  upsertShopNgCast,
-  deleteShopNgCast,
   type ShopFixedCastItem,
   type ShopNgCastItem,
 } from "@/lib/api.shops";
 
 type PerPage = number | "all";
 
-// フロント側で削除フラグ・新規フラグを持たせるための拡張型
+// フロント側で削除フラグ・新規フラグを持たせるための拡張型（今回は表示のみだが型はそのまま）
 type FixedRow = ShopFixedCastItem & {
   _deleted?: boolean;
   _isNew?: boolean;
@@ -37,6 +31,19 @@ type NgRow = ShopNgCastItem & {
   _deleted?: boolean;
   _isNew?: boolean;
 };
+
+// ジャンル表示用ラベル
+const GENRE_LABELS: Record<string, string> = {
+  club: "クラブ",
+  cabaret: "キャバ",
+  snack: "スナック",
+  gb: "ガルバ",
+};
+
+function getGenreLabel(genre?: ShopGenre | null): string {
+  if (!genre) return "-";
+  return GENRE_LABELS[genre] ?? genre;
+}
 
 export default function ShopsPage() {
   const [items, setItems] = useState<ShopListItem[]>([]);
@@ -50,17 +57,53 @@ export default function ShopsPage() {
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // ★ ジャンルフィルタ & 並び替えモード
+  const [genreFilter, setGenreFilter] = useState<ShopGenre | "">("");
+  const [sortMode, setSortMode] = useState<"kana" | "number" | "favorite">(
+    "kana",
+  );
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  // 店舗番号でのフロント側フィルタ
+  // キーワード・店舗番号・ジャンルでのフィルタ & 並び替え
   const filteredItems = useMemo(() => {
+    let arr = [...items];
+
+    // 店舗番号フィルタ
     const num = shopNumber.trim();
-    if (!num) return items;
-    return items.filter((item) => {
-      if (!item.shopNumber) return false;
-      return item.shopNumber.includes(num);
+    if (num) {
+      arr = arr.filter((item) => {
+        if (!item.shopNumber) return false;
+        return item.shopNumber.includes(num);
+      });
+    }
+
+    // ジャンルフィルタ
+    if (genreFilter) {
+      arr = arr.filter((item) => item.genre === genreFilter);
+    }
+
+    // 並び替え
+    const sorted = [...arr];
+    sorted.sort((a, b) => {
+      if (sortMode === "kana") {
+        const ak = (a.nameKana ?? a.kana ?? a.name ?? "").toString();
+        const bk = (b.nameKana ?? b.kana ?? b.name ?? "").toString();
+        return ak.localeCompare(bk, "ja");
+      }
+      if (sortMode === "number") {
+        const an = (a.shopNumber ?? "").padStart(4, "0");
+        const bn = (b.shopNumber ?? "").padStart(4, "0");
+        return an.localeCompare(bn, "ja");
+      }
+      // "よく使う店舗順" → 現状は updatedAt の新しい順（疑似）
+      const ad = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bd = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bd - ad;
     });
-  }, [items, shopNumber]);
+
+    return sorted;
+  }, [items, shopNumber, genreFilter, sortMode]);
 
   const perPage = useMemo(() => {
     if (limit === "all") {
@@ -100,12 +143,14 @@ export default function ShopsPage() {
     }
   }, [perPage, maxPage, offset]);
 
-  // API からは「q だけ」で全件を取得 → ページングはフロント側
+  // API からは「q (+ genre/orderBy)」で一覧を取得 → ページング＆一部並び替えはフロント側
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listShops({
         q: q.trim() || undefined,
+        genre: genreFilter ? (genreFilter as ShopGenre) : undefined,
+        orderBy: sortMode,
       });
       const nextItems = res.items ?? [];
       setItems(nextItems);
@@ -116,7 +161,7 @@ export default function ShopsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, [q, genreFilter, sortMode]);
 
   useEffect(() => {
     reload();
@@ -143,18 +188,12 @@ export default function ShopsPage() {
     [reload],
   );
 
-  const startIndex = filteredItems.length === 0 ? 0 : offset + 1;
-  const endIndex =
-    limit === "all"
-      ? filteredItems.length
-      : Math.min(offset + perPage, filteredItems.length);
-
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4">
       <header className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-        <h1 className="text-2xl font-semibold">店舗一覧</h1>
+        <h1 className="text-2xl font-semibold text-ink">店舗一覧</h1>
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex items-center px-3 py-2 rounded-xl bg-slate-700 text-white cursor-pointer">
+          <label className="inline-flex items-center tiara-btn cursor-pointer">
             <input
               ref={fileRef}
               id="excelInput"
@@ -167,18 +206,16 @@ export default function ShopsPage() {
             />
             {importing ? "アップロード中…" : "Excel一括アップロード"}
           </label>
-          <Link
-            href="/shops/new"
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white"
-          >
+          <Link href="/shops/new" className="tiara-btn">
             新規店舗登録
           </Link>
         </div>
       </header>
 
-      {/* 検索まわり：キーワード ＋ 店舗番号 */}
-      <div className="flex flex-col md:flex-row md:items-center gap-2 justify-between">
-        <div className="flex flex-1 flex-col sm:flex-row gap-2">
+      {/* 検索まわり：キーワード ＋ 店舗番号 ＋ ジャンル絞り込み ＋ 並び替え ＋ 表示件数 */}
+      <div className="flex flex-col gap-3">
+        {/* 上段: キーワード / 店舗番号 */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             id="shopSearch"
             name="q"
@@ -188,7 +225,7 @@ export default function ShopsPage() {
               setQ(e.target.value);
             }}
             placeholder="店舗名・市区町村・キーワードで検索"
-            className="w-full sm:w-72 px-3 py-2 rounded-xl bg-slate-800 text-white placeholder-slate-400"
+            className="tiara-input w-full sm:w-72"
           />
           <input
             id="shopNumber"
@@ -199,139 +236,173 @@ export default function ShopsPage() {
               setShopNumber(e.target.value);
             }}
             placeholder="店舗番号で検索"
-            className="w-full sm:w-40 px-3 py-2 rounded-xl bg-slate-800 text-white placeholder-slate-400"
+            className="tiara-input w-full sm:w-40"
           />
         </div>
 
-        {/* 1ページあたり件数 + 全件表示 */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="perPage" className="text-sm text-slate-400">
-            表示件数
-          </label>
-          <select
-            id="perPage"
-            name="perPage"
-            value={limit === "all" ? "all" : String(limit)}
-            onChange={(e) => {
+        {/* 下段: ジャンル + 並び替え + 表示件数（横一列で並べる） */}
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-1">
+            <span className="text-muted whitespace-nowrap">ジャンル</span>
+            <select
+              value={genreFilter}
+              onChange={(e) => {
+                setOffset(0);
+                setGenreFilter(
+                  (e.target.value || "") as ShopGenre | "",
+                );
+              }}
+              className="tiara-input h-8 w-[120px] text-xs"
+            >
+              <option value="">すべて</option>
+              <option value="club">クラブ</option>
+              <option value="cabaret">キャバ</option>
+              <option value="snack">スナック</option>
+              <option value="gb">ガルバ</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="text-muted whitespace-nowrap">並び替え</span>
+            <select
+              value={sortMode}
+              onChange={(e) => {
+                setOffset(0);
+                setSortMode(
+                  e.target.value as "kana" | "number" | "favorite",
+                );
+              }}
+              className="tiara-input h-8 w-[140px] text-xs"
+            >
+              <option value="kana">50音順</option>
+              <option value="number">店舗番号順</option>
+              <option value="favorite">よく使う店舗順</option>
+            </select>
+          </div>
+
+          {/* 並び替えのすぐ右隣に表示件数コントロール */}
+          <DisplayCountControl
+            limit={limit}
+            total={filteredItems.length}
+            onChange={(next) => {
               setOffset(0);
-              const v = e.target.value;
-              if (v === "all") {
-                setLimit("all");
-              } else {
-                const n = Number(v);
-                setLimit(Number.isFinite(n) && n > 0 ? n : 20);
-              }
+              setLimit(next);
             }}
-            className="px-2 py-2 rounded-xl bg-slate-800 text-white"
-          >
-            {[10, 20, 50, 100, 150, 200].map((n) => (
-              <option key={n} value={n}>
-                {n}/page
-              </option>
-            ))}
-            <option value="all">全件表示</option>
-          </select>
+          />
+
+          <div className="flex-1" />
+
+          <span className="text-[11px] text-muted">
+            該当店舗:{" "}
+            <span className="font-semibold text-ink">
+              {filteredItems.length}
+            </span>{" "}
+            件（全 {total} 件中）
+          </span>
         </div>
       </div>
 
       {message && (
-        <div className="text-sm text-slate-300 bg-slate-800/60 px-3 py-2 rounded-xl">
+        <div className="text-[11px] px-3 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-800">
           {message}
         </div>
       )}
 
-      {/* 一覧 + ページング */}
-      <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700/60">
-        <div className="flex items-center justify-between px-4 py-2 text-sm text-slate-300 bg-slate-800/60">
-          <div>
-            全 {filteredItems.length} 件中{" "}
-            {startIndex === 0 ? 0 : startIndex} - {endIndex} 件を表示
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setOffset((prev) => Math.max(0, prev - perPage))}
-              className="px-2 py-1 rounded-lg border border-slate-600 text-xs disabled:opacity-40"
-            >
-              前へ
-            </button>
-            <span>
-              {page} / {maxPage}
-            </span>
-            <button
-              type="button"
-              disabled={page >= maxPage}
-              onClick={() =>
-                setOffset((prev) =>
-                  Math.min(
-                    prev + perPage,
-                    Math.max(0, perPage * (maxPage - 1)),
-                  ),
-                )
-              }
-              className="px-2 py-1 rounded-lg border border-slate-600 text-xs disabled:opacity-40"
-            >
-              次へ
-            </button>
-          </div>
-        </div>
+      {/* 一覧 + ページング（上・下） */}
+      <section className="tiara-panel flex-1 p-3 flex flex-col overflow-hidden">
+        <PaginationBar
+          page={page}
+          maxPage={maxPage}
+          perPage={perPage}
+          total={filteredItems.length}
+          onPrev={() =>
+            setOffset((prev) => Math.max(0, prev - perPage))
+          }
+          onNext={() =>
+            setOffset((prev) =>
+              Math.min(
+                prev + perPage,
+                Math.max(0, perPage * (maxPage - 1)),
+              ),
+            )
+          }
+        />
 
-        <table className="w-full text-sm">
-          <thead className="bg-slate-800/80 text-slate-300">
-            <tr>
-              <th className="p-3 text-left font-medium w-32">店舗番号</th>
-              <th className="p-3 text-left font-medium">店舗名</th>
-              <th className="p-3 text-left font-medium w-40">ジャンル</th>
-              <th className="p-3 text-left font-medium w-40">電話</th>
-              <th className="p-3 text-left font-medium w-56">最終更新</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="p-6 text-center text-slate-400">
-                  読み込み中…
-                </td>
-              </tr>
-            ) : pagedItems.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-6 text-center text-slate-400">
-                  該当データがありません
-                </td>
-              </tr>
-            ) : (
-              pagedItems.map((r) => (
-                <tr
+        {/* 店舗カード 2列レイアウト */}
+        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5 p-3">
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-[11px] text-muted">
+              読み込み中…
+            </div>
+          ) : pagedItems.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-[11px] text-muted">
+              該当データがありません
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {pagedItems.map((r) => (
+                <button
                   key={r.id}
-                  className="odd:bg-slate-900 even:bg-slate-900/60 hover:bg-slate-700/40 cursor-pointer"
+                  type="button"
+                  className="text-left rounded-xl border border-slate-200 bg-white/90 hover:border-sky-400 hover:shadow-md transition-colors px-3 py-3"
                   onClick={() => setEditing(r)}
                 >
-                  <td className="p-3 font-mono">{r.shopNumber ?? "-"}</td>
-
-                  {/* ★ 店舗名 + 開発用 shopId 表示 */}
-                  <td className="p-3">
-                    <div className="flex flex-col">
-                      <span>{r.name}</span>
-                      <span className="mt-0.5 text-[10px] text-slate-400 font-mono">
-                        dev shopId: {r.id}
-                      </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-[11px] text-muted">
+                        店舗番号
+                      </div>
+                      <div className="font-mono text-sm text-slate-900">
+                        {r.shopNumber ?? "-"}
+                      </div>
                     </div>
-                  </td>
+                    <div className="text-right text-[10px] text-slate-500">
+                      最終更新
+                      <br />
+                      {r.updatedAt
+                        ? new Date(r.updatedAt).toLocaleString()
+                        : "-"}
+                    </div>
+                  </div>
 
-                  <td className="p-3">{r.genre ?? "-"}</td>
-                  <td className="p-3">{r.phone ?? "-"}</td>
-                  <td className="p-3 text-slate-400">
-                    {r.updatedAt
-                      ? new Date(r.updatedAt).toLocaleString()
-                      : "-"}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <div className="mt-2">
+                    <div className="text-sm font-semibold text-slate-900 line-clamp-1">
+                      {r.name}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-600">
+                      {getGenreLabel(r.genre ?? null)} /{" "}
+                      {r.phone ?? "-"}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-slate-400 font-mono">
+                      dev shopId: {r.id}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 下部にもページングバーを複製 */}
+        <PaginationBar
+          page={page}
+          maxPage={maxPage}
+          perPage={perPage}
+          total={filteredItems.length}
+          onPrev={() =>
+            setOffset((prev) => Math.max(0, prev - perPage))
+          }
+          onNext={() =>
+            setOffset((prev) =>
+              Math.min(
+                prev + perPage,
+                Math.max(0, perPage * (maxPage - 1)),
+              ),
+            )
+          }
+          bottom
+        />
+      </section>
 
       {editing && (
         <ShopEditDrawer
@@ -343,6 +414,108 @@ export default function ShopsPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+type PaginationBarProps = {
+  page: number;
+  maxPage: number;
+  perPage: number;
+  total: number;
+  onPrev: () => void;
+  onNext: () => void;
+  bottom?: boolean;
+};
+
+function PaginationBar({
+  page,
+  maxPage,
+  perPage,
+  total,
+  onPrev,
+  onNext,
+  bottom,
+}: PaginationBarProps) {
+  const startIndex = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const endIndex =
+    total === 0 ? 0 : Math.min(page * perPage, total);
+
+  return (
+    <div
+      className={`flex items-center justify-between px-4 py-2 text-[11px] text-muted bg-white/10 ${
+        bottom ? "border-t border-white/10" : "border-b border-white/10"
+      }`}
+    >
+      <div>
+        全 {total} 件中 {startIndex === 0 ? 0 : startIndex} - {endIndex}
+        件を表示
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={onPrev}
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
+        >
+          前へ
+        </button>
+        <span className="text-[11px]">
+          {page} / {maxPage}
+        </span>
+        <button
+          type="button"
+          disabled={page >= maxPage}
+          onClick={onNext}
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
+        >
+          次へ
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type DisplayCountControlProps = {
+  limit: PerPage;
+  total: number;
+  onChange: (next: PerPage) => void;
+};
+
+function DisplayCountControl({
+  limit,
+  total,
+  onChange,
+}: DisplayCountControlProps) {
+  const options: (number | "all")[] = [10, 20, 50, 100, 150, 200, "all"];
+
+  const isActive = (opt: number | "all") =>
+    (opt === "all" && limit === "all") ||
+    (typeof opt === "number" && limit !== "all" && limit === opt);
+
+  return (
+    <div className="flex items-center gap-1 text-xs">
+      <span className="text-muted whitespace-nowrap">表示件数</span>
+      <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+        {options.map((opt, idx) => (
+          <button
+            key={String(opt)}
+            type="button"
+            onClick={() => onChange(opt === "all" ? "all" : opt)}
+            className={
+              "px-2.5 py-1 text-[11px] " +
+              (idx === 0 ? "" : "border-l border-slate-200") +
+              " " +
+              (isActive(opt)
+                ? "bg-slate-900 text-ink"
+                : "bg-transparent text-slate-700")
+            }
+          >
+            {opt === "all" ? "全件" : opt}
+          </button>
+        ))}
+      </div>
+      <span className="text-[10px] text-muted">（全{total}件）</span>
     </div>
   );
 }
@@ -381,28 +554,16 @@ function ShopEditDrawer({
   // 既存項目：ジャンル
   const [genre, setGenre] = useState<ShopGenre | "">(initial.genre ?? "");
 
-  // ★ 専属指名キャスト / NGキャスト（API 連動）
+  // ★ 専属指名キャスト / NGキャスト（表示のみ）
   const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
   const [ngCasts, setNgCasts] = useState<NgRow[]>([]);
   const [fixedLoading, setFixedLoading] = useState(false);
   const [ngLoadingState, setNgLoadingState] = useState(false);
 
-  // 追加用入力欄
-  const [fixedInputCastId, setFixedInputCastId] = useState("");
-  const [fixedInputNote, setFixedInputNote] = useState("");
-  const [ngInputCastId, setNgInputCastId] = useState("");
-  const [ngInputReason, setNgInputReason] = useState("");
-
-  // 新規：飲酒の希望 / 身分証 / 希望年齢 / 担当
-  const [drinkPreference, setDrinkPreference] = useState<
-    ShopDrinkPreference | ""
-  >(initial.drinkPreference ?? "");
+  // 身分証・担当
   const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
     initial.idDocumentRequirement ?? "",
   );
-  const [preferredAge, setPreferredAge] = useState<
-    ShopPreferredAgeRange | ""
-  >(initial.preferredAgeRange ?? "");
   const [ownerStaff, setOwnerStaff] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
@@ -427,7 +588,7 @@ function ShopEditDrawer({
     "6000円以上",
   ];
 
-  // ---- 専属 / NG 初期ロード ----
+  // ---- 専属 / NG 初期ロード（表示用）----
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -467,109 +628,6 @@ function ShopEditDrawer({
       cancelled = true;
     };
   }, [initial.id]);
-
-  // ---- 専属 / NG の local 操作 ----
-
-  const addFixedLocal = () => {
-    const castId = fixedInputCastId.trim();
-    if (!castId) return;
-
-    setFixedCasts((prev) => {
-      const existing = prev.find((r) => r.castId === castId);
-      if (existing) {
-        return prev.map((r) =>
-          r.castId === castId
-            ? {
-                ...r,
-                note: fixedInputNote.trim() || null,
-                _deleted: false,
-              }
-            : r,
-        );
-      }
-      const now = new Date().toISOString();
-      return [
-        ...prev,
-        {
-          id: `temp-fixed-${castId}`,
-          shopId: initial.id,
-          castId,
-          note: fixedInputNote.trim() || null,
-          createdAt: now,
-          cast: {
-            userId: castId,
-            displayName: null,
-            managementNumber: null,
-            castCode: null,
-          },
-          _deleted: false,
-          _isNew: true,
-        },
-      ];
-    });
-
-    setFixedInputCastId("");
-    setFixedInputNote("");
-  };
-
-  const toggleDeleteFixed = (castId: string) => {
-    setFixedCasts((prev) =>
-      prev.map((r) =>
-        r.castId === castId ? { ...r, _deleted: !r._deleted } : r,
-      ),
-    );
-  };
-
-  const addNgLocal = () => {
-    const castId = ngInputCastId.trim();
-    if (!castId) return;
-
-    setNgCasts((prev) => {
-      const existing = prev.find((r) => r.castId === castId);
-      if (existing) {
-        return prev.map((r) =>
-          r.castId === castId
-            ? {
-                ...r,
-                reason: ngInputReason.trim() || null,
-                _deleted: false,
-              }
-            : r,
-        );
-      }
-      const now = new Date().toISOString();
-      return [
-        ...prev,
-        {
-          id: `temp-ng-${castId}`,
-          shopId: initial.id,
-          castId,
-          reason: ngInputReason.trim() || null,
-          source: "manual",
-          createdAt: now,
-          cast: {
-            userId: castId,
-            displayName: null,
-            managementNumber: null,
-            castCode: null,
-          },
-          _deleted: false,
-          _isNew: true,
-        },
-      ];
-    });
-
-    setNgInputCastId("");
-    setNgInputReason("");
-  };
-
-  const toggleDeleteNg = (castId: string) => {
-    setNgCasts((prev) =>
-      prev.map((r) =>
-        r.castId === castId ? { ...r, _deleted: !r._deleted } : r,
-      ),
-    );
-  };
 
   const save = async () => {
     setSaving(true);
@@ -614,60 +672,14 @@ function ShopEditDrawer({
     // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
 
-    // 飲酒の希望
-    payload.drinkPreference = drinkPreference
-      ? (drinkPreference as ShopDrinkPreference)
-      : null;
-
     // 身分証
     payload.idDocumentRequirement = idDocument
       ? (idDocument as ShopIdRequirement)
       : null;
 
-    // 希望年齢
-    payload.preferredAgeRange = preferredAge
-      ? (preferredAge as ShopPreferredAgeRange)
-      : null;
-
     try {
-      // 1. 店舗本体の更新
+      // 店舗本体のみ更新（専属/NGキャストはキャスト管理側で編集）
       await updateShop(initial.id, payload);
-
-      // 2. 専属キャストの同期
-      const fixedToDelete = fixedCasts.filter(
-        (r) => r._deleted && !r._isNew,
-      );
-      const fixedToUpsert = fixedCasts.filter((r) => !r._deleted);
-
-      await Promise.all([
-        ...fixedToDelete.map((r) =>
-          deleteShopFixedCast(initial.id, r.castId),
-        ),
-        ...fixedToUpsert.map((r) =>
-          upsertShopFixedCast(initial.id, {
-            castId: r.castId,
-            note: r.note ?? undefined,
-          }),
-        ),
-      ]);
-
-      // 3. NGキャストの同期
-      const ngToDelete = ngCasts.filter((r) => r._deleted && !r._isNew);
-      const ngToUpsert = ngCasts.filter((r) => !r._deleted);
-
-      await Promise.all([
-        ...ngToDelete.map((r) =>
-          deleteShopNgCast(initial.id, r.castId),
-        ),
-        ...ngToUpsert.map((r) =>
-          upsertShopNgCast(initial.id, {
-            castId: r.castId,
-            reason: r.reason ?? undefined,
-            source: r.source ?? "manual",
-          }),
-        ),
-      ]);
-
       await onSaved();
     } catch (e: any) {
       setErr(e?.message ?? "更新に失敗しました");
@@ -677,453 +689,338 @@ function ShopEditDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">店舗編集</h2>
+    <>
+      <div className="fixed inset-0 z-50">
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+        <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
+          <h2 className="text-xl font-semibold mb-4 text-ink">
+            店舗編集
+          </h2>
 
-        <div className="space-y-6 text-sm">
-          {/* 基本情報 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 店舗番号 */}
-            <label className="block">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-slate-300 text-sm">店舗番号</span>
-                <span className="text-[11px] text-slate-500">
-                  3〜4桁の半角数字
-                </span>
-              </div>
-              <input
-                value={shopNumber}
-                onChange={(e) => {
-                  setShopNumber(e.target.value);
-                  setShopNumberError(null);
-                }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono"
-                placeholder="657 など"
-              />
-              {shopNumberError && (
-                <div className="mt-1 text-xs text-red-400">
-                  {shopNumberError}
+          <div className="space-y-6 text-sm text-ink">
+            {/* 基本情報 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 店舗番号 */}
+              <label className="block">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-slate-300 text-sm">店舗番号</span>
+                  <span className="text-[11px] text-slate-500">
+                    3〜4桁の半角数字
+                  </span>
                 </div>
-              )}
-            </label>
-
-            {/* 店舗名 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">店舗名</div>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="クラブ ○○ など"
-              />
-            </label>
-
-            {/* カナ */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">カナ（読み方）</div>
-              <input
-                value={kana}
-                onChange={(e) => setKana(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="クラブ アリア など"
-              />
-            </label>
-
-            {/* ランク */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">ランク</div>
-              <select
-                value={rank}
-                onChange={(e) =>
-                  setRank((e.target.value || "") as ShopRank | "")
-                }
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              >
-                <option value="">（未設定）</option>
-                <option value="S">S</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-              </select>
-            </label>
-          </div>
-
-          {/* 住所系 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">店住所</div>
-              <input
-                value={addressLine}
-                onChange={(e) => setAddressLine(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="福岡県福岡市博多区中洲1-2-3 など"
-              />
-            </label>
-
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">ビル名</div>
-              <input
-                value={buildingName}
-                onChange={(e) => setBuildingName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="○○ビル 3F など"
-              />
-            </label>
-          </div>
-
-          {/* 時給・電話・ジャンル */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 時給 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">時給</div>
-              <select
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              >
-                <option value="">（未設定）</option>
-                {wageOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {/* 電話 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">電話</div>
-              <div className="flex gap-2 items-center">
                 <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  value={shopNumber}
+                  onChange={(e) => {
+                    setShopNumber(e.target.value);
+                    setShopNumberError(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono"
+                  placeholder="657 など"
+                />
+                {shopNumberError && (
+                  <div className="mt-1 text-xs text-red-400">
+                    {shopNumberError}
+                  </div>
+                )}
+              </label>
+
+              {/* 店舗名 */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">店舗名</div>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="090-xxxx-xxxx"
+                  placeholder="クラブ ○○ など"
                 />
-                <label className="flex items-center gap-1 text-xs text-slate-300">
+              </label>
+
+              {/* カナ */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">
+                  カナ（読み方）
+                </div>
+                <input
+                  value={kana}
+                  onChange={(e) => setKana(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                  placeholder="クラブ アリア など"
+                />
+              </label>
+
+              {/* ランク */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">ランク</div>
+                <select
+                  value={rank}
+                  onChange={(e) =>
+                    setRank((e.target.value || "") as ShopRank | "")
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                >
+                  <option value="">（未設定）</option>
+                  <option value="S">S</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                </select>
+              </label>
+            </div>
+
+            {/* 住所系 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">店住所</div>
+                <input
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                  placeholder="福岡県福岡市博多区中洲1-2-3 など"
+                />
+              </label>
+
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">ビル名</div>
+                <input
+                  value={buildingName}
+                  onChange={(e) => setBuildingName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                  placeholder="○○ビル 3F など"
+                />
+              </label>
+            </div>
+
+            {/* 時給・電話・ジャンル */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 時給 */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">時給</div>
+                <select
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                >
+                  <option value="">（未設定）</option>
+                  {wageOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* 電話 */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">電話</div>
+                <div className="flex gap-2 items-center">
                   <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={phoneChecked}
-                    onChange={(e) => setPhoneChecked(e.target.checked)}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                    placeholder="090-xxxx-xxxx"
                   />
-                  <span>電話チェック済み</span>
-                </label>
-              </div>
-            </label>
+                  <label className="flex items-center gap-1 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={phoneChecked}
+                      onChange={(e) => setPhoneChecked(e.target.checked)}
+                    />
+                    <span>電話チェック済み</span>
+                  </label>
+                </div>
+              </label>
 
-            {/* ジャンル */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">ジャンル</div>
-              <select
-                value={genre}
-                onChange={(e) =>
-                  setGenre((e.target.value || "") as ShopGenre | "")
-                }
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              >
-                <option value="">（未設定）</option>
-                <option value="club">club</option>
-                <option value="cabaret">cabaret</option>
-                <option value="snack">snack</option>
-                <option value="gb">gb</option>
-              </select>
-            </label>
-          </div>
+              {/* ジャンル（表示はカタカナ） */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">ジャンル</div>
+                <select
+                  value={genre}
+                  onChange={(e) =>
+                    setGenre((e.target.value || "") as ShopGenre | "")
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                >
+                  <option value="">（未設定）</option>
+                  <option value="club">クラブ</option>
+                  <option value="cabaret">キャバ</option>
+                  <option value="snack">スナック</option>
+                  <option value="gb">ガルバ</option>
+                </select>
+              </label>
+            </div>
 
-          {/* キャスト関連 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 専属指名キャスト */}
-            <div className="space-y-2">
-              <div className="text-sm text-slate-300 mb-1">
-                専属指名キャスト
-              </div>
+            {/* キャスト関連（専属 / NG：表示のみ） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 専属指名キャスト */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-sm text-slate-300">
+                    専属指名キャスト
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    （編集はキャスト管理ページから）
+                  </div>
+                </div>
 
-              {/* 既存一覧 */}
-              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-48 overflow-y-auto text-xs">
-                {fixedLoading ? (
-                  <div className="text-slate-400">読み込み中…</div>
-                ) : fixedCasts.length === 0 ? (
-                  <div className="text-slate-500">登録なし</div>
-                ) : (
-                  <ul className="space-y-1">
-                    {fixedCasts.map((row) => {
-                      const label =
-                        row.cast.managementNumber ||
-                        row.cast.castCode ||
-                        row.cast.displayName ||
-                        row.cast.userId;
-                      return (
-                        <li
-                          key={row.castId}
-                          className={`flex items-center justify-between gap-2 ${
-                            row._deleted ? "opacity-50 line-through" : ""
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="text-slate-200">
-                              {label ?? "(未設定)"}
+                <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
+                  {fixedLoading ? (
+                    <div className="text-slate-400">読み込み中…</div>
+                  ) : fixedCasts.length === 0 ? (
+                    <div className="text-slate-500">登録なし</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {fixedCasts.map((row) => {
+                        const labelName =
+                          row.cast.displayName || "(名前未登録)";
+                        const mng =
+                          row.cast.managementNumber ||
+                          row.cast.castCode ||
+                          "-";
+                        return (
+                          <li
+                            key={row.castId}
+                            className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
+                          >
+                            <div className="w-20">
+                              <div className="text-[10px] text-slate-400">
+                                管理番号
+                              </div>
+                              <div className="font-mono text-xs text-slate-50">
+                                {mng}
+                              </div>
                             </div>
-                            <div className="text-slate-400">
-                              castId:{" "}
-                              <span className="font-mono">
-                                {row.castId}
-                              </span>
+                            <div className="flex-1">
+                              <div className="text-xs text-slate-50">
+                                {labelName}
+                              </div>
                               {row.note && (
-                                <>
-                                  {" "}
-                                  / メモ:{" "}
-                                  <span className="whitespace-pre-wrap">
-                                    {row.note}
-                                  </span>
-                                </>
+                                <div className="mt-0.5 text-[10px] text-slate-400">
+                                  メモ: {row.note}
+                                </div>
                               )}
                             </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleDeleteFixed(row.castId)}
-                            className="px-2 py-1 text-[11px] rounded-lg border border-slate-600 text-slate-100"
-                          >
-                            {row._deleted ? "削除取消" : "削除"}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              {/* 追加フォーム（管理番号ベースの説明に変更） */}
-              <div className="space-y-1">
-                <div className="text-[11px] text-slate-400">
-                  追加したいキャストの
-                  <span className="font-semibold">管理番号（4〜5桁の数字）</span>
-                  を入力して「リストに追加」を押してください。
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
-                <input
-                  value={fixedInputCastId}
-                  onChange={(e) => setFixedInputCastId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
-                  placeholder="例: 0001, 0234, 1203 など"
-                />
-                <input
-                  value={fixedInputNote}
-                  onChange={(e) => setFixedInputNote(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
-                  placeholder="メモ（任意）例: 週1で固定勤務"
-                />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  入力された管理番号をもとに、将来的にキャスト検索 →
-                  専属登録する想定です（現状はID文字列を直接保存）。
-                </p>
-                <button
-                  type="button"
-                  onClick={addFixedLocal}
-                  className="mt-1 px-3 py-1 rounded-lg bg-slate-700 text-xs text-white disabled:opacity-40"
-                  disabled={saving}
-                >
-                  リストに追加
-                </button>
               </div>
-            </div>
 
-            {/* NGキャスト */}
-            <div className="space-y-2">
-              <div className="text-sm text-slate-300 mb-1">NGキャスト</div>
+              {/* NGキャスト */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-sm text-slate-300">NGキャスト</div>
+                  <div className="text-[11px] text-slate-500">
+                    （編集はキャスト管理ページから）
+                  </div>
+                </div>
 
-              {/* 既存一覧 */}
-              <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-48 overflow-y-auto text-xs">
-                {ngLoadingState ? (
-                  <div className="text-slate-400">読み込み中…</div>
-                ) : ngCasts.length === 0 ? (
-                  <div className="text-slate-500">登録なし</div>
-                ) : (
-                  <ul className="space-y-1">
-                    {ngCasts.map((row) => {
-                      const label =
-                        row.cast.managementNumber ||
-                        row.cast.castCode ||
-                        row.cast.displayName ||
-                        row.cast.userId;
-                      return (
-                        <li
-                          key={row.castId}
-                          className={`flex items-center justify-between gap-2 ${
-                            row._deleted ? "opacity-50 line-through" : ""
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="text-slate-200">
-                              {label ?? "(未設定)"}
+                <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
+                  {ngLoadingState ? (
+                    <div className="text-slate-400">読み込み中…</div>
+                  ) : ngCasts.length === 0 ? (
+                    <div className="text-slate-500">登録なし</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {ngCasts.map((row) => {
+                        const labelName =
+                          row.cast.displayName || "(名前未登録)";
+                        const mng =
+                          row.cast.managementNumber ||
+                          row.cast.castCode ||
+                          "-";
+                        return (
+                          <li
+                            key={row.castId}
+                            className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
+                          >
+                            <div className="w-20">
+                              <div className="text-[10px] text-slate-400">
+                                管理番号
+                              </div>
+                              <div className="font-mono text-xs text-slate-50">
+                                {mng}
+                              </div>
                             </div>
-                            <div className="text-slate-400">
-                              castId:{" "}
-                              <span className="font-mono">
-                                {row.castId}
-                              </span>
+                            <div className="flex-1">
+                              <div className="text-xs text-slate-50">
+                                {labelName}
+                              </div>
                               {row.reason && (
-                                <>
-                                  {" "}
-                                  / 理由:{" "}
-                                  <span className="whitespace-pre-wrap">
-                                    {row.reason}
-                                  </span>
-                                </>
+                                <div className="mt-0.5 text-[10px] text-slate-400">
+                                  NG理由: {row.reason}
+                                </div>
                               )}
                             </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleDeleteNg(row.castId)}
-                            className="px-2 py-1 text-[11px] rounded-lg border border-slate-600 text-slate-100"
-                          >
-                            {row._deleted ? "削除取消" : "削除"}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-
-              {/* 追加フォーム（管理番号ベースの説明に変更） */}
-              <div className="space-y-1">
-                <div className="text-[11px] text-slate-400">
-                  追加したい NGキャストの
-                  <span className="font-semibold">管理番号（4〜5桁の数字）</span>
-                  を入力し、必要に応じて理由を入力して「リストに追加」を押してください。
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
-                <input
-                  value={ngInputCastId}
-                  onChange={(e) => setNgInputCastId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono text-xs"
-                  placeholder="例: 0001, 0234, 1203 など"
-                />
-                <input
-                  value={ngInputReason}
-                  onChange={(e) => setNgInputReason(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-xs"
-                  placeholder="NG理由（任意）例: トラブル歴あり"
-                />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  入力された管理番号をもとに、将来的にキャスト検索 →
-                  NG登録する想定です（現状はID文字列を直接保存）。
-                </p>
-                <button
-                  type="button"
-                  onClick={addNgLocal}
-                  className="mt-1 px-3 py-1 rounded-lg bg-slate-700 text-xs text-white disabled:opacity-40"
-                  disabled={saving}
-                >
-                  リストに追加
-                </button>
               </div>
             </div>
-          </div>
 
-          {/* 条件系：飲酒・身分証・年齢・担当 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 飲酒の希望 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">飲酒の希望</div>
-              <select
-                value={drinkPreference}
-                onChange={(e) =>
-                  setDrinkPreference(
-                    (e.target.value || "") as ShopDrinkPreference | "",
-                  )
-                }
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+            {/* 条件系：身分証・担当（飲酒・希望年齢は削除） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 身分証 */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">身分証</div>
+                <select
+                  value={idDocument}
+                  onChange={(e) =>
+                    setIdDocument(
+                      (e.target.value || "") as ShopIdRequirement | "",
+                    )
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                >
+                  <option value="">（未設定）</option>
+                  <option value="none">条件なし</option>
+                  <option value="photo_only">顔写真付きのみ</option>
+                  <option value="address_only">住所系のみ</option>
+                  <option value="both">どちらも必要</option>
+                </select>
+              </label>
+
+              {/* 担当（今はUIのみ） */}
+              <label className="block">
+                <div className="text-sm text-slate-300 mb-1">担当</div>
+                <input
+                  value={ownerStaff}
+                  onChange={(e) => setOwnerStaff(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                  placeholder="ログインできるスタッフ名を入力"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  将来的にスタッフマスタからのドロップダウンに差し替え予定。
+                </p>
+              </label>
+            </div>
+
+            {err && <div className="text-red-400 text-sm">{err}</div>}
+
+            <div className="flex gap-2 pt-2 justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl bg-slate-700 text-white"
+                disabled={saving}
               >
-                <option value="">（未設定）</option>
-                <option value="none">飲めない</option>
-                <option value="weak">弱い</option>
-                <option value="normal">普通</option>
-                <option value="strong">強い</option>
-              </select>
-            </label>
-
-            {/* 身分証 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">身分証</div>
-              <select
-                value={idDocument}
-                onChange={(e) =>
-                  setIdDocument(
-                    (e.target.value || "") as ShopIdRequirement | "",
-                  )
-                }
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                閉じる
+              </button>
+              <button
+                onClick={save}
+                className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-50"
+                disabled={saving}
               >
-                <option value="">（未設定）</option>
-                <option value="none">条件なし</option>
-                <option value="photo_only">顔写真付きのみ</option>
-                <option value="address_only">住所系のみ</option>
-                <option value="both">どちらも必要</option>
-              </select>
-            </label>
-
-            {/* 希望年齢 */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">希望年齢</div>
-              <select
-                value={preferredAge}
-                onChange={(e) =>
-                  setPreferredAge(
-                    (e.target.value || "") as ShopPreferredAgeRange | "",
-                  )
-                }
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-              >
-                <option value="">（未設定）</option>
-                <option value="age_18_19">18〜19</option>
-                <option value="age_20_24">20〜24</option>
-                <option value="age_25_29">25〜29</option>
-                <option value="age_30_34">30〜34</option>
-                <option value="age_35_39">35〜39</option>
-                <option value="age_40_49">40〜49</option>
-                <option value="age_50_plus">50歳以上</option>
-              </select>
-            </label>
-
-            {/* 担当（今はUIのみ） */}
-            <label className="block">
-              <div className="text-sm text-slate-300 mb-1">担当</div>
-              <input
-                value={ownerStaff}
-                onChange={(e) => setOwnerStaff(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                placeholder="ログインできるスタッフ名を入力"
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                将来的にスタッフマスタからのドロップダウンに差し替え予定。
-              </p>
-            </label>
-          </div>
-
-          {err && <div className="text-red-400 text-sm">{err}</div>}
-
-          <div className="flex gap-2 pt-2 justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-700 text-white"
-              disabled={saving}
-            >
-              閉じる
-            </button>
-            <button
-              onClick={save}
-              className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-50"
-              disabled={saving}
-            >
-              {saving ? "保存中…" : "保存"}
-            </button>
+                {saving ? "保存中…" : "保存"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

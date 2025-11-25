@@ -38,6 +38,52 @@ export type CastListResponse = {
   total: number;
 };
 
+/**
+ * キャスト一覧（ピッカー用）クエリ
+ * - 店舗NG/専属モーダルなどで利用することを想定
+ * - API 側では /casts?for=picker&... のような形で拡張する前提
+ */
+export type CastPickerQuery = {
+  q?: string; // 名前・番号などの曖昧検索
+  minAge?: number;
+  maxAge?: number;
+  limit?: number;
+  offset?: number;
+};
+
+/**
+ * キャスト一覧取得（ピッカー用）
+ * - /casts?for=picker を叩き、{ items, total } 形式 or 配列を吸収して返す
+ * - レスポンスの 1件は既存の CastListItem をそのまま利用
+ */
+export async function listCastsForPicker(
+  params: CastPickerQuery = {},
+): Promise<CastListResponse> {
+  const { q, minAge, maxAge, limit, offset } = params;
+
+  const searchParams = new URLSearchParams();
+  if (q) searchParams.set("q", q);
+  if (minAge != null) searchParams.set("minAge", String(minAge));
+  if (maxAge != null) searchParams.set("maxAge", String(maxAge));
+  if (limit != null) searchParams.set("limit", String(limit));
+  if (offset != null) searchParams.set("offset", String(offset));
+
+  const qs = searchParams.toString();
+  const path = `/casts?for=picker${qs ? `&${qs}` : ""}`;
+
+  const raw = await apiFetch<any>(path, withUser());
+
+  if (Array.isArray(raw)) {
+    return { items: raw as CastListItem[], total: raw.length };
+  }
+
+  const items = Array.isArray(raw?.items) ? (raw.items as CastListItem[]) : [];
+  const total =
+    typeof raw?.total === "number" ? (raw.total as number) : items.length;
+
+  return { items, total };
+}
+
 /** NG 店舗（GET /casts/:id の ngShops 要素） */
 export type CastNgShop = {
   shopId: string;
@@ -296,6 +342,7 @@ export async function deleteCastNg(input: {
     }),
   );
 }
+
 /** Cast 削除 */
 export async function deleteCast(id: string): Promise<void> {
   await apiFetch<void>(

@@ -37,6 +37,9 @@ export type ShopPreferredAgeRange =
   | "age_40_49"
   | "age_50_plus";
 
+// 一覧の並び替えモード
+export type ShopOrderBy = "kana" | "number" | "favorite";
+
 export type ShopListItem = {
   id: string;
   name: string;
@@ -75,15 +78,33 @@ export type ShopListResponse = {
 /**
  * 店舗一覧取得
  * API 実体は `ShopListItem[]` を返すので、ここで `{ items, total }` にラップする
+ * - q: 店舗名・住所などのキーワード
+ * - limit: take にマップ
+ * - offset: offset にマップ
+ * - genre: ジャンル絞り込み (club/cabaret/snack/gb)
+ * - orderBy: ソート (kana/number/favorite)
  */
 export async function listShops(
-  params: { q?: string; limit?: number; offset?: number } = {},
+  params: {
+    q?: string;
+    limit?: number;
+    offset?: number;
+    genre?: ShopGenre;
+    orderBy?: ShopOrderBy;
+  } = {},
 ): Promise<ShopListResponse> {
   const qs = new URLSearchParams();
+
   if (params.q) qs.set("q", params.q);
   if (params.limit != null) qs.set("take", String(params.limit));
   if ((params as any).offset != null) {
     qs.set("offset", String((params as any).offset));
+  }
+  if (params.genre) {
+    qs.set("genre", params.genre);
+  }
+  if (params.orderBy) {
+    qs.set("orderBy", params.orderBy);
   }
 
   const path = `/shops${qs.toString() ? `?${qs.toString()}` : ""}`;

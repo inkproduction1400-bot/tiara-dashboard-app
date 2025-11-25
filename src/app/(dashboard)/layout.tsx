@@ -1,5 +1,4 @@
 // src/app/(dashboard)/layout.tsx
-import "../../styles/globals.css";
 import { ReactNode } from "react";
 import AppShell from "@/components/AppShell";
 

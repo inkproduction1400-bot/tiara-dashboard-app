@@ -267,7 +267,7 @@ export default function Page() {
         <section className="tiara-panel p-3 flex flex-col gap-2">
           <header className="flex items-center justify-between">
             <div className="flex flex-col">
-              <h1 className="text-sm font-semibold">
+              <h1 className="text-sm font-semibold text-gray-900">
                 割当確認 / 店舗リクエスト一覧
               </h1>
               <p className="mt-0.5 text-[11px] text-muted">
@@ -282,7 +282,7 @@ export default function Page() {
               >
                 ＋ 新規追加
               </button>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 border border-white/10">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-600">
                 build: {buildStamp}
               </span>
             </div>
@@ -292,36 +292,36 @@ export default function Page() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">日付</span>
-              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+              <div className="inline-flex rounded-full bg-white border border-gray-300 overflow-hidden">
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     dateFilter === "all"
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={() => setDateFilter("all")}
                 >
                   すべて
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     dateFilter === "today"
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={() => setDateFilter("today")}
                 >
                   本日
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     dateFilter === "tomorrow"
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px]`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={() => setDateFilter("tomorrow")}
                 >
                   明日
@@ -346,7 +346,7 @@ export default function Page() {
           <div className="flex items-center justify-between mb-2 text-[11px] text-muted">
             <span>
               該当店舗：
-              <span className="font-semibold text-ink">
+              <span className="font-semibold text-gray-900">
                 {filteredItems.length}
               </span>{" "}
               件
@@ -356,9 +356,9 @@ export default function Page() {
             </span>
           </div>
 
-          <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5">
+          <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
             <table className="w-full text-xs">
-              <thead className="bg-slate-900/60 text-[11px] text-muted sticky top-0 z-10">
+              <thead className="bg-gray-50 text-[11px] text-gray-500 sticky top-0 z-10 border-b border-gray-200">
                 <tr>
                   <th className="px-3 py-2 text-left w-[80px]">店舗番号</th>
                   <th className="px-3 py-2 text-left">店舗名</th>
@@ -397,7 +397,7 @@ export default function Page() {
                     return (
                       <tr
                         key={shop.id}
-                        className="border-t border-white/5 hover:bg-slate-900/30"
+                        className="border-t border-gray-100 hover:bg-gray-50"
                       >
                         <td className="px-3 py-2 font-mono">{shop.code}</td>
                         <td className="px-3 py-2">{shop.name}</td>
@@ -425,7 +425,7 @@ export default function Page() {
                         </td>
                         <td className="px-3 py-2 max-w-[220px]">
                           <div className="flex flex-col gap-0.5">
-                            <span className="line-clamp-2 text-[11px] text-ink/80">
+                            <span className="line-clamp-2 text-[11px] text-gray-800">
                               {assignedNames}
                             </span>
                             <span className="text-[10px] text-muted">
@@ -438,7 +438,7 @@ export default function Page() {
                           </div>
                         </td>
                         <td className="px-3 py-2 max-w-[260px]">
-                          <span className="line-clamp-2 text-[11px] text-ink/80">
+                          <span className="line-clamp-2 text-[11px] text-gray-700">
                             {shop.note || "-"}
                           </span>
                         </td>
@@ -453,7 +453,7 @@ export default function Page() {
                             </button>
                             <button
                               type="button"
-                              className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-3 py-1 text-[11px]"
+                              className="rounded-xl border border-red-500 bg-white text-red-600 px-3 py-1 text-[11px] hover:bg-red-50"
                               onClick={() => deleteItem(shop)}
                             >
                               削除
@@ -479,10 +479,10 @@ export default function Page() {
             onClick={closeEdit}
           />
           {/* モーダル本体 */}
-          <div className="relative z-10 w-full max-w-3xl max-h-[90vh] rounded-2xl bg-slate-950 border border-white/10 shadow-xl flex flex-col overflow-hidden">
-            <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <div className="relative z-10 w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <div>
-                <h2 className="text-sm font-semibold text-ink">
+                <h2 className="text-sm font-semibold text-gray-900">
                   {editingIsNew
                     ? "新規店舗リクエストを追加"
                     : `店舗リクエスト / 割当キャストを編集`}
@@ -493,14 +493,14 @@ export default function Page() {
               </div>
               <button
                 type="button"
-                className="text-xs text-muted hover:text-ink"
+                className="text-xs text-muted hover:text-gray-900"
                 onClick={closeEdit}
               >
                 ✕
               </button>
             </header>
 
-            <div className="flex-1 overflow-auto p-4 space-y-5 text-xs text-ink">
+            <div className="flex-1 overflow-auto p-4 space-y-5 text-xs text-gray-900 bg-white">
               {/* 店舗情報・条件 */}
               <div className="space-y-4">
                 {/* 店舗情報 */}
@@ -684,13 +684,13 @@ export default function Page() {
               </div>
 
               {/* この店舗の割当キャスト一覧 */}
-              <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/10 space-y-3">
+              <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-muted">
                       この店舗の割当キャスト
                     </div>
-                    <p className="mt-0.5 text-[11px] text-ink/80">
+                    <p className="mt-0.5 text-[11px] text-gray-700">
                       名前・ID・単価を確認し、必要に応じて追加・編集・削除を行えます。
                     </p>
                   </div>
@@ -703,9 +703,9 @@ export default function Page() {
                   </button>
                 </div>
 
-                <div className="rounded-lg border border-white/10 overflow-hidden">
+                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-slate-900/80 text-muted">
+                    <thead className="bg-gray-100 text-gray-600">
                       <tr>
                         <th className="px-2 py-1.5 text-left w-[80px]">
                           キャストID
@@ -736,7 +736,7 @@ export default function Page() {
                         currentEditingAssignments.map((a) => (
                           <tr
                             key={a.id}
-                            className="border-t border-white/5 hover:bg-slate-900/40"
+                            className="border-t border-gray-100 hover:bg-gray-50"
                           >
                             <td className="px-2 py-1.5 font-mono">
                               {a.castCode}
@@ -746,7 +746,7 @@ export default function Page() {
                               ¥{a.agreedHourly.toLocaleString()}
                             </td>
                             <td className="px-2 py-1.5 max-w-[220px]">
-                              <span className="line-clamp-2 text-ink/80">
+                              <span className="line-clamp-2 text-gray-700">
                                 {a.note || "-"}
                               </span>
                             </td>
@@ -761,7 +761,7 @@ export default function Page() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-2.5 py-1 text-[10px]"
+                                  className="rounded-xl border border-red-500 bg-white text-red-600 px-2.5 py-1 text-[10px] hover:bg-red-50"
                                   onClick={() => deleteAssignment(a)}
                                 >
                                   削除
@@ -777,20 +777,20 @@ export default function Page() {
 
                 {/* 割当編集フォーム（インライン） */}
                 {assignmentDraft && (
-                  <div className="mt-3 p-3 rounded-lg bg-slate-900 border border-sky-500/40 space-y-3">
+                  <div className="mt-3 p-3 rounded-lg bg-sky-50 border border-sky-300 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-[11px] text-sky-100 font-semibold">
+                        <div className="text-[11px] text-sky-900 font-semibold">
                           割当キャストを
                           {assignmentDraftIsNew ? "追加" : "編集"}
                         </div>
-                        <p className="mt-0.5 text-[10px] text-muted">
+                        <p className="mt-0.5 text-[10px] text-sky-900/70">
                           キャストID・名前・時給・メモを入力して保存します。
                         </p>
                       </div>
                       <button
                         type="button"
-                        className="text-[10px] text-muted hover:text-ink"
+                        className="text-[10px] text-muted hover:text-gray-900"
                         onClick={cancelAssignmentDraft}
                       >
                         ✕ 閉じる
@@ -868,7 +868,7 @@ export default function Page() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-[11px]"
+                        className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-[11px]"
                         onClick={cancelAssignmentDraft}
                       >
                         キャンセル
@@ -888,10 +888,10 @@ export default function Page() {
               </div>
             </div>
 
-            <footer className="px-4 py-3 border-t border-white/10 flex items-center justify-end gap-2">
+            <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
               <button
                 type="button"
-                className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
+                className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-xs"
                 onClick={closeEdit}
               >
                 閉じる

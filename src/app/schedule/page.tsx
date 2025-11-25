@@ -565,20 +565,20 @@ export default function Page() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 border border-white/10">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600">
                 build: {buildStamp}
               </span>
             </div>
           </header>
 
           {/* 日付選択・フィルタ */}
-          <div className="mt-2 flex flex-wrap items中心 gap-3 text-xs">
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">表示日付</span>
               <div className="inline-flex items-center gap-1">
                 <button
                   type="button"
-                  className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[11px]"
+                  className="rounded-full border border-gray-300 bg-white px-2 py-1 text-[11px]"
                   onClick={() => moveDate(-1)}
                 >
                   ← 前日
@@ -593,7 +593,7 @@ export default function Page() {
                 />
                 <button
                   type="button"
-                  className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[11px]"
+                  className="rounded-full border border-gray-300 bg-white px-2 py-1 text-[11px]"
                   onClick={() => moveDate(1)}
                 >
                   翌日 →
@@ -608,25 +608,25 @@ export default function Page() {
               <span className="text-muted whitespace-nowrap">
                 ショートカット
               </span>
-              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+              <div className="inline-flex rounded-full bg-white/70 border border-gray-300 overflow-hidden">
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     selectedDate === TODAY
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={jumpToToday}
                 >
                   本日
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     selectedDate === TOMORROW
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={jumpToTomorrow}
                 >
                   明日
@@ -646,25 +646,25 @@ export default function Page() {
 
             <div className="ml-auto flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">表示</span>
-              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
+              <div className="inline-flex rounded-full bg-white/70 border border-gray-300 overflow-hidden">
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     rangeView === "day"
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={() => setRangeView("day")}
                 >
                   1日
                 </button>
                 <button
                   type="button"
-                  className={`px-3 py-1 ${
+                  className={`px-3 py-1 text-[11px] ${
                     rangeView === "week"
-                      ? "bg-slate-900 text-ink"
-                      : "bg-transparent text-slate-700"
-                  } text-[11px`}
+                      ? "bg-sky-600 text-white"
+                      : "bg-transparent text-gray-700"
+                  }`}
                   onClick={() => setRangeView("week")}
                 >
                   選択日から1週間
@@ -680,7 +680,7 @@ export default function Page() {
             </p>
           )}
           {loadError && !loading && (
-            <p className="mt-1 text-xs text-red-400">{loadError}</p>
+            <p className="mt-1 text-xs text-red-500">{loadError}</p>
           )}
         </section>
 
@@ -691,7 +691,7 @@ export default function Page() {
             <div className="flex items-center justify-between mb-2 text-[11px] text-muted">
               <span>
                 {selectedDateLabel} の店舗リクエスト：
-                <span className="font-semibold text-ink">
+                <span className="font-semibold text-gray-900">
                   {dailyItems.length}
                 </span>{" "}
                 件
@@ -705,9 +705,9 @@ export default function Page() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5">
+            <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
               <table className="w-full text-xs">
-                <thead className="bg-slate-900/60 text-[11px] text-muted sticky top-0 z-10">
+                <thead className="bg-gray-50 text-[11px] text-gray-500 sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-2 text-left w-[80px]">店舗番号</th>
                     <th className="px-3 py-2 text-left">店舗名</th>
@@ -738,7 +738,7 @@ export default function Page() {
                   ) : loadError ? (
                     <tr>
                       <td
-                        className="px-3 py-4 text-center text-[11px] text-red-300"
+                        className="px-3 py-4 text-center text-[11px] text-red-500"
                         colSpan={8}
                       >
                         {loadError}
@@ -759,14 +759,16 @@ export default function Page() {
                     dailyItems.map((req: UiShopRequest) => (
                       <tr
                         key={req.id}
-                        className="border-t border-white/5 hover:bg-slate-900/30"
+                        className="border-t border-gray-100 hover:bg-gray-50"
                       >
-                        <td className="px-3 py-2 font-mono">{req.code}</td>
-                        <td className="px-3 py-2">{req.name}</td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 font-mono text-gray-900">
+                          {req.code}
+                        </td>
+                        <td className="px-3 py-2 text-gray-900">{req.name}</td>
+                        <td className="px-3 py-2 text-right text-gray-900">
                           {req.requestedHeadcount} 名
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right text-gray-900">
                           {req.minHourly
                             ? `¥${req.minHourly.toLocaleString()}`
                             : "-"}
@@ -775,15 +777,15 @@ export default function Page() {
                             ? `¥${req.maxHourly.toLocaleString()}`
                             : "-"}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right text-gray-900">
                           {req.minAge ?? "-"}{" 〜 "}
                           {req.maxAge ?? "-"} 歳
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-3 py-2 text-center text-gray-900">
                           {req.requireDrinkOk ? "飲酒OK必須" : "不問"}
                         </td>
                         <td className="px-3 py-2 max-w-[260px]">
-                          <span className="line-clamp-2 text-[11px] text-ink/80">
+                          <span className="line-clamp-2 text-[11px] text-gray-700">
                             {req.note || "-"}
                           </span>
                         </td>
@@ -798,7 +800,7 @@ export default function Page() {
                             </button>
                             <button
                               type="button"
-                              className="rounded-xl border border-red-500/70 bg-red-500/10 text-red-100 px-3 py-1 text-[11px]"
+                              className="rounded-xl border border-red-500 bg-red-50 text-red-600 px-3 py-1 text-[11px]"
                               onClick={() => void deleteItem(req)}
                               disabled={saving}
                             >
@@ -816,8 +818,8 @@ export default function Page() {
 
           {/* 右：1週間サマリー */}
           <aside className="tiara-panel w-[260px] shrink-0 p-3 flex flex-col">
-            <header className="pb-2 border-b border-white/10">
-              <h2 className="text-xs font-semibold text-ink">
+            <header className="pb-2 border-b border-gray-200">
+              <h2 className="text-xs font-semibold text-gray-900">
                 {selectedDateLabel} から 1 週間の予定
               </h2>
               <p className="mt-0.5 text-[11px] text-muted">
@@ -847,8 +849,8 @@ export default function Page() {
                         className={
                           "w-full flex items-center justify-between rounded-lg border px-2 py-1.5 transition-colors " +
                           (isSelected
-                            ? "bg-sky-600/30 border-sky-400 text-ink"
-                            : "bg-white/5 border-white/10 text-ink/80 hover:border-sky-400")
+                            ? "bg-sky-50 border-sky-500 text-sky-700"
+                            : "bg-white border-gray-200 text-gray-700 hover:border-sky-400")
                         }
                         onClick={() => setSelectedDate(dKey)}
                       >
@@ -876,10 +878,10 @@ export default function Page() {
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeEdit} />
-          <div className="relative z-10 w-full max-w-2xl max-h-[85vh] rounded-2xl bg-slate-950 border border-white/10 shadow-xl flex flex-col overflow-hidden">
-            <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <div className="relative z-10 w-full max-w-2xl max-h-[85vh] rounded-2xl bg-white border border-gray-200 shadow-xl flex flex-col overflow-hidden">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <div>
-                <h2 className="text-sm font-semibold text-ink">
+                <h2 className="text-sm font-semibold text-gray-900">
                   {editingIsNew
                     ? "新規店舗リクエストを追加"
                     : "店舗リクエストを編集"}
@@ -890,14 +892,14 @@ export default function Page() {
               </div>
               <button
                 type="button"
-                className="text-xs text-muted hover:text-ink"
+                className="text-xs text-muted hover:text-gray-900"
                 onClick={closeEdit}
               >
                 ✕
               </button>
             </header>
 
-            <div className="flex-1 overflow-auto p-4 space-y-4 text-xs text-ink">
+            <div className="flex-1 overflow-auto p-4 space-y-4 text-xs text-gray-900 bg-white">
               <div>
                 <label className="block text-[11px] text-muted mb-1">
                   日付（変更すると別の日付の予定になります）
@@ -1116,14 +1118,14 @@ export default function Page() {
               </div>
 
               {saveError && (
-                <p className="text-[11px] text-red-400">{saveError}</p>
+                <p className="text-[11px] text-red-500">{saveError}</p>
               )}
             </div>
 
-            <footer className="px-4 py-3 border-t border白/10 flex items-center justify-end gap-2">
+            <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
               <button
                 type="button"
-                className="rounded-xl border border-white/20 bg-white/5 text-ink px-4 py-1.5 text-xs"
+                className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-xs"
                 onClick={closeEdit}
                 disabled={saving}
               >

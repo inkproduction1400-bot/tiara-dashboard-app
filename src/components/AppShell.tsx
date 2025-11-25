@@ -1,5 +1,6 @@
-// src/components/dashboard/AppShell.tsx
+// src/components/AppShell.tsx
 "use client";
+
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import React from "react";
@@ -31,7 +32,8 @@ const PATH_TITLE_MAP: Record<string, { title: string; subtitle?: string }> = {
 export default function AppShell({ children, title, subtitle }: Props) {
   const pathname = usePathname() || "/";
   const base = "/" + (pathname.split("/").slice(0, 3).join("/") || "");
-  const fallback = PATH_TITLE_MAP[base] || PATH_TITLE_MAP[pathname] || { title: "" };
+  const fallback =
+    PATH_TITLE_MAP[base] || PATH_TITLE_MAP[pathname] || { title: "" };
 
   return (
     <main className="h-[100dvh] overflow-hidden">

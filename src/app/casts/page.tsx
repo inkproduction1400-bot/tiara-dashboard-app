@@ -322,8 +322,8 @@ export default function Page() {
 
   return (
     <AppShell>
-      <section className="tiara-panel h-full flex flex-col p-3">
-        <header className="pb-2 border-b border-white/10 flex items-center justify-between">
+      <section className="tiara-panel h-full flex flex-col p-3 bg-white text-ink">
+        <header className="pb-2 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-extrabold">キャスト管理</h2>
             <p className="text-xs text-muted">
@@ -390,7 +390,7 @@ export default function Page() {
                 時給順
               </label>
               <button
-                className="rounded-xl border border-white/15 bg-white/5 text-ink px-3 py-2 text-xs"
+                className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"
                 onClick={() => {
                   setQ("");
                   setStaffFilter("");
@@ -404,9 +404,9 @@ export default function Page() {
         </div>
 
         {/* テーブル */}
-        <div className="mt-3 overflow-auto rounded-xl border border-white/10">
+        <div className="mt-3 overflow-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-white/5 text-muted">
+            <thead className="bg-gray-50 text-muted">
               <tr>
                 <th className="text-left px-3 py-2 w-28">管理番号</th>
                 <th className="text-left px-3 py-2">名前</th>
@@ -421,7 +421,7 @@ export default function Page() {
               {rows.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-t border-white/10 hover:bg-white/5 cursor-pointer"
+                  className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleRowClick(r)}
                 >
                   <td className="px-3 py-2 font-mono">{r.managementNumber}</td>
@@ -776,9 +776,9 @@ function CastDetailModal({
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
         {/* 本体：横幅広め・高さは 90vh に収める（中身はスクロール） */}
-        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-slate-950 rounded-2xl shadow-2xl border border-white/10 overflow-hidden flex flex-col">
+        <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
           {/* ヘッダー */}
-          <div className="flex items-center justify-between px-5 py-1.5 border-b border-white/10 bg-slate-900/80">
+          <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">
                 キャスト詳細（{displayName}）
@@ -788,27 +788,27 @@ function CastDetailModal({
                 {legacyStaffId ?? "-"} / キャストID: {cast.castCode}
               </span>
               {detailLoading && (
-                <span className="text-[10px] text-emerald-300">
+                <span className="text-[10px] text-emerald-600">
                   詳細読み込み中…
                 </span>
               )}
               {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-400">{detailError}</span>
+                <span className="text-[10px] text-red-500">{detailError}</span>
               )}
               {!detailLoading && saveDone && !saveError && (
-                <span className="text-[10px] text-emerald-300">
+                <span className="text-[10px] text-emerald-600">
                   保存しました
                 </span>
               )}
               {saveError && (
-                <span className="text-[10px] text-red-400">
+                <span className="text-[10px] text-red-500">
                   保存エラー: {saveError}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {/* ① 文言変更：LINE → チャット */}
-              <button className="px-3 py-1 rounded-xl text-[11px] border border-white/15 bg-white/5">
+              <button className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
                 チャットで連絡
               </button>
               {/* ② 保存ボタン */}
@@ -821,7 +821,7 @@ function CastDetailModal({
               </button>
               {/* ③ 閉じるボタン */}
               <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-white/20 bg-red-500/80 text-white"
+                className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white"
                 onClick={onClose}
               >
                 × 閉じる
@@ -830,11 +830,11 @@ function CastDetailModal({
           </div>
 
           {/* コンテンツ（ここをスクロールさせる） */}
-          <div className="flex-1 overflow-auto px-4 py-2 bg-slate-950">
+          <div className="flex-1 overflow-auto px-4 py-2 bg-white">
             {/* 2x2 グリッド */}
             <div className="grid grid-cols-1 xl:grid-cols-2 xl:auto-rows-fr gap-2 h-full">
               {/* 左上：登録情報① */}
-              <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 flex flex-col">
+              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 flex flex-col">
                 <h4 className="text-[11px] font-semibold mb-2">
                   登録情報①（プロフィール・希望・確認）
                 </h4>
@@ -842,7 +842,7 @@ function CastDetailModal({
                 <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3 flex-1">
                   {/* 写真 */}
                   <div>
-                    <div className="w-full aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                    <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
                       写真
                     </div>
                   </div>
@@ -930,7 +930,7 @@ function CastDetailModal({
                         シフト情報（直近2日）
                       </div>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <div className="w-full text-[12px] px-3 py-1.5 rounded-lg bg-slate-950/70 border border-white/10 text-ink/90">
+                        <div className="w-full text-[12px] px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-slate-900">
                           本日 {todayLabel}: {formatSlot(todaySlot)} / 翌日{" "}
                           {tomorrowLabel}: {formatSlot(tomorrowSlot)}
                         </div>
@@ -948,7 +948,7 @@ function CastDetailModal({
               </section>
 
               {/* 右上：登録情報② */}
-              <section className="bg-slate-900/80 rounded-2xl p-2.5 border border-white/5 text-[11px] space-y-1.5">
+              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold mb-1">
                   登録情報②（動機・比較・選定理由）
                 </h4>
@@ -996,7 +996,7 @@ function CastDetailModal({
                   readOnly
                 />
 
-                <div className="h-px bg-white/5 my-1" />
+                <div className="h-px bg-gray-200 my-1" />
 
                 <InfoRow
                   label="ティアラを選んだ理由"
@@ -1018,7 +1018,7 @@ function CastDetailModal({
                 />
                 <InfoRow label="その他（備考）" value="—" readOnly />
 
-                <div className="h-px bg-white/5 my-1" />
+                <div className="h-px bg-gray-200 my-1" />
 
                 <InfoRow
                   label="30,000円到達への所感"
@@ -1028,13 +1028,13 @@ function CastDetailModal({
               </section>
 
               {/* 左下：基本情報 */}
-              <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 space-y-1.5 text-[11px]">
+              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 space-y-1.5 text-[11px]">
                 <h4 className="text-[11px] font-semibold mb-1">
                   基本情報（プロフィール・希望条件・就業可否）
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       プロフィール
                     </div>
@@ -1077,7 +1077,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       希望条件
                     </div>
@@ -1158,7 +1158,7 @@ function CastDetailModal({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       就業可否
                     </div>
@@ -1198,7 +1198,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <div className="font-semibold mb-1.5 text-[12px]">
                       水商売の経験
                     </div>
@@ -1219,13 +1219,13 @@ function CastDetailModal({
               </section>
 
               {/* 右下：身分証＋備考 */}
-              <section className="bg-slate-900/80 rounded-2xl p-2 border border-white/5 text-[11px] space-y-1.5">
+              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
                 <h4 className="text-[11px] font-semibold">
                   身分証明書確認 / 申告・備考
                 </h4>
 
                 <div className="grid grid-cols-1 gap-1.5">
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5 space-y-1">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
                     <InfoRow label="身分証種類" value="運転免許証" readOnly />
                     <InfoRow label="住民票・郵便物" value="◯" readOnly />
                     <InfoRow
@@ -1235,7 +1235,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  <div className="bg-slate-950/40 rounded-xl p-2 border border-white/5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <InfoRow label="備考" value="特記事項なし" readOnly />
                   </div>
                 </div>
@@ -1273,11 +1273,11 @@ function DeleteCastModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-md bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
         <h4 className="text-sm font-semibold text-ink mb-2">
           キャスト削除の確認
         </h4>
-        <p className="text-xs text-red-300 mb-2">
+        <p className="text-xs text-red-500 mb-2">
           このキャストを削除すると、元に戻せません。
         </p>
         <p className="text-xs text-ink/90 mb-3">
@@ -1293,12 +1293,12 @@ function DeleteCastModal({
           )}
         </p>
         {error && (
-          <p className="text-xs text-red-400 mb-2">削除エラー: {error}</p>
+          <p className="text-xs text-red-500 mb-2">削除エラー: {error}</p>
         )}
         <div className="mt-3 flex items-center justify-end gap-2 text-xs">
           <button
             type="button"
-            className="px-3 py-1.5 rounded-lg border border-white/25 bg-white/5 text-ink disabled:opacity-60"
+            className="px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-ink disabled:opacity-60"
             onClick={onCancel}
             disabled={busy}
           >
@@ -1357,7 +1357,7 @@ function ShiftEditModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-slate-950 rounded-2xl border border-white/15 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
@@ -1366,7 +1366,7 @@ function ShiftEditModal({
             </p>
           </div>
           <button
-            className="px-3 py-1 rounded-lg text-[11px] border border-white/20 bg-red-500/80 text-white"
+            className="px-3 py-1 rounded-lg text-[11px] border border-red-400/80 bg-red-500/80 text-white"
             onClick={onClose}
           >
             閉じる
@@ -1377,14 +1377,14 @@ function ShiftEditModal({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <button
-              className="px-2 py-1 rounded-md border border-white/15 text-[11px]"
+              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
               onClick={prevMonth}
             >
               ← 前月
             </button>
             <span className="text-[13px] font-semibold">{monthLabel}</span>
             <button
-              className="px-2 py-1 rounded-md border border-white/15 text-[11px]"
+              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
               onClick={nextMonth}
             >
               次月 →
@@ -1397,12 +1397,12 @@ function ShiftEditModal({
         </div>
 
         {/* カレンダー */}
-        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-slate-950/80">
+        <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-slate-900/80">
+              <tr className="bg-gray-50">
                 {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
-                  <th key={w} className="py-1 border-b border-white/10">
+                  <th key={w} className="py-1 border-b border-gray-200">
                     {w}
                   </th>
                 ))}
@@ -1410,7 +1410,7 @@ function ShiftEditModal({
             </thead>
             <tbody>
               {Array.from({ length: 6 }).map((_, rowIdx) => (
-                <tr key={rowIdx} className="border-t border-white/5">
+                <tr key={rowIdx} className="border-t border-gray-100">
                   {days.slice(rowIdx * 7, rowIdx * 7 + 7).map((d, i) => {
                     const dayNum = d.date.getDate();
                     const isToday =
@@ -1418,19 +1418,19 @@ function ShiftEditModal({
                     return (
                       <td
                         key={i}
-                        className={`align-top h-20 px-1.5 py-1 border-l border-white/5 ${
+                        className={`align-top h-20 px-1.5 py-1 border-l border-gray-100 ${
                           d.inCurrentMonth ? "" : "opacity-40"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span
                             className={`text-[10px] ${
-                              isToday ? "text-emerald-300 font-semibold" : ""
+                              isToday ? "text-emerald-600 font-semibold" : ""
                             }`}
                           >
                             {dayNum}
                           </span>
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-slate-800/80 border border-white/10">
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-100 border border-gray-300">
                             -
                           </span>
                         </div>
@@ -1447,7 +1447,7 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-white/20 bg-white/5">
+          <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">
             変更を破棄
           </button>
           <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
@@ -1486,8 +1486,8 @@ function MainInfoRow({
           readOnly={effectiveReadOnly}
           className={`w-full text-[13px] px-3 py-1.5 rounded-lg border text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
             effectiveReadOnly
-              ? "bg-slate-900/60 border-white/15 text-muted cursor-default"
-              : "bg-slate-950/70 border-white/10"
+              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
+              : "bg-white border-gray-300"
           }`}
         />
       </div>
@@ -1522,8 +1522,8 @@ function InfoRow({
           readOnly={effectiveReadOnly}
           className={`w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
             effectiveReadOnly
-              ? "bg-slate-900/60 border-white/10 text-muted cursor-default"
-              : "bg-slate-950/60 border-white/5"
+              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
+              : "bg-white border-gray-300"
           }`}
         />
       </div>

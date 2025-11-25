@@ -1,4 +1,4 @@
-// src/app/casts/today/page.tsx
+// src/app/casts/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -33,6 +33,12 @@ type AgeRangeFilter =
   | "40-49"
   | "50-";
 
+// 共通のセレクト用型
+type YesNo = "yes" | "no" | "";
+type DoneStatus = "done" | "notYet" | "";
+type IdType = "license" | "insurance" | "passport" | "mynumber" | "";
+
+// Cast マスタに紐づく詳細項目もここで持つ（API連携は今後）
 type Cast = {
   id: string;
   code: string;
@@ -48,6 +54,23 @@ type Cast = {
   oldId?: string;
   /** キャストのジャンル（クラブ / キャバ / スナック / ガルバ など複数） */
   genres?: CastGenre[];
+
+  // ---- 詳細モーダル用の追加項目 ----
+  furigana?: string;
+  payText?: string; // 時給 / 月給
+  tattoo?: YesNo;
+  shuttle?: YesNo; // 送迎
+  experience?: YesNo; // 経験
+  workHistory?: string; // 勤務歴
+  referrerName?: string; // 紹介者名
+  otherAgencyComparison?: string; // 他の派遣会社との比較
+  otherAgencyName?: string; // 派遣会社名
+  miscNote?: string; // その他
+  salary30kNote?: string; // 30,000円到達への所感
+  idType?: IdType; // 身分証種類
+  juminhyoPost?: DoneStatus; // 住民票・郵便物
+  oath?: DoneStatus; // 宣誓
+  remarks?: string; // 備考
 };
 
 type Shop = {
@@ -68,6 +91,26 @@ type Shop = {
   genre?: ShopGenre | null;
 };
 
+// キャスト詳細モーダルのフォーム用
+type CastForm = {
+  furigana: string;
+  payText: string;
+  tattoo: YesNo;
+  shuttle: YesNo;
+  drinkLevel: DrinkLevel | "";
+  experience: YesNo;
+  workHistory: string;
+  referrerName: string;
+  otherAgencyComparison: string;
+  otherAgencyName: string;
+  miscNote: string;
+  salary30kNote: string;
+  idType: IdType;
+  juminhyoPost: DoneStatus;
+  oath: DoneStatus;
+  remarks: string;
+};
+
 // ===== スケジュール連携: 本日分の店舗を取得 =====
 
 // 本日の日付キー（YYYY-MM-DD）
@@ -79,7 +122,15 @@ const todayKey = () => {
   return `${y}-${m}-${dd}`;
 };
 
-type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
+// 並び替え：要件 + 既存（時給／年齢）も残しておく
+type SortKey =
+  | "default"
+  | "hourlyDesc"
+  | "ageAsc"
+  | "ageDesc"
+  | "kana"
+  | "oldId";
+
 type DrinkSort = "none" | "okFirst" | "ngFirst";
 
 // NG登録モード
@@ -208,6 +259,25 @@ const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
   return true;
 };
 
+const buildCastForm = (cast: Cast): CastForm => ({
+  furigana: cast.furigana ?? "",
+  payText: cast.payText ?? "",
+  tattoo: cast.tattoo ?? "",
+  shuttle: cast.shuttle ?? "",
+  drinkLevel: cast.drinkLevel ?? "",
+  experience: cast.experience ?? "",
+  workHistory: cast.workHistory ?? "",
+  referrerName: cast.referrerName ?? "",
+  otherAgencyComparison: cast.otherAgencyComparison ?? "",
+  otherAgencyName: cast.otherAgencyName ?? "",
+  miscNote: cast.miscNote ?? "",
+  salary30kNote: cast.salary30kNote ?? "",
+  idType: cast.idType ?? "",
+  juminhyoPost: cast.juminhyoPost ?? "",
+  oath: cast.oath ?? "",
+  remarks: cast.remarks ?? "",
+});
+
 export default function Page() {
   // 本日出勤キャスト一覧（/casts/today）
   const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
@@ -226,16 +296,9 @@ export default function Page() {
     "today" | "all" | "matched" | "unassigned"
   >("today");
 
-  // 既存ソート（年齢・時給など）
+  // 並び替え（時給／年齢／50音／旧スタッフID）
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
-
-  // 追加: 複数選択可能な並び順（50音順 / 番号小さい順 / 番号大きい順）
-  const [sortKana, setSortKana] = useState<boolean>(false);
-  const [sortNumberSmallFirst, setSortNumberSmallFirst] =
-    useState<boolean>(false);
-  const [sortNumberLargeFirst, setSortNumberLargeFirst] =
-    useState<boolean>(false);
 
   // 追加: キャストジャンル・年齢レンジでの絞り込み
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
@@ -254,6 +317,7 @@ export default function Page() {
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
+  const [castForm, setCastForm] = useState<CastForm | null>(null);
 
   // NG登録モーダル用
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -397,9 +461,6 @@ export default function Page() {
     itemsPerPage,
     sortKey,
     drinkSort,
-    sortKana,
-    sortNumberSmallFirst,
-    sortNumberLargeFirst,
     castGenreFilter,
     ageRangeFilter,
   ]);
@@ -465,7 +526,7 @@ export default function Page() {
       list = list.filter((c) => isInAgeRange(c.age, ageRangeFilter));
     }
 
-    // ⑦ 既存ソート（年齢・時給）
+    // ⑦ 並び替え
     switch (sortKey) {
       case "hourlyDesc":
         list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
@@ -476,34 +537,24 @@ export default function Page() {
       case "ageDesc":
         list.sort((a: Cast, b: Cast) => b.age - a.age);
         break;
+      case "kana":
+        list.sort((a: Cast, b: Cast) =>
+          castKanaKey(a).localeCompare(castKanaKey(b), "ja"),
+        );
+        break;
+      case "oldId":
+        list.sort((a: Cast, b: Cast) =>
+          (a.oldId ?? "").localeCompare(b.oldId ?? "", "ja"),
+        );
+        break;
+      case "default":
       default:
+        // デフォルト：管理番号の昇順
+        list.sort((a: Cast, b: Cast) => castNumberKey(a) - castNumberKey(b));
         break;
     }
 
-    // ⑧ 追加ソート（50音 / 番号：複数選択可）
-    const comparators: ((a: Cast, b: Cast) => number)[] = [];
-    if (sortNumberSmallFirst) {
-      comparators.push((a, b) => castNumberKey(a) - castNumberKey(b));
-    }
-    if (sortNumberLargeFirst) {
-      comparators.push((a, b) => castNumberKey(b) - castNumberKey(a));
-    }
-    if (sortKana) {
-      comparators.push((a, b) =>
-        castKanaKey(a).localeCompare(castKanaKey(b), "ja"),
-      );
-    }
-    if (comparators.length > 0) {
-      list.sort((a, b) => {
-        for (const cmp of comparators) {
-          const r = cmp(a, b);
-          if (r !== 0) return r;
-        }
-        return 0;
-      });
-    }
-
-    // ⑨ 飲酒ソート（チェックボックスで制御）
+    // ⑧ 飲酒ソート（チェックボックスで制御）
     if (drinkSort === "okFirst") {
       // 強い → 普通 → 弱い → NG → 未登録
       list.sort(
@@ -518,7 +569,7 @@ export default function Page() {
       );
     }
 
-    // ⑩ ページネーション
+    // ⑨ ページネーション
     const total = list.length;
     const perPage = itemsPerPage || 50;
     const tp = Math.max(1, Math.ceil(total / perPage));
@@ -546,9 +597,6 @@ export default function Page() {
     currentPage,
     castGenreFilter,
     ageRangeFilter,
-    sortKana,
-    sortNumberSmallFirst,
-    sortNumberLargeFirst,
   ]);
 
   const formatDrinkLabel = (cast: Cast) => {
@@ -617,12 +665,14 @@ export default function Page() {
 
   const openCastDetail = (cast: Cast) => {
     setSelectedCast(cast);
+    setCastForm(buildCastForm(cast));
     setCastDetailModalOpen(true);
   };
 
   const closeCastDetail = () => {
     setCastDetailModalOpen(false);
     setSelectedCast(null);
+    setCastForm(null);
   };
 
   const closeNgModal = () => {
@@ -655,6 +705,39 @@ export default function Page() {
       prev ? { ...prev, ngShopIds: uniqueIds } : prev,
     );
     setNgModalOpen(false);
+  };
+
+  const handleCastDetailSave = () => {
+    if (!selectedCast || !castForm) return;
+
+    const updated: Cast = {
+      ...selectedCast,
+      furigana: castForm.furigana,
+      payText: castForm.payText,
+      tattoo: castForm.tattoo,
+      shuttle: castForm.shuttle,
+      drinkLevel: (castForm.drinkLevel || null) as DrinkLevel,
+      experience: castForm.experience,
+      workHistory: castForm.workHistory,
+      referrerName: castForm.referrerName,
+      otherAgencyComparison: castForm.otherAgencyComparison,
+      otherAgencyName: castForm.otherAgencyName,
+      miscNote: castForm.miscNote,
+      salary30kNote: castForm.salary30kNote,
+      idType: castForm.idType,
+      juminhyoPost: castForm.juminhyoPost,
+      oath: castForm.oath,
+      remarks: castForm.remarks,
+    };
+
+    setAllCasts((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c)),
+    );
+    setTodayCasts((prev) =>
+      prev.map((c) => (c.id === updated.id ? updated : c)),
+    );
+    setSelectedCast(updated);
+    alert("キャスト情報を保存しました（デモ：画面内のみ反映）");
   };
 
   return (
@@ -744,59 +827,21 @@ export default function Page() {
               </div>
             </div>
 
-            {/* 既存の並び替え（年齢・時給） */}
+            {/* 並び替え（ドロップダウン：要件＋既存） */}
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">並び替え</span>
               <select
-                className="tiara-input h-8 w-[180px] text-xs"
+                className="tiara-input h-8 w-[220px] text-xs"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
               >
-                <option value="default">デフォルト</option>
+                <option value="default">デフォルト（管理番号昇順）</option>
+                <option value="kana">50音順（名前）</option>
+                <option value="oldId">旧スタッフID順</option>
                 <option value="hourlyDesc">時給が高い順</option>
                 <option value="ageAsc">年齢が若い順</option>
                 <option value="ageDesc">年齢が高い順</option>
               </select>
-            </div>
-
-            {/* 追加: 並び順（複数選択可） */}
-            <div className="flex flex-col gap-1">
-              <span className="text-muted whitespace-nowrap">
-                並び順（複数選択可）
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortKana}
-                    onChange={(e) => setSortKana(e.target.checked)}
-                  />
-                  <span>50音順</span>
-                </label>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortNumberSmallFirst}
-                    onChange={(e) =>
-                      setSortNumberSmallFirst(e.target.checked)
-                    }
-                  />
-                  <span>番号（小さい順）</span>
-                </label>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortNumberLargeFirst}
-                    onChange={(e) =>
-                      setSortNumberLargeFirst(e.target.checked)
-                    }
-                  />
-                  <span>番号（大きい順）</span>
-                </label>
-              </div>
             </div>
 
             {/* 飲酒ソート（チェックボックス） */}
@@ -870,7 +915,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* ステータスタブ + ページ送り */}
+          {/* ステータスタブ + ページ送り（上部） */}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               {[
@@ -898,7 +943,7 @@ export default function Page() {
               })}
             </div>
 
-            {/* ページ情報 & ページ送り */}
+            {/* ページ情報 & ページ送り（上） */}
             <div className="inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2 ml-2">
               <button
                 type="button"
@@ -944,10 +989,7 @@ export default function Page() {
           {/* キャストカード一覧 */}
           <section className="tiara-panel grow p-3 flex flex-col">
             <div
-              className="mt-1 grid gap-3"
-              style={{
-                gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
-              }}
+              className="mt-1 grid gap-3 grid-cols-1 md:grid-cols-2"
             >
               {!loading &&
                 filteredCasts.map((cast: Cast) => (
@@ -998,6 +1040,35 @@ export default function Page() {
                     </div>
                   </div>
                 ))}
+            </div>
+
+            {/* 下部ページ送り（店舗管理ページと同様に上下配置） */}
+            <div className="mt-3 flex justify-end">
+              <div className="inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2">
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.max(1, p - 1))
+                  }
+                  disabled={effectivePage <= 1}
+                >
+                  ←
+                </button>
+                <span className="text-xs">
+                  {effectivePage} / {totalPages}　全 {filteredTotal} 名
+                </span>
+                <button
+                  type="button"
+                  className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={effectivePage >= totalPages}
+                >
+                  →
+                </button>
+              </div>
             </div>
           </section>
 
@@ -1248,7 +1319,7 @@ export default function Page() {
             className="absolute inset-0 bg-black/40"
             onClick={closeCastDetail}
           />
-          <div className="relative z-10 w-full max-w-xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">キャスト詳細</h2>
               <button
@@ -1291,6 +1362,7 @@ export default function Page() {
                   </div>
                 </div>
 
+                {/* 基本情報＋要件フィールド */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <div className="text-[11px] text-muted">名前</div>
@@ -1298,11 +1370,38 @@ export default function Page() {
                       {selectedCast.name}
                     </div>
                   </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">ふりがな</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.furigana ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, furigana: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
                   <div>
                     <div className="text-[11px] text-muted">年齢</div>
                     <div className="mt-0.5 text-sm font-semibold">
                       {selectedCast.age} 歳
                     </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">時給 / 月給</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.payText ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, payText: e.target.value } : prev,
+                        )
+                      }
+                    />
                   </div>
 
                   <div>
@@ -1313,10 +1412,81 @@ export default function Page() {
                   </div>
 
                   <div>
+                    <div className="text-[11px] text-muted">タトゥー</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.tattoo ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, tattoo: e.target.value as YesNo } : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">送迎</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.shuttle ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, shuttle: e.target.value as YesNo } : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <div className="text-[11px] text-muted">飲酒</div>
-                    <div className="mt-0.5 text-xs">
-                      {formatDrinkLabel(selectedCast)}
-                    </div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.drinkLevel ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                drinkLevel: e.target
+                                  .value as CastForm["drinkLevel"],
+                              }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="ng">NG</option>
+                      <option value="weak">弱い</option>
+                      <option value="normal">普通</option>
+                      <option value="strong">強い</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">経験</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.experience ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, experience: e.target.value as YesNo }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="yes">有</option>
+                      <option value="no">無</option>
+                    </select>
                   </div>
 
                   {/* キャストジャンル（複数登録可能） */}
@@ -1341,24 +1511,188 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* NG登録ボタン */}
-                <div className="mt-1 flex justify-end">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
-                    onClick={() => setNgModalOpen(true)}
-                  >
-                    NG登録
-                  </button>
+                {/* NG店舗 + その他項目 */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* NG店舗（登録ボタン→モーダル） */}
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">NG店舗</div>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
+                        onClick={() => setNgModalOpen(true)}
+                      >
+                        NG店舗を登録
+                      </button>
+                      <span className="text-[11px] text-gray-500">
+                        登録済み: {selectedCast.ngShopIds?.length ?? 0} 件
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">勤務歴</div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.workHistory ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, workHistory: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">紹介者名</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.referrerName ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, referrerName: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">派遣会社名</div>
+                    <input
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.otherAgencyName ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, otherAgencyName: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">
+                      他の派遣会社との比較
+                    </div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.otherAgencyComparison ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, otherAgencyComparison: e.target.value }
+                            : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">
+                      30,000円到達への所感
+                    </div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.salary30kNote ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, salary30kNote: e.target.value }
+                            : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-[11px] text-muted">その他</div>
+                    <textarea
+                      className="mt-0.5 tiara-input text-xs w-full min-h-[50px]"
+                      value={castForm?.miscNote ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev ? { ...prev, miscNote: e.target.value } : prev,
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">身分証種類</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.idType ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, idType: e.target.value as IdType }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="license">運転免許証</option>
+                      <option value="insurance">保険証</option>
+                      <option value="passport">パスポート</option>
+                      <option value="mynumber">マイナンバーカード</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">
+                      住民票・郵便物
+                    </div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.juminhyoPost ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                juminhyoPost: e.target.value as DoneStatus,
+                              }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="done">済</option>
+                      <option value="notYet">未</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] text-muted">宣誓</div>
+                    <select
+                      className="mt-0.5 tiara-input h-7 text-xs w-full"
+                      value={castForm?.oath ?? ""}
+                      onChange={(e) =>
+                        setCastForm((prev) =>
+                          prev
+                            ? { ...prev, oath: e.target.value as DoneStatus }
+                            : prev,
+                        )
+                      }
+                    >
+                      <option value="">未選択</option>
+                      <option value="done">済</option>
+                      <option value="notYet">未</option>
+                    </select>
+                  </div>
                 </div>
 
+                {/* 備考 */}
                 <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200">
-                  <div className="text-[11px] text-muted">
-                    備考（将来拡張用）
-                  </div>
-                  <p className="mt-1 text-[11px] text-gray-700">
-                    ここに査定情報・NG詳細・希望シフト・メモなどを表示する想定です。
-                  </p>
+                  <div className="text-[11px] text-muted">備考</div>
+                  <textarea
+                    className="mt-1 w-full tiara-input min-h-[60px] text-xs"
+                    value={castForm?.remarks ?? ""}
+                    onChange={(e) =>
+                      setCastForm((prev) =>
+                        prev ? { ...prev, remarks: e.target.value } : prev,
+                      )
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -1370,6 +1704,13 @@ export default function Page() {
                 onClick={closeCastDetail}
               >
                 閉じる
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs"
+                onClick={handleCastDetailSave}
+              >
+                保存（デモ）
               </button>
               <button
                 type="button"

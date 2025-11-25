@@ -700,6 +700,8 @@ type CastDetailForm = {
   preferredTimeFrom: string;
   preferredTimeTo: string;
   preferredArea: string;
+  // 時給・月給の自由入力メモ
+  salaryNote: string;
   // プロフィール
   heightCm: string;
   clothingSize: string;
@@ -794,6 +796,7 @@ function CastDetailModal({
         detail.preferences?.desiredHourly != null
           ? String(detail.preferences.desiredHourly)
           : "",
+      salaryNote: (detail.background as any)?.salaryNote ?? "",
       preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
       preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
@@ -992,6 +995,7 @@ function CastDetailModal({
         otherAgencyName: form.otherAgencyName || null,
         otherNotes: form.otherNotes || null,
         thirtyKComment: form.thirtyKComment || null,
+        salaryNote: form.salaryNote || null,
         idDocType: form.idDocType || null,
         residencyProof: form.residencyProof || null,
         oathStatus: form.oathStatus || null,
@@ -1504,23 +1508,29 @@ function CastDetailModal({
                       }
                     />
                     <InfoRow
-                      label="時給・月給"
-                      value={
-                        detail?.preferences
-                          ? [
-                              detail.preferences.desiredHourly != null
-                                ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
-                                : null,
-                              detail.preferences.desiredMonthly != null
-                                ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" / ") || "—"
-                          : "—"
-                      }
-                      readOnly
-                    />
+  label="時給・月給"
+  value={form?.salaryNote ?? ""}
+  placeholder={
+    detail?.preferences
+      ? [
+          detail.preferences.desiredHourly != null
+            ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
+            : null,
+          detail.preferences.desiredMonthly != null
+            ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" / ") || ""
+      : ""
+  }
+  onChange={(v) =>
+    setForm((prev) =>
+      prev ? { ...prev, salaryNote: v } : prev,
+    )
+  }
+/>
+
                   </div>
                 </div>
 

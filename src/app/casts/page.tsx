@@ -211,10 +211,13 @@ export default function Page() {
         const aNull = a.legacyStaffId == null;
         const bNull = b.legacyStaffId == null;
         if (aNull && bNull) {
-          // 両方 null → 名前 50音順
-          const cmpName = a.name.localeCompare(b.name, "ja");
-          if (cmpName !== 0) return cmpName;
-          return a.managementNumber.localeCompare(b.managementNumber, "ja");
+          // 両方 null → 管理番号 → 名前
+          const cmpMng = a.managementNumber.localeCompare(
+            b.managementNumber,
+            "ja",
+          );
+          if (cmpMng !== 0) return cmpMng;
+          return a.name.localeCompare(b.name, "ja");
         }
         if (aNull) return 1;
         if (bNull) return -1;
@@ -222,16 +225,22 @@ export default function Page() {
         const av = a.legacyStaffId as number;
         const bv = b.legacyStaffId as number;
         if (av !== bv) return av - bv;
-        // 同じ旧IDなら名前 50音順 → 管理番号
-        const cmpName = a.name.localeCompare(b.name, "ja");
-        if (cmpName !== 0) return cmpName;
-        return a.managementNumber.localeCompare(b.managementNumber, "ja");
+        // 同じ旧IDなら管理番号 → 名前
+        const cmpMng = a.managementNumber.localeCompare(
+          b.managementNumber,
+          "ja",
+        );
+        if (cmpMng !== 0) return cmpMng;
+        return a.name.localeCompare(b.name, "ja");
       }
 
-      // デフォルト: 50音順（名前）→ 管理番号昇順
-      const cmp = a.name.localeCompare(b.name, "ja");
-      if (cmp !== 0) return cmp;
-      return a.managementNumber.localeCompare(b.managementNumber, "ja");
+      // デフォルト: 管理番号 → 名前
+      const cmpMng = a.managementNumber.localeCompare(
+        b.managementNumber,
+        "ja",
+      );
+      if (cmpMng !== 0) return cmpMng;
+      return a.name.localeCompare(b.name, "ja");
     });
 
     return result;

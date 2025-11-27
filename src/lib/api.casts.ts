@@ -86,16 +86,20 @@ export async function listCastsForPicker(
   return { items, total };
 }
 
-/** NG 店舗（GET /casts/:id の ngShops 要素） */
-export type CastNgShop = {
+/** NG / 専属 / 指名 店舗で共通して使える簡易 Shop 型 */
+export type CastNamedShop = {
   shopId: string;
   shopName: string | null;
   shopNumber: string | null;
+  prefecture: string | null;
+  city: string | null;
+};
+
+/** NG 店舗（GET /casts/:id の ngShops 要素） */
+export type CastNgShop = CastNamedShop & {
   source: string | null;
   reason: string | null;
   createdAt: string;
-  prefecture: string | null;
-  city: string | null;
 };
 
 /** シフトに紐づく店舗情報 */
@@ -126,6 +130,7 @@ export type CastAttributes = {
   shoeSizeCm: number | null;
   tattoo: boolean | null;
   needPickup: boolean | null;
+  /** 'ng' | 'weak' | 'normal' | 'strong' | null */
   drinkLevel: string | null;
 };
 
@@ -142,7 +147,7 @@ export type CastPreferences = {
   notes: string | null;
 };
 
-/** CastBackground */
+/** CastBackground（※ 現状モーダルで使うコア項目のみ型定義） */
 export type CastBackground = {
   howFound: string | null;
   motivation: string | null;
@@ -167,12 +172,27 @@ export type CastDetail = {
   hasExperience: boolean | null;
   note: string | null;
   profilePhotoUrl: string | null;
+
+  /** 属性・希望条件・背景 */
   attributes: CastAttributes | null;
   preferences: CastPreferences | null;
   background: CastBackground | null;
+
+  /** NG 店舗一覧 */
   ngShops: CastNgShop[];
+
+  /** NEW: 専属指名店舗（1件のみ） */
+  exclusiveShopId: string | null;
+  exclusiveShop: CastNamedShop | null;
+
+  /** NEW: 指名店舗（複数件） */
+  nominatedShops: CastNamedShop[];
+
+  /** 直近シフト（本日〜翌日分） */
   latestShifts: CastLatestShift[];
-  legacyStaffId?: number | null; // 旧システムのスタッフID
+
+  /** 旧システムのスタッフID（存在する場合のみ） */
+  legacyStaffId?: number | null;
 };
 
 /** PATCH /casts/:id 用の簡易ペイロード */
@@ -197,6 +217,22 @@ export type CastUpdatePayload = {
    */
   ngShopIds?: string[];
 
+  /**
+   * NEW: 専属指名店舗ID
+   * - undefined … 変更なし
+   * - null / "" … 専属を解除
+   * - "shop-uuid" … 該当店舗を専属として設定
+   */
+  exclusiveShopId?: string | null;
+
+  /**
+   * NEW: 指名店舗のショップID一覧
+   * - undefined … 変更なし
+   * - []        … 既存の指名店舗を全削除
+   * - ["shop-uuid", ...] … このリストで置き換え
+   */
+  nominatedShopIds?: string[];
+
   attributes?:
     | {
         heightCm?: number | null;
@@ -204,8 +240,11 @@ export type CastUpdatePayload = {
         shoeSizeCm?: number | null;
         tattoo?: boolean | null;
         needPickup?: boolean | null;
+        /** 'ng' | 'weak' | 'normal' | 'strong' | null */
+        drinkLevel?: string | null;
       }
     | null;
+
   preferences?:
     | {
         desiredHourly?: number | null;
@@ -216,8 +255,11 @@ export type CastUpdatePayload = {
         preferredArea?: string | null;
         ngShopNotes?: string | null;
         notes?: string | null;
+        /** NEW: 手数料区分 (busy/normal/slow 等) */
+        feeCategory?: string | null;
       }
     | null;
+
   background?:
     | {
         howFound?: string | null;
@@ -231,7 +273,7 @@ export type CastUpdatePayload = {
 
 /** ===== 今日出勤キャスト (/casts/today) 用の型 ===== */
 
-/** /casts/today の 1 レコード */
+/** /casts/today の 1 レコード（必要最低限の型） */
 export type TodayCastApiItem = {
   castId: string;
   managementNumber: string | null;
@@ -284,12 +326,12 @@ export async function listCasts(
   const raw = await apiFetch<any>(path, withUser());
 
   if (Array.isArray(raw)) {
-    return { items: raw, total: raw.length };
+    return { items: raw as CastListItem[], total: raw.length };
   }
 
-  const items = Array.isArray(raw?.items) ? raw.items : [];
+  const items = Array.isArray(raw?.items) ? (raw.items as CastListItem[]) : [];
   const total =
-    typeof raw?.total === "number" ? raw.total : items.length;
+    typeof raw?.total === "number" ? (raw.total as number) : items.length;
 
   return { items, total };
 }
@@ -299,7 +341,7 @@ export async function getCast(id: string): Promise<CastDetail> {
   return apiFetch<CastDetail>(`/casts/${id}`, withUser());
 }
 
-/** Cast 一括更新（本体＋attributes/preferences/background＋ngShopIds） */
+/** Cast 一括更新（本体＋attributes/preferences/background＋ngShopIds 等） */
 export function updateCast(
   id: string,
   payload: CastUpdatePayload,

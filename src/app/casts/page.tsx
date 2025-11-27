@@ -876,9 +876,9 @@ function CastDetailModal({
           ? "強い"
           : detail.attributes?.drinkLevel === "normal"
           ? "普通"
-          : detail.drinkOk == null
+          : (detail as any).drinkOk == null
           ? ""
-          : detail.drinkOk
+          : (detail as any).drinkOk
           ? "普通"
           : "NG",
       hasExperience:

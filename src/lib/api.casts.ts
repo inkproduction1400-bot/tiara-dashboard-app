@@ -188,6 +188,15 @@ export type CastUpdatePayload = {
   drinkOk?: boolean | null;
   hasExperience?: boolean | null;
   managementNumber?: string | null;
+
+  /**
+   * NG店舗（キャスト都合）のショップID一覧
+   * - undefined … 変更なし（API にキーを送らない）
+   * - []        … 既存の NG を全削除
+   * - ["shop-uuid", ...] … このリストで置き換え
+   */
+  ngShopIds?: string[];
+
   attributes?:
     | {
         heightCm?: number | null;
@@ -290,7 +299,7 @@ export async function getCast(id: string): Promise<CastDetail> {
   return apiFetch<CastDetail>(`/casts/${id}`, withUser());
 }
 
-/** Cast 一括更新（本体＋attributes/preferences/background） */
+/** Cast 一括更新（本体＋attributes/preferences/background＋ngShopIds） */
 export function updateCast(
   id: string,
   payload: CastUpdatePayload,

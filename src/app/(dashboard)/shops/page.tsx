@@ -7,16 +7,17 @@ import {
   importShopsExcel,
   listShops,
   updateShop,
+  getShop,
   type ShopListItem,
-  type UpdateShopPayload,
   type ShopGenre,
   type ShopRank,
   type ShopIdRequirement,
+  type ShopFixedCastItem,
+  type ShopNgCastItem,
+  type ShopDetail,
   // ★ 専属指名 / NGキャスト用 API（表示専用）
   listShopFixedCasts,
   listShopNgCasts,
-  type ShopFixedCastItem,
-  type ShopNgCastItem,
 } from "@/lib/api.shops";
 
 type PerPage = number | "all";
@@ -53,7 +54,6 @@ export default function ShopsPage() {
   const [limit, setLimit] = useState<PerPage>(20);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState<ShopListItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -64,6 +64,12 @@ export default function ShopsPage() {
   );
 
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // === 店舗詳細モーダル用の状態 ===
+  const [selectedShop, setSelectedShop] = useState<ShopListItem | null>(null);
+  const [shopDetail, setShopDetail] = useState<ShopDetail | null>(null);
+  const [shopDetailLoading, setShopDetailLoading] = useState(false);
+  const [shopDetailError, setShopDetailError] = useState<string | null>(null);
 
   // キーワード・店舗番号・ジャンルでのフィルタ & 並び替え
   const filteredItems = useMemo(() => {
@@ -187,6 +193,31 @@ export default function ShopsPage() {
     },
     [reload],
   );
+
+  // 店舗カードクリック → 詳細取得 → モーダル表示
+  const handleOpenShop = useCallback(async (row: ShopListItem) => {
+    setSelectedShop(row);
+    setShopDetail(null);
+    setShopDetailError(null);
+    setShopDetailLoading(true);
+    try {
+      const detail = await getShop(row.id);
+      setShopDetail(detail);
+    } catch (e: any) {
+      setShopDetailError(
+        e?.message ?? "店舗詳細の取得に失敗しました",
+      );
+    } finally {
+      setShopDetailLoading(false);
+    }
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedShop(null);
+    setShopDetail(null);
+    setShopDetailError(null);
+    setShopDetailLoading(false);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -345,7 +376,7 @@ export default function ShopsPage() {
                   key={r.id}
                   type="button"
                   className="text-left rounded-xl border border-slate-200 bg-white/90 hover:border-sky-400 hover:shadow-md transition-colors px-3 py-2"
-                  onClick={() => setEditing(r)}
+                  onClick={() => handleOpenShop(r)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -402,13 +433,23 @@ export default function ShopsPage() {
         />
       </section>
 
-      {editing && (
-        <ShopEditDrawer
-          initial={editing}
-          onClose={() => setEditing(null)}
-          onSaved={async () => {
-            await reload();
-            setEditing(null);
+      {selectedShop && (
+        <ShopDetailModal
+          base={selectedShop}
+          detail={shopDetail}
+          loading={shopDetailLoading}
+          error={shopDetailError}
+          onClose={handleCloseModal}
+          onSaved={(updated) => {
+            // 一覧の items を即時反映
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === updated.id
+                  ? { ...item, ...updated }
+                  : item,
+              ),
+            );
+            handleCloseModal();
           }}
         />
       )}
@@ -518,39 +559,58 @@ function DisplayCountControl({
   );
 }
 
-type ShopEditDrawerProps = {
-  initial: ShopListItem;
+type ShopDetailModalProps = {
+  base: ShopListItem;
+  detail: ShopDetail | null;
+  loading: boolean;
+  error: string | null;
   onClose: () => void;
-  onSaved: () => void | Promise<void>;
+  onSaved: (updated: ShopDetail) => void | Promise<void>;
 };
 
-function ShopEditDrawer({
-  initial,
+function ShopDetailModal({
+  base,
+  detail,
+  loading,
+  error,
   onClose,
   onSaved,
-}: ShopEditDrawerProps) {
+}: ShopDetailModalProps) {
+  // 詳細レスポンスがあればそちらを優先、なければ一覧からの base を使う
+  const shop: ShopDetail | ShopListItem = detail || base;
+
   // ---- 必須 1〜8項目＋追加項目の state ----
-  const [shopNumber, setShopNumber] = useState(initial.shopNumber ?? ""); // ①店舗番号
-  const [name, setName] = useState(initial.name); // ②店名
+  const [shopNumber, setShopNumber] = useState<string>(
+    shop?.shopNumber ?? "",
+  ); // ①店舗番号
+  const [name, setName] = useState<string>(shop?.name ?? ""); // ②店名
 
   // API から来ている nameKana / kana を初期表示
-  const [kana, setKana] = useState(
-    initial.nameKana ?? initial.kana ?? "",
+  const [kana, setKana] = useState<string>(
+    (shop as ShopDetail).nameKana ?? (shop as any).kana ?? "",
   ); // ③カナ
 
-  const [rank, setRank] = useState<ShopRank | "">(initial.rank ?? ""); // ④ランク
+  const [rank, setRank] = useState<ShopRank | "">(
+    (shop?.rank as ShopRank | null) ?? "",
+  ); // ④ランク
 
-  const [addressLine, setAddressLine] = useState(initial.addressLine ?? ""); // ⑤店住所
-  const [buildingName, setBuildingName] = useState(
-    initial.buildingName ?? "",
+  const [addressLine, setAddressLine] = useState<string>(
+    shop?.addressLine ?? "",
+  ); // ⑤店住所
+  const [buildingName, setBuildingName] = useState<string>(
+    shop?.buildingName ?? "",
   ); // ⑥ビル名
 
-  const [hourlyRate, setHourlyRate] = useState(initial.wageLabel ?? ""); // ⑦時給カテゴリ
-  const [phone, setPhone] = useState(initial.phone ?? ""); // ⑧電話
+  const [hourlyRate, setHourlyRate] = useState<string>(
+    (shop as ShopDetail).wageLabel ?? "",
+  ); // ⑦時給カテゴリ
+  const [phone, setPhone] = useState<string>(shop?.phone ?? ""); // ⑧電話
   const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック（現状はUIのみ）
 
   // 既存項目：ジャンル
-  const [genre, setGenre] = useState<ShopGenre | "">(initial.genre ?? "");
+  const [genre, setGenre] = useState<ShopGenre | "">(
+    (shop?.genre as ShopGenre | null) ?? "",
+  );
 
   // ★ 専属指名キャスト / NGキャスト（表示のみ）
   const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
@@ -560,13 +620,14 @@ function ShopEditDrawer({
 
   // 身分証・担当
   const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
-    initial.idDocumentRequirement ?? "",
+    (shop as ShopDetail).idDocumentRequirement ?? "",
   );
   const [ownerStaff, setOwnerStaff] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [shopNumberError, setShopNumberError] = useState<string | null>(null);
+  const [shopNumberError, setShopNumberError] =
+    useState<string | null>(null);
 
   const wageOptions = [
     "2500円",
@@ -594,8 +655,8 @@ function ShopEditDrawer({
         setFixedLoading(true);
         setNgLoadingState(true);
         const [fixed, ng] = await Promise.all([
-          listShopFixedCasts(initial.id),
-          listShopNgCasts(initial.id),
+          listShopFixedCasts(base.id),
+          listShopNgCasts(base.id),
         ]);
         if (cancelled) return;
         setFixedCasts(
@@ -614,7 +675,7 @@ function ShopEditDrawer({
         );
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.error("[ShopEditDrawer] failed to load casts", e);
+        console.error("[ShopDetailModal] failed to load casts", e);
       } finally {
         if (!cancelled) {
           setFixedLoading(false);
@@ -625,7 +686,7 @@ function ShopEditDrawer({
     return () => {
       cancelled = true;
     };
-  }, [initial.id]);
+  }, [base.id]);
 
   const save = async () => {
     setSaving(true);
@@ -642,11 +703,11 @@ function ShopEditDrawer({
       return;
     }
 
-    const payload: UpdateShopPayload = {
+    const payload = {
       name: name.trim(),
       addressLine: addressLine.trim(),
       phone: phone.trim(),
-    };
+    } as Parameters<typeof updateShop>[1];
 
     if (trimmedNumber) {
       payload.shopNumber = trimmedNumber;
@@ -677,8 +738,8 @@ function ShopEditDrawer({
 
     try {
       // 店舗本体のみ更新（専属/NGキャストはキャスト管理側で編集）
-      await updateShop(initial.id, payload);
-      await onSaved();
+      const updated = await updateShop(base.id, payload);
+      await onSaved(updated);
     } catch (e: any) {
       setErr(e?.message ?? "更新に失敗しました");
     } finally {
@@ -691,16 +752,29 @@ function ShopEditDrawer({
       <div className="fixed inset-0 z-50">
         <div className="absolute inset-0 bg-black/50" onClick={onClose} />
         <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
-          <h2 className="text-xl font-semibold mb-4 text-ink">
-            店舗編集
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-ink">
+              店舗詳細・編集
+            </h2>
+            {loading && (
+              <span className="text-[11px] text-slate-400">
+                詳細を読み込み中…
+              </span>
+            )}
+          </div>
+
+          {error && (
+            <div className="mb-3 text-[11px] px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700">
+              {error}
+            </div>
+          )}
 
           <div className="space-y-6 text-sm text-ink">
             {/* 基本情報 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 店舗番号 */}
               <label className="block">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex itemsセンター justify-between mb-1">
                   <span className="text-slate-300 text-sm">店舗番号</span>
                   <span className="text-[11px] text-slate-500">
                     3〜4桁の半角数字

@@ -147,13 +147,34 @@ export type CastPreferences = {
   notes: string | null;
 };
 
-/** CastBackground（※ 現状モーダルで使うコア項目のみ型定義） */
+/**
+ * CastBackground
+ * - モーダルで扱う背景情報＋備考類をすべて型でカバー
+ */
 export type CastBackground = {
   howFound: string | null;
   motivation: string | null;
   otherAgencies: string | null;
   reasonChoose: string | null;
   shopSelectionPoints: string | null;
+
+  // 追加: 比較・紹介・備考系
+  referrerName: string | null; // 紹介者名 / サイト名
+  compareOtherAgencies: string | null; // 他の派遣会社との比較
+  otherAgencyName: string | null; // 派遣会社名
+  otherNotes: string | null; // その他（備考）
+  thirtyKComment: string | null; // 30,000円到達への所感
+
+  // 追加: 時給・月給メモ／ジャンル／NGメモ
+  salaryNote: string | null;
+  genres: string[] | null; // フロント側では CastGenre[] 相当
+  ngShopMemo: string | null;
+
+  // 追加: 身分証関連
+  idDocType: string | null; // "運転免許証" 等
+  residencyProof: string | null; // "済" / "未"
+  oathStatus: string | null; // "済" / "未"
+  idMemo: string | null;
 };
 
 /** GET /casts/:id のレスポンス形（モーダル用） */
@@ -187,6 +208,9 @@ export type CastDetail = {
 
   /** NEW: 指名店舗（複数件） */
   nominatedShops: CastNamedShop[];
+
+  /** NEW: お気に入り店舗（複数件） */
+  favoriteShops?: CastNamedShop[];
 
   /** 直近シフト（本日〜翌日分） */
   latestShifts: CastLatestShift[];
@@ -233,6 +257,14 @@ export type CastUpdatePayload = {
    */
   nominatedShopIds?: string[];
 
+  /**
+   * NEW: お気に入り店舗のショップID一覧
+   * - undefined … 変更なし
+   * - []        … 既存のお気に入り店舗を全削除
+   * - ["shop-uuid", ...] … このリストで置き換え
+   */
+  favoriteShopIds?: string[];
+
   attributes?:
     | {
         heightCm?: number | null;
@@ -267,6 +299,24 @@ export type CastUpdatePayload = {
         otherAgencies?: string | null;
         reasonChoose?: string | null;
         shopSelectionPoints?: string | null;
+
+        // 追加: 比較・紹介・備考系
+        referrerName?: string | null;
+        compareOtherAgencies?: string | null;
+        otherAgencyName?: string | null;
+        otherNotes?: string | null;
+        thirtyKComment?: string | null;
+
+        // 追加: 時給・月給メモ／ジャンル／NGメモ
+        salaryNote?: string | null;
+        genres?: string[] | null;
+        ngShopMemo?: string | null;
+
+        // 追加: 身分証関連
+        idDocType?: string | null;
+        residencyProof?: string | null;
+        oathStatus?: string | null;
+        idMemo?: string | null;
       }
     | null;
 };

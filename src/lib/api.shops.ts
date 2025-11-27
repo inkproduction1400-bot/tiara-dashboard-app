@@ -76,6 +76,18 @@ export type ShopListResponse = {
 };
 
 /**
+ * 店舗詳細用の型
+ * - ベースは ShopListItem
+ * - 詳細画面で追加で扱いたいフィールドを拡張
+ */
+export type ShopDetail = ShopListItem & {
+  /** 求人用キーワード（店舗条件・特徴など） */
+  reqKeywords?: string[] | null;
+  /** 備考欄など（必要に応じて API 側の note カラム等に対応） */
+  note?: string | null;
+};
+
+/**
  * 店舗一覧取得
  * API 実体は `ShopListItem[]` を返すので、ここで `{ items, total }` にラップする
  * - q: 店舗名・住所などのキーワード
@@ -119,11 +131,17 @@ export async function listShops(
   };
 }
 
-export async function getShop(id: string) {
-  return apiFetch<any>(`/shops/${id}`, withUser());
+/**
+ * 店舗詳細取得
+ * - /shops/:id のレスポンスを ShopDetail として扱う
+ */
+export async function getShop(id: string): Promise<ShopDetail> {
+  return apiFetch<ShopDetail>(`/shops/${id}`, withUser());
 }
 
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
+// モーダル内の編集項目（店舗番号 / 店名 / カナ / 住所 / ビル名 / 時給ラベル / 電話 / ジャンル / ランク / 身分証 / reqKeywords など）を
+// ベストエフォートで網羅できるようにしておく
 export type UpdateShopPayload = Partial<{
   name: string;
   nameKana: string;
@@ -140,10 +158,19 @@ export type UpdateShopPayload = Partial<{
   preferredAgeRange: ShopPreferredAgeRange | null;
   wageLabel: string | null;
   reqKeywords: string[];
+  note: string | null;
 }>;
 
-export async function updateShop(id: string, payload: UpdateShopPayload) {
-  return apiFetch<any>(
+/**
+ * 店舗更新
+ * - 戻り値は ShopDetail として扱えるようにしておく
+ *   （保存後に一覧の 1 行を更新する際にも利用しやすい）
+ */
+export async function updateShop(
+  id: string,
+  payload: UpdateShopPayload,
+): Promise<ShopDetail> {
+  return apiFetch<ShopDetail>(
     `/shops/${id}`,
     withUser({
       method: "PATCH",

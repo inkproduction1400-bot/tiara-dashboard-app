@@ -1047,7 +1047,30 @@ function CastDetailModal({
       } as Parameters<typeof updateCast>[1];
 
       const updated = await updateCast(cast.id, payload);
-      onUpdated(updated);
+
+      // ★ フロント側で NG店舗情報とメモをパッチしてから親に渡す
+      const updatedAny = updated as any;
+      const patchedUpdated: CastDetail = {
+        ...(updatedAny as CastDetail),
+        background: {
+          ...(updatedAny.background ?? {}),
+          // フォームで編集した値を優先
+          ngShopMemo: form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
+          salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
+          genres: form.genres?.length
+            ? form.genres
+            : updatedAny.background?.genres ?? null,
+        },
+        ngShops:
+          form.ngShopIds.length > 0
+            ? form.ngShopIds.map((id, idx) => ({
+                id,
+                name: form.ngShopNames[idx] ?? "",
+              }))
+            : (updatedAny.ngShops ?? []),
+      };
+
+      onUpdated(patchedUpdated);
       setSaveDone(true);
     } catch (e: any) {
       console.error(e);
@@ -1517,29 +1540,28 @@ function CastDetailModal({
                       }
                     />
                     <InfoRow
-  label="時給・月給"
-  value={form?.salaryNote ?? ""}
-  placeholder={
-    detail?.preferences
-      ? [
-          detail.preferences.desiredHourly != null
-            ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
-            : null,
-          detail.preferences.desiredMonthly != null
-            ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" / ") || ""
-      : ""
-  }
-  onChange={(v) =>
-    setForm((prev) =>
-      prev ? { ...prev, salaryNote: v } : prev,
-    )
-  }
-/>
-
+                      label="時給・月給"
+                      value={form?.salaryNote ?? ""}
+                      placeholder={
+                        detail?.preferences
+                          ? [
+                              detail.preferences.desiredHourly != null
+                                ? `¥${detail.preferences.desiredHourly.toLocaleString()}以上`
+                                : null,
+                              detail.preferences.desiredMonthly != null
+                                ? `${detail.preferences.desiredMonthly.toLocaleString()}万円以上`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ") || ""
+                          : ""
+                      }
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, salaryNote: v } : prev,
+                        )
+                      }
+                    />
                   </div>
                 </div>
 
@@ -1769,7 +1791,7 @@ function DeleteCastModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
+      <div className="relative z-10 w-full max-w-md bg白 rounded-2xl border border-gray-300 shadow-2xl p-4">
         <h4 className="text-sm font-semibold text-ink mb-2">
           キャスト削除の確認
         </h4>
@@ -1853,7 +1875,7 @@ function ShiftEditModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
@@ -2066,7 +2088,7 @@ function NgShopSelectModal({
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">NG店舗の選択</h4>
@@ -2201,7 +2223,7 @@ function NgShopSelectModal({
               すべて解除
             </button>
             <button
-              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60"
+              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白 disabled:opacity-60"
               disabled={loading}
               onClick={handleApply}
             >

@@ -22,6 +22,8 @@ function withUser(init?: RequestInit): RequestInit {
 export type CastListItem = {
   userId: string;
   displayName: string;
+  /** NEW: ふりがな（一覧でも扱えるようにオプショナルで定義） */
+  furigana?: string | null;
   phone?: string | null;
   email?: string | null;
   drinkOk?: boolean | null;
@@ -153,6 +155,8 @@ export type CastBackground = {
 export type CastDetail = {
   userId: string;
   displayName: string;
+  /** NEW: ふりがな（バックエンドの buildCastDetail に合わせて追加） */
+  furigana: string | null;
   managementNumber: string | null;
   birthdate: string | null;
   age: number | null;
@@ -174,6 +178,8 @@ export type CastDetail = {
 /** PATCH /casts/:id 用の簡易ペイロード */
 export type CastUpdatePayload = {
   displayName?: string | null;
+  /** NEW: ふりがな */
+  furigana?: string | null;
   birthdate?: string | null;
   address?: string | null;
   phone?: string | null;

@@ -1,7 +1,12 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  type MouseEvent,
+} from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
 import {
@@ -21,6 +26,7 @@ import {
  * 一覧用キャスト行（API からの view model）
  * - 管理番号（4桁数字）
  * - 名前
+ * - ふりがな
  * - 年齢（生年月日からフロントで自動算出。なければ API の age）
  * - 希望時給
  * - キャストID（A001 など）※現状はプレースホルダ
@@ -31,6 +37,7 @@ type CastRow = {
   id: string;
   managementNumber: string; // 管理番号（4桁など）
   name: string;
+  furigana: string;
   age: number | null;
   desiredHourly: number | null;
   castCode: string;
@@ -154,6 +161,11 @@ export default function Page() {
             id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
             managementNumber: (c as any).managementNumber ?? "----",
             name: (c as any).displayName ?? "(名前未設定)",
+            furigana:
+              (c as any).furigana ??
+              (c as any).displayNameKana ??
+              (c as any).displayName ??
+              "(名前未設定)",
             age: ageFromBirth,
             // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
             desiredHourly: (c as any).desiredHourly ?? null,
@@ -199,9 +211,9 @@ export default function Page() {
       if (staffFilter && r.ownerStaffName !== staffFilter) return false;
       if (!query) return true;
 
-      // 管理番号 / 名前 / 旧スタッフID に含まれていればヒット（旧ID検索対応）
+      // 管理番号 / 名前 / ふりがな / 旧スタッフID に含まれていればヒット（旧ID検索対応）
       const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
-      const hay = `${r.managementNumber} ${r.name} ${legacy}`;
+      const hay = `${r.managementNumber} ${r.name} ${r.furigana} ${legacy}`;
       return hay.includes(query);
     });
 
@@ -211,13 +223,15 @@ export default function Page() {
         const aNull = a.legacyStaffId == null;
         const bNull = b.legacyStaffId == null;
         if (aNull && bNull) {
-          // 両方 null → 管理番号 → 名前
+          // 両方 null → 管理番号 → ふりがな/名前
           const cmpMng = a.managementNumber.localeCompare(
             b.managementNumber,
             "ja",
           );
           if (cmpMng !== 0) return cmpMng;
-          return a.name.localeCompare(b.name, "ja");
+          const aKey = a.furigana || a.name;
+          const bKey = b.furigana || b.name;
+          return aKey.localeCompare(bKey, "ja");
         }
         if (aNull) return 1;
         if (bNull) return -1;
@@ -225,22 +239,20 @@ export default function Page() {
         const av = a.legacyStaffId as number;
         const bv = b.legacyStaffId as number;
         if (av !== bv) return av - bv;
-        // 同じ旧IDなら管理番号 → 名前
-        const cmpMng = a.managementNumber.localeCompare(
-          b.managementNumber,
-          "ja",
-        );
-        if (cmpMng !== 0) return cmpMng;
-        return a.name.localeCompare(b.name, "ja");
+        // 同じ旧IDなら ふりがな/名前 → 管理番号
+        const aKey = a.furigana || a.name;
+        const bKey = b.furigana || b.name;
+        const cmpKana = aKey.localeCompare(bKey, "ja");
+        if (cmpKana !== 0) return cmpKana;
+        return a.managementNumber.localeCompare(b.managementNumber, "ja");
       }
 
-      // デフォルト: 管理番号 → 名前
-      const cmpMng = a.managementNumber.localeCompare(
-        b.managementNumber,
-        "ja",
-      );
-      if (cmpMng !== 0) return cmpMng;
-      return a.name.localeCompare(b.name, "ja");
+      // デフォルト: 50音順（ふりがな or 名前）→ 管理番号
+      const aKey = a.furigana || a.name;
+      const bKey = b.furigana || b.name;
+      const cmpKana = aKey.localeCompare(bKey, "ja");
+      if (cmpKana !== 0) return cmpKana;
+      return a.managementNumber.localeCompare(b.managementNumber, "ja");
     });
 
     return result;
@@ -355,6 +367,11 @@ export default function Page() {
         ? {
             ...prev,
             name: updated.displayName ?? prev.name,
+            furigana:
+              (updated as any).furigana ??
+              (updated as any).displayNameKana ??
+              updated.displayName ??
+              prev.furigana,
             managementNumber:
               updated.managementNumber ?? prev.managementNumber,
             desiredHourly:
@@ -370,6 +387,11 @@ export default function Page() {
           ? {
               ...r,
               name: updated.displayName ?? r.name,
+              furigana:
+                (updated as any).furigana ??
+                (updated as any).displayNameKana ??
+                updated.displayName ??
+                r.furigana,
               managementNumber: updated.managementNumber ?? r.managementNumber,
               desiredHourly:
                 updated.preferences?.desiredHourly ?? r.desiredHourly,
@@ -383,7 +405,7 @@ export default function Page() {
 
   // 削除ボタン押下 → 確認モーダル表示
   const handleClickDelete = (
-    e: React.MouseEvent<HTMLButtonElement>,
+    e: MouseEvent<HTMLButtonElement>,
     row: CastRow,
   ) => {
     e.stopPropagation(); // 行クリック（詳細表示）を止める
@@ -1015,6 +1037,7 @@ function CastDetailModal({
 
       const payload = {
         displayName: form.displayName || null,
+        furigana: form.furigana || null,
         birthdate: form.birthdate || null,
         address: form.address || null,
         phone: form.phone || null,
@@ -1090,7 +1113,7 @@ function CastDetailModal({
         {/* 本体：横幅広め・高さは 90vh に収める（中身はスクロール） */}
         <div className="relative z-10 w-full max-w-7xl max-h-[90vh] min-h-[60vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
           {/* ヘッダー */}
-          <div className="flex items-center justify_between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">
                 キャスト詳細（{displayName}）
@@ -1791,7 +1814,7 @@ function DeleteCastModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
-      <div className="relative z-10 w-full max-w-md bg白 rounded-2xl border border-gray-300 shadow-2xl p-4">
+      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
         <h4 className="text-sm font-semibold text-ink mb-2">
           キャスト削除の確認
         </h4>
@@ -1875,7 +1898,7 @@ function ShiftEditModal({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">シフト編集（{castName}）</h4>
@@ -2088,7 +2111,7 @@ function NgShopSelectModal({
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg白 rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="text-sm font-semibold">NG店舗の選択</h4>
@@ -2223,7 +2246,7 @@ function NgShopSelectModal({
               すべて解除
             </button>
             <button
-              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text白 disabled:opacity-60"
+              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60"
               disabled={loading}
               onClick={handleApply}
             >

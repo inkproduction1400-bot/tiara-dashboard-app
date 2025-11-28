@@ -12,6 +12,7 @@ import {
   type ShopGenre,
   type ShopRank,
   type ShopIdRequirement,
+  type ShopDrinkPreference,
   type ShopFixedCastItem,
   type ShopNgCastItem,
   type ShopDetail,
@@ -596,7 +597,7 @@ function ShopDetailModal({
     shop?.addressLine ?? "",
   ); // ⑤店住所
   const [buildingName, setBuildingName] = useState<string>(
-    shop?.buildingName ?? "",
+    (shop as ShopDetail).buildingName ?? "",
   ); // ⑥ビル名
 
   const [hourlyRate, setHourlyRate] = useState<string>(
@@ -609,6 +610,13 @@ function ShopDetailModal({
   const [genre, setGenre] = useState<ShopGenre | "">(
     (shop?.genre as ShopGenre | null) ?? "",
   );
+
+  // 飲酒希望（店舗側）
+  const [drinkPreference, setDrinkPreference] =
+    useState<ShopDrinkPreference | "">(
+      ((shop as ShopDetail).drinkPreference as ShopDrinkPreference | null) ??
+        "",
+    );
 
   // ★ 専属指名キャスト / NGキャスト（表示のみ）
   const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
@@ -628,6 +636,13 @@ function ShopDetailModal({
   const [err, setErr] = useState<string | null>(null);
   const [shopNumberError, setShopNumberError] =
     useState<string | null>(null);
+
+  const drinkOptions: { value: ShopDrinkPreference; label: string }[] = [
+    { value: "none", label: "NG" },
+    { value: "weak", label: "弱い" },
+    { value: "normal", label: "普通" },
+    { value: "strong", label: "強い" },
+  ];
 
   const wageOptions = [
     "2500円",
@@ -740,6 +755,11 @@ function ShopDetailModal({
     // ランク
     payload.rank = rank ? (rank as ShopRank) : null;
 
+    // 飲酒希望
+    payload.drinkPreference = drinkPreference
+      ? (drinkPreference as ShopDrinkPreference)
+      : null;
+
     // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
 
@@ -786,7 +806,7 @@ function ShopDetailModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 店舗番号 */}
               <label className="block">
-                <div className="flex itemsセンター justify-between mb-1">
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-slate-300 text-sm">店舗番号</span>
                   <span className="text-[11px] text-slate-500">
                     3〜4桁の半角数字
@@ -1047,7 +1067,7 @@ function ShopDetailModal({
               </div>
             </div>
 
-            {/* 条件系：身分証・担当（飲酒・希望年齢は削除） */}
+            {/* 条件系：身分証・飲酒希望・担当 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* 身分証 */}
               <label className="block">
@@ -1069,8 +1089,32 @@ function ShopDetailModal({
                 </select>
               </label>
 
-              {/* 担当（UIのみ：スタッフ候補ドロップダウン） */}
+              {/* 飲酒希望 */}
               <label className="block">
+                <div className="text-sm text-slate-300 mb-1">飲酒希望</div>
+                <select
+                  value={drinkPreference}
+                  onChange={(e) =>
+                    setDrinkPreference(
+                      (e.target.value || "") as ShopDrinkPreference | "",
+                    )
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
+                >
+                  <option value="">（未設定）</option>
+                  {drinkOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  キャスト側の飲酒設定と組み合わせてマッチングに利用予定です。
+                </p>
+              </label>
+
+              {/* 担当（UIのみ：スタッフ候補ドロップダウン） */}
+              <label className="block md:col-span-2">
                 <div className="text-sm text-slate-300 mb-1">担当</div>
                 <select
                   value={ownerStaff}

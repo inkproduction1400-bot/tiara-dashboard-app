@@ -1514,9 +1514,11 @@ function CastDetailModal({
                 </h4>
 
                 <div className="grid grid-cols-1 gap-1.5">
+                  {/* 上段：プルダウン 3つ */}
                   <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
+                    {/* 身分証類 → 顔写真 */}
                     <SelectRow
-                      label="身分証種類"
+                      label="顔写真"
                       value={form?.idDocType ?? ""}
                       onChange={(v) =>
                         setForm((prev) =>
@@ -1529,14 +1531,18 @@ function CastDetailModal({
                         )
                       }
                       options={[
-                        { value: "運転免許証", label: "運転免許証" },
-                        { value: "保険証", label: "保険証" },
                         { value: "パスポート", label: "パスポート" },
-                        { value: "マイナンバーカード", label: "マイナンバーカード" },
+                        { value: "マイナンバー", label: "マイナンバー" },
+                        { value: "学生証", label: "学生証" },
+                        { value: "免許証", label: "免許証" },
+                        { value: "社員証", label: "社員証" },
+                        { value: "その他", label: "その他" },
                       ]}
                     />
+
+                    {/* 住民票・郵便物 → 本籍地 */}
                     <SelectRow
-                      label="住民票・郵便物"
+                      label="本籍地"
                       value={form?.residencyProof ?? ""}
                       onChange={(v) =>
                         setForm((prev) =>
@@ -1550,10 +1556,15 @@ function CastDetailModal({
                         )
                       }
                       options={[
-                        { value: "済", label: "済" },
-                        { value: "未", label: "未" },
+                        { value: "パスポート", label: "パスポート" },
+                        {
+                          value: "本籍地記載住民票",
+                          label: "本籍地記載住民票",
+                        },
                       ]}
                     />
+
+                    {/* 宣誓はそのまま */}
                     <SelectRow
                       label="宣誓（身分証のない・更新時）"
                       value={form?.oathStatus ?? ""}
@@ -1575,6 +1586,7 @@ function CastDetailModal({
                     />
                   </div>
 
+                  {/* 中段：備考 */}
                   <div className="bg-white rounded-xl p-2 border border-gray-200">
                     <InfoRow
                       label="備考"
@@ -1585,6 +1597,31 @@ function CastDetailModal({
                         )
                       }
                     />
+                  </div>
+
+                  {/* 下段：身分証写真（顔写真／本籍地） */}
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* 左：顔写真 */}
+                      <div>
+                        <div className="text-[11px] text-muted mb-1">
+                          顔写真
+                        </div>
+                        <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                          写真
+                        </div>
+                      </div>
+
+                      {/* 右：本籍地 */}
+                      <div>
+                        <div className="text-[11px] text-muted mb-1">
+                          本籍地
+                        </div>
+                        <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                          写真
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>

@@ -1083,8 +1083,8 @@ function ShopDetailModal({
                 >
                   <option value="">（未設定）</option>
                   <option value="none">条件なし</option>
-                  <option value="photo_only">顔写真付きのみ</option>
-                  <option value="address_only">住所系のみ</option>
+                  <option value="photo_only">顔写真</option>
+                  <option value="address_only">本籍地</option>
                   <option value="both">どちらも必要</option>
                 </select>
               </label>

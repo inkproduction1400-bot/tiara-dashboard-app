@@ -303,7 +303,7 @@ export default function ShopsPage() {
                   e.target.value as "kana" | "number" | "favorite",
                 );
               }}
-              className="tiara-input h-9 min-w-[160px] text-[11px]"
+              className="tiara-input h-9 min-w[160px] text-[11px]"
             >
               <option value="kana">50音順</option>
               <option value="number">店舗番号順</option>
@@ -444,9 +444,7 @@ export default function ShopsPage() {
             // 一覧の items を即時反映
             setItems((prev) =>
               prev.map((item) =>
-                item.id === updated.id
-                  ? { ...item, ...updated }
-                  : item,
+                item.id === updated.id ? { ...item, ...updated } : item,
               ),
             );
             handleCloseModal();
@@ -622,7 +620,9 @@ function ShopDetailModal({
   const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
     (shop as ShopDetail).idDocumentRequirement ?? "",
   );
-  const [ownerStaff, setOwnerStaff] = useState<string>("");
+  const [ownerStaff, setOwnerStaff] = useState<string>(
+    (shop as any).ownerStaff ?? "",
+  );
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -645,6 +645,18 @@ function ShopDetailModal({
     "5500円",
     "5500円〜6000円",
     "6000円以上",
+  ];
+
+  // 担当スタッフ候補（ログインできるスタッフ）
+  const staffOptions = [
+    "北村",
+    "北村2",
+    "川上",
+    "馬場崎",
+    "長谷川",
+    "陣内",
+    "梶原",
+    "宮崎",
   ];
 
   // ---- 専属 / NG 初期ロード（表示用）----
@@ -1057,17 +1069,23 @@ function ShopDetailModal({
                 </select>
               </label>
 
-              {/* 担当（今はUIのみ） */}
+              {/* 担当（UIのみ：スタッフ候補ドロップダウン） */}
               <label className="block">
                 <div className="text-sm text-slate-300 mb-1">担当</div>
-                <input
+                <select
                   value={ownerStaff}
                   onChange={(e) => setOwnerStaff(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="ログインできるスタッフ名を入力"
-                />
+                >
+                  <option value="">（未設定）</option>
+                  {staffOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  将来的にスタッフマスタからのドロップダウンに差し替え予定。
+                  現在はUIのみ（後日スタッフマスタとの連携を実装予定）。
                 </p>
               </label>
             </div>

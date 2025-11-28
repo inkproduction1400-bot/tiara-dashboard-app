@@ -1507,110 +1507,86 @@ function CastDetailModal({
                 </div>
               </section>
 
-              {/* 右上：登録情報② */}
-              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 text-[11px] space-y-1.5">
-                <h4 className="text-[11px] font-semibold mb-1">
-                  登録情報②（動機・比較・選定理由）
+              {/* 右上：身分証＋備考 */}
+              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
+                <h4 className="text-[11px] font-semibold">
+                  身分証明書確認 / 申告・備考
                 </h4>
 
-                <InfoRow
-                  label="知った経路"
-                  value={form?.howFound ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, howFound: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="紹介者名 / サイト名"
-                  value={form?.referrerName ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, referrerName: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="お仕事を始めるきっかけ"
-                  value={form?.motivation ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, motivation: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="他の派遣会社との比較"
-                  value={form?.compareOtherAgencies ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev
-                        ? { ...prev, compareOtherAgencies: v }
-                        : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="比較状況"
-                  value={form?.otherAgencies ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, otherAgencies: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="派遣会社名"
-                  value={form?.otherAgencyName ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, otherAgencyName: v } : prev,
-                    )
-                  }
-                />
+                <div className="grid grid-cols-1 gap-1.5">
+                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
+                    <SelectRow
+                      label="身分証種類"
+                      value={form?.idDocType ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                idDocType: v as CastDetailForm["idDocType"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "運転免許証", label: "運転免許証" },
+                        { value: "保険証", label: "保険証" },
+                        { value: "パスポート", label: "パスポート" },
+                        { value: "マイナンバーカード", label: "マイナンバーカード" },
+                      ]}
+                    />
+                    <SelectRow
+                      label="住民票・郵便物"
+                      value={form?.residencyProof ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                residencyProof:
+                                  v as CastDetailForm["residencyProof"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "済", label: "済" },
+                        { value: "未", label: "未" },
+                      ]}
+                    />
+                    <SelectRow
+                      label="宣誓（身分証のない・更新時）"
+                      value={form?.oathStatus ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                oathStatus:
+                                  v as CastDetailForm["oathStatus"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "済", label: "済" },
+                        { value: "未", label: "未" },
+                      ]}
+                    />
+                  </div>
 
-                <div className="h-px bg-gray-200 my-1" />
-
-                <InfoRow
-                  label="ティアラを選んだ理由"
-                  value={form?.reasonChoose ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, reasonChoose: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="派遣先のお店選びで重要なポイント"
-                  value={form?.shopSelectionPoints ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, shopSelectionPoints: v } : prev,
-                    )
-                  }
-                />
-                <InfoRow
-                  label="その他（備考）"
-                  value={form?.otherNotes ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, otherNotes: v } : prev,
-                    )
-                  }
-                />
-
-                <div className="h-px bg-gray-200 my-1" />
-
-                <InfoRow
-                  label="30,000円到達への所感"
-                  value={form?.thirtyKComment ?? ""}
-                  onChange={(v) =>
-                    setForm((prev) =>
-                      prev ? { ...prev, thirtyKComment: v } : prev,
-                    )
-                  }
-                />
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
+                    <InfoRow
+                      label="備考"
+                      value={form?.idMemo ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, idMemo: v } : prev,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
               </section>
 
               {/* 左下：基本情報 */}
@@ -1847,86 +1823,110 @@ function CastDetailModal({
                 </div>
               </section>
 
-              {/* 右下：身分証＋備考 */}
-              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
-                <h4 className="text-[11px] font-semibold">
-                  身分証明書確認 / 申告・備考
+              {/* 右下：登録情報② */}
+              <section className="bg-gray-50 rounded-2xl p-2.5 border border-gray-200 text-[11px] space-y-1.5">
+                <h4 className="text-[11px] font-semibold mb-1">
+                  登録情報②（動機・比較・選定理由）
                 </h4>
 
-                <div className="grid grid-cols-1 gap-1.5">
-                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
-                    <SelectRow
-                      label="身分証種類"
-                      value={form?.idDocType ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                idDocType: v as CastDetailForm["idDocType"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "運転免許証", label: "運転免許証" },
-                        { value: "保険証", label: "保険証" },
-                        { value: "パスポート", label: "パスポート" },
-                        { value: "マイナンバーカード", label: "マイナンバーカード" },
-                      ]}
-                    />
-                    <SelectRow
-                      label="住民票・郵便物"
-                      value={form?.residencyProof ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                residencyProof:
-                                  v as CastDetailForm["residencyProof"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "済", label: "済" },
-                        { value: "未", label: "未" },
-                      ]}
-                    />
-                    <SelectRow
-                      label="宣誓（身分証のない・更新時）"
-                      value={form?.oathStatus ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                oathStatus:
-                                  v as CastDetailForm["oathStatus"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "済", label: "済" },
-                        { value: "未", label: "未" },
-                      ]}
-                    />
-                  </div>
+                <InfoRow
+                  label="知った経路"
+                  value={form?.howFound ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, howFound: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="紹介者名 / サイト名"
+                  value={form?.referrerName ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, referrerName: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="お仕事を始めるきっかけ"
+                  value={form?.motivation ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, motivation: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="他の派遣会社との比較"
+                  value={form?.compareOtherAgencies ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev
+                        ? { ...prev, compareOtherAgencies: v }
+                        : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="比較状況"
+                  value={form?.otherAgencies ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherAgencies: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="派遣会社名"
+                  value={form?.otherAgencyName ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherAgencyName: v } : prev,
+                    )
+                  }
+                />
 
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <InfoRow
-                      label="備考"
-                      value={form?.idMemo ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, idMemo: v } : prev,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
+                <div className="h-px bg-gray-200 my-1" />
+
+                <InfoRow
+                  label="ティアラを選んだ理由"
+                  value={form?.reasonChoose ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, reasonChoose: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="派遣先のお店選びで重要なポイント"
+                  value={form?.shopSelectionPoints ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, shopSelectionPoints: v } : prev,
+                    )
+                  }
+                />
+                <InfoRow
+                  label="その他（備考）"
+                  value={form?.otherNotes ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, otherNotes: v } : prev,
+                    )
+                  }
+                />
+
+                <div className="h-px bg-gray-200 my-1" />
+
+                <InfoRow
+                  label="30,000円到達への所感"
+                  value={form?.thirtyKComment ?? ""}
+                  onChange={(v) =>
+                    setForm((prev) =>
+                      prev ? { ...prev, thirtyKComment: v } : prev,
+                    )
+                  }
+                />
               </section>
             </div>
           </div>

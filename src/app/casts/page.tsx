@@ -532,7 +532,7 @@ export default function Page() {
           {/* 右：担当者＆並び替え */}
           <div className="flex flex-col md:flex-row gap-2 md:items-center justify-end">
             {/* 担当者ドロップダウン */}
-            <div className="flex items-center gap-1">
+            <div className="flex itemscenter gap-1">
               <span className="text-xs text-muted">担当者</span>
               <select
                 className="tiara-input min-w-[120px]"
@@ -764,14 +764,19 @@ type CastDetailForm = {
   oathStatus: "" | "済" | "未";
   idMemo: string; // 身分証関連の備考
 
-  // ジャンル・NG店舗・お気に入り店舗
+  // ジャンル・NG店舗・専属指名・指名
   genres: CastGenre[];
   ngShopMemo: string;
   ngShopIds: string[];
   ngShopNames: string[];
+  // UI上は「指名（複数店舗可）」として使用
   favoriteShopMemo: string;
   favoriteShopIds: string[];
   favoriteShopNames: string[];
+  // 専属指名（1店舗）
+  exclusiveShopMemo: string;
+  exclusiveShopId: string | null;
+  exclusiveShopName: string | null;
 };
 
 /**
@@ -787,6 +792,7 @@ function CastDetailModal({
 }: CastDetailModalProps) {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
+  const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
   const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
   const [form, setForm] = useState<CastDetailForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -821,16 +827,30 @@ function CastDetailModal({
       .map((s) => (s.name ?? s.shopName ?? "") as string)
       .filter((n) => n && n.trim());
 
-    // お気に入り店舗（API: detail.favoriteShops）
-    const existingFavoriteShops: any[] = Array.isArray(
-      (detail as any).favoriteShops,
+    // 専属指名（単一）
+    const rawExclusive = (detail as any).exclusiveShop ?? null;
+    const exclusiveShopId: string | null =
+      (detail as any).exclusiveShopId ??
+      (rawExclusive
+        ? String(rawExclusive.id ?? rawExclusive.shopId ?? "")
+        : null);
+    const exclusiveShopName: string | null =
+      rawExclusive && (rawExclusive.name ?? rawExclusive.shopName)
+        ? String(rawExclusive.name ?? rawExclusive.shopName)
+        : null;
+
+    // 指名（複数）: nominatedShops を優先し、なければ legacy favoriteShops
+    const nominatedFromApi: any[] = Array.isArray(
+      (detail as any).nominatedShops,
     )
+      ? ((detail as any).nominatedShops as any[])
+      : Array.isArray((detail as any).favoriteShops)
       ? ((detail as any).favoriteShops as any[])
       : [];
-    const favoriteShopIds: string[] = existingFavoriteShops
+    const favoriteShopIds: string[] = nominatedFromApi
       .map((s) => String(s.id ?? s.shopId ?? ""))
       .filter(Boolean);
-    const favoriteShopNames: string[] = existingFavoriteShops
+    const favoriteShopNames: string[] = nominatedFromApi
       .map((s) => (s.name ?? s.shopName ?? "") as string)
       .filter((n) => n && n.trim());
 
@@ -928,9 +948,15 @@ function CastDetailModal({
       ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
       ngShopIds,
       ngShopNames,
-      favoriteShopMemo: (detail.background as any)?.favoriteShopMemo ?? "",
+      favoriteShopMemo:
+        (detail.background as any)?.nominatedShopMemo ??
+        (detail.background as any)?.favoriteShopMemo ??
+        "",
       favoriteShopIds,
       favoriteShopNames,
+      exclusiveShopMemo: (detail.background as any)?.exclusiveShopMemo ?? "",
+      exclusiveShopId,
+      exclusiveShopName,
     });
     setSaveDone(false);
     setSaveError(null);
@@ -1053,8 +1079,14 @@ function CastDetailModal({
         idMemo: form.idMemo || null,
         genres: form.genres?.length ? form.genres : null,
         ngShopMemo: form.ngShopMemo || null,
-        favoriteShopMemo: form.favoriteShopMemo || null,
+        favoriteShopMemo: form.favoriteShopMemo || null, // 旧仕様との互換
+        exclusiveShopMemo: form.exclusiveShopMemo || null,
+        nominatedShopMemo: form.favoriteShopMemo || null,
       };
+
+      const exclusiveShopIds =
+        form.exclusiveShopId ? [form.exclusiveShopId] : [];
+      const nominatedShopIds = form.favoriteShopIds ?? [];
 
       const payload = {
         displayName: form.displayName || null,
@@ -1088,15 +1120,14 @@ function CastDetailModal({
         hasExperience: hasExperienceFlag,
         // ★ NG店舗ID（モーダルで更新）
         ngShopIds: form.ngShopIds?.length ? form.ngShopIds : null,
-        // ★ お気に入り店舗ID（モーダルで更新）
-        favoriteShopIds: form.favoriteShopIds?.length
-          ? form.favoriteShopIds
-          : null,
+        // ★ 専属指名・指名店舗
+        exclusiveShopIds,
+        nominatedShopIds,
       } as Parameters<typeof updateCast>[1];
 
       const updated = await updateCast(cast.id, payload);
 
-      // ★ フロント側で NG店舗情報・お気に入り店舗情報とメモをパッチしてから親に渡す
+      // ★ フロント側で NG店舗情報・専属指名・指名情報とメモをパッチしてから親に渡す
       const updatedAny = updated as any;
       const patchedUpdated: CastDetail = {
         ...(updatedAny as CastDetail),
@@ -1109,7 +1140,16 @@ function CastDetailModal({
             form.favoriteShopMemo ||
             updatedAny.background?.favoriteShopMemo ||
             null,
-          salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
+          exclusiveShopMemo:
+            form.exclusiveShopMemo ||
+            updatedAny.background?.exclusiveShopMemo ||
+            null,
+          nominatedShopMemo:
+            form.favoriteShopMemo ||
+            updatedAny.background?.nominatedShopMemo ||
+            null,
+          salaryNote:
+            form.salaryNote || updatedAny.background?.salaryNote || null,
           genres: form.genres?.length
             ? form.genres
             : updatedAny.background?.genres ?? null,
@@ -1121,6 +1161,24 @@ function CastDetailModal({
                 name: form.ngShopNames[idx] ?? "",
               }))
             : (updatedAny.ngShops ?? []),
+        exclusiveShopId:
+          form.exclusiveShopId ??
+          updatedAny.exclusiveShopId ??
+          null,
+        exclusiveShop:
+          form.exclusiveShopId
+            ? {
+                id: form.exclusiveShopId,
+                name: form.exclusiveShopName ?? "",
+              }
+            : updatedAny.exclusiveShop ?? null,
+        nominatedShops:
+          form.favoriteShopIds.length > 0
+            ? form.favoriteShopIds.map((id, idx) => ({
+                id,
+                name: form.favoriteShopNames[idx] ?? "",
+              }))
+            : (updatedAny.nominatedShops ?? updatedAny.favoriteShops ?? []),
         favoriteShops:
           form.favoriteShopIds.length > 0
             ? form.favoriteShopIds.map((id, idx) => ({
@@ -1361,13 +1419,46 @@ function CastDetailModal({
                         </button>
                       </div>
                     )}
-                    {/* お気に入り店舗（複数登録可） */}
+                    {/* 専属指名（1店舗） */}
                     <MainInfoRow
-                      label="お気に入り店舗（複数登録可）"
+                      label="専属指名"
+                      value={form?.exclusiveShopMemo ?? ""}
+                      placeholder="例: 特に優先して送りたい店舗メモ"
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, exclusiveShopMemo: v } : prev,
+                        )
+                      }
+                    />
+                    {form && (
+                      <div className="flex items-center justify-between gap-2 pl-0.5">
+                        <div className="text-[11px] text-muted">
+                          選択中:{" "}
+                          {form.exclusiveShopName
+                            ? form.exclusiveShopName
+                            : "未選択"}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExclusiveModalOpen(true)}
+                          className="px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white"
+                        >
+                          店舗を選択
+                        </button>
+                      </div>
+                    )}
+                    {/* 指名（複数店舗可） */}
+                    <MainInfoRow
+                      label="指名（複数店舗可）"
                       value={form?.favoriteShopMemo ?? ""}
                       placeholder={
-                        detail && (detail as any).favoriteShops
-                          ? `${((detail as any).favoriteShops as any[]).length}件登録（例: 備考を記入）`
+                        detail &&
+                        ((detail as any).nominatedShops ||
+                          (detail as any).favoriteShops)
+                          ? `${(
+                              ((detail as any).nominatedShops ??
+                                (detail as any).favoriteShops) as any[]
+                            ).length}件登録（例: 備考を記入）`
                           : "例: 備考を記入"
                       }
                       onChange={(v) =>
@@ -1863,7 +1954,26 @@ function CastDetailModal({
         />
       )}
 
-      {/* お気に入り店舗選択モーダル */}
+      {/* 専属指名店舗選択モーダル */}
+      {exclusiveModalOpen && form && (
+        <ExclusiveShopSelectModal
+          onClose={() => setExclusiveModalOpen(false)}
+          selectedId={form.exclusiveShopId}
+          onChange={(id, name) => {
+            setForm((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    exclusiveShopId: id,
+                    exclusiveShopName: name,
+                  }
+                : prev,
+            );
+          }}
+        />
+      )}
+
+      {/* 指名店舗（旧お気に入り）選択モーダル */}
       {favoriteModalOpen && form && (
         <FavoriteShopSelectModal
           onClose={() => setFavoriteModalOpen(false)}
@@ -2343,7 +2453,250 @@ function NgShopSelectModal({
   );
 }
 
-/** お気に入り店舗選択モーダル */
+/** 専属指名店舗選択モーダル（単一選択） */
+function ExclusiveShopSelectModal({
+  onClose,
+  selectedId,
+  onChange,
+}: {
+  onClose: () => void;
+  selectedId: string | null;
+  onChange: (id: string | null, name: string | null) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState<ShopListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localSelected, setLocalSelected] = useState<string | null>(
+    selectedId ?? null,
+  );
+
+  const [genreFilter, setGenreFilter] = useState<string>("");
+  const [sortMode, setSortMode] = useState<"kana" | "number">("kana");
+
+  useEffect(() => {
+    setLocalSelected(selectedId ?? null);
+  }, [selectedId]);
+
+  const fetchShops = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listShops({
+        q: q.trim() || undefined,
+        limit: 10_000,
+      });
+      setItems((res as any).items ?? []);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? "店舗一覧の取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchShops();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleSelect = (id: string) => {
+    setLocalSelected((prev) => (prev === id ? null : id));
+  };
+
+  const handleApply = () => {
+    if (!localSelected) {
+      onChange(null, null);
+      onClose();
+      return;
+    }
+    const shop = items.find((s: any) => String(s.id) === localSelected) as any;
+    const name =
+      shop && (shop.name ?? shop.shopName)
+        ? String(shop.name ?? shop.shopName)
+        : null;
+    onChange(localSelected, name);
+    onClose();
+  };
+
+  const genreOptions = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
+
+  const filteredItems = useMemo(() => {
+    let list: any[] = [...items];
+    if (genreFilter) {
+      list = list.filter((s) => {
+        const g: string | undefined =
+          (s.genre as string | undefined) ??
+          (Array.isArray(s.genres) ? s.genres[0] : undefined);
+        return g ? g.trim() === genreFilter : false;
+      });
+    }
+    list.sort((a, b) => {
+      const nameA = String(a.name ?? a.shopName ?? "");
+      const nameB = String(b.name ?? b.shopName ?? "");
+      const numAraw =
+        (a.shopNumber as string | number | undefined) ??
+        (a.number as string | number | undefined) ??
+        "";
+      const numBraw =
+        (b.shopNumber as string | number | undefined) ??
+        (b.number as string | number | undefined) ??
+        "";
+      if (sortMode === "number") {
+        const numA = Number(String(numAraw).replace(/[^\d]/g, "")) || 0;
+        const numB = Number(String(numBraw).replace(/[^\d]/g, "")) || 0;
+        if (numA !== numB) return numA - numB;
+        return nameA.localeCompare(nameB, "ja");
+      }
+      return nameA.localeCompare(nameB, "ja");
+    });
+    return list as ShopListItem[];
+  }, [items, genreFilter, sortMode]);
+
+  return (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center px-3">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="text-sm font-semibold">専属指名店舗の選択</h4>
+            <p className="text-[11px] text-muted">
+              専属で優先的に配属したい店舗を1件選択してください。
+            </p>
+          </div>
+          <button
+            className="px-3 py-1 rounded-lg text-[11px] border border-red-400/80 bg-red-500/80 text-white"
+            onClick={onClose}
+          >
+            閉じる
+          </button>
+        </div>
+
+        {/* 検索 + ジャンル絞り込み + 並び替え */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <input
+            className="tiara-input w-full md:w-1/2"
+            placeholder="店舗名・エリアなどで検索"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <select
+            className="tiara-input w-[120px] text-[11px]"
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
+          >
+            <option value="">ジャンル（すべて）</option>
+            {genreOptions.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+          <select
+            className="tiara-input w-[140px] text-[11px]"
+            value={sortMode}
+            onChange={(e) =>
+              setSortMode(e.target.value === "number" ? "number" : "kana")
+            }
+          >
+            <option value="kana">並び順：50音順</option>
+            <option value="number">並び順：店舗番号順</option>
+          </select>
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg text-[11px] border border-indigo-400/70 bg-indigo-500/80 text-white disabled:opacity-60"
+            onClick={fetchShops}
+            disabled={loading}
+          >
+            {loading ? "検索中…" : "検索"}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-2 text-[11px] text-red-500">エラー: {error}</div>
+        )}
+
+        <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full text-[11px]">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-10 px-2 py-1 text-left">専属</th>
+                <th className="px-2 py-1 text-left">店舗名</th>
+                <th className="px-2 py-1 text-left">エリア</th>
+                <th className="px-2 py-1 text-left">住所</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.map((s: any) => {
+                const id = String(s.id);
+                const checked = localSelected === id;
+                return (
+                  <tr
+                    key={id}
+                    className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleSelect(id)}
+                  >
+                    <td className="px-2 py-1">
+                      <input
+                        type="radio"
+                        checked={checked}
+                        onChange={() => toggleSelect(id)}
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      {s.name ?? s.shopName}
+                    </td>
+                    <td className="px-2 py-1">
+                      {s.area ?? s.city ?? ""}
+                    </td>
+                    <td className="px-2 py-1 text-xs text-muted">
+                      {s.address ?? ""}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!loading && filteredItems.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-3 text-center text-[11px] text-muted"
+                  >
+                    該当する店舗がありません
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-[11px]">
+          <div className="text-muted">
+            選択中: {localSelected ? 1 : 0} 件
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50 text-ink"
+              onClick={() => {
+                setLocalSelected(null);
+              }}
+            >
+              解除
+            </button>
+            <button
+              className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60"
+              disabled={loading}
+              onClick={handleApply}
+            >
+              この内容で登録
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 指名店舗（複数）選択モーダル（旧お気に入り） */
 function FavoriteShopSelectModal({
   onClose,
   selectedIds,
@@ -2457,7 +2810,7 @@ function FavoriteShopSelectModal({
       <div className="relative z-10 w-[96vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h4 className="text-sm font-semibold">お気に入り店舗の選択</h4>
+            <h4 className="text-sm font-semibold">指名店舗の選択</h4>
             <p className="text-[11px] text-muted">
               よく配属したい店舗を複数選択してください。
             </p>
@@ -2525,7 +2878,7 @@ function FavoriteShopSelectModal({
           <table className="w-full text-[11px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="w-10 px-2 py-1 text-left">お気に入り</th>
+                <th className="w-10 px-2 py-1 text-left">指名</th>
                 <th className="px-2 py-1 text-left">店舗名</th>
                 <th className="px-2 py-1 text-left">エリア</th>
                 <th className="px-2 py-1 text-left">住所</th>

@@ -45,8 +45,8 @@ type CastRow = {
   legacyStaffId: number | null;
 };
 
-// ★ 並び替えモード：50音順 or 旧スタッフID順
-type SortMode = "kana" | "legacy";
+// ★ 並び替えモード：50音順 or 旧スタッフID昇順/降順
+type SortMode = "kana" | "legacy" | "legacyDesc";
 
 /** ジャンル選択肢（複数選択） */
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
@@ -219,7 +219,7 @@ export default function Page() {
 
     result = result.slice().sort((a, b) => {
       if (sortMode === "legacy") {
-        // 旧スタッフID順（数値昇順, null は末尾）
+        // 旧スタッフID昇順（数値昇順, null は末尾）
         const aNull = a.legacyStaffId == null;
         const bNull = b.legacyStaffId == null;
         if (aNull && bNull) {
@@ -240,6 +240,35 @@ export default function Page() {
         const bv = b.legacyStaffId as number;
         if (av !== bv) return av - bv;
         // 同じ旧IDなら ふりがな/名前 → 管理番号
+        const aKey = a.furigana || a.name;
+        const bKey = b.furigana || b.name;
+        const cmpKana = aKey.localeCompare(bKey, "ja");
+        if (cmpKana !== 0) return cmpKana;
+        return a.managementNumber.localeCompare(b.managementNumber, "ja");
+      }
+
+      if (sortMode === "legacyDesc") {
+        // 旧スタッフID降順（数値降順, null は末尾）
+        const aNull = a.legacyStaffId == null;
+        const bNull = b.legacyStaffId == null;
+        if (aNull && bNull) {
+          // 両方 null → 管理番号 → ふりがな/名前（昇順のままでOK）
+          const cmpMng = a.managementNumber.localeCompare(
+            b.managementNumber,
+            "ja",
+          );
+          if (cmpMng !== 0) return cmpMng;
+          const aKey = a.furigana || a.name;
+          const bKey = b.furigana || b.name;
+          return aKey.localeCompare(bKey, "ja");
+        }
+        if (aNull) return 1;
+        if (bNull) return -1;
+
+        const av = a.legacyStaffId as number;
+        const bv = b.legacyStaffId as number;
+        if (av !== bv) return bv - av; // ★ 降順
+        // 同じ旧IDなら ふりがな/名前 → 管理番号（昇順のままでOK）
         const aKey = a.furigana || a.name;
         const bKey = b.furigana || b.name;
         const cmpKana = aKey.localeCompare(bKey, "ja");
@@ -564,7 +593,15 @@ export default function Page() {
                   checked={sortMode === "legacy"}
                   onChange={() => setSortMode("legacy")}
                 />
-                旧ID順
+                旧ID昇順
+              </label>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={sortMode === "legacyDesc"}
+                  onChange={() => setSortMode("legacyDesc")}
+                />
+                旧ID降順
               </label>
               <button
                 className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"

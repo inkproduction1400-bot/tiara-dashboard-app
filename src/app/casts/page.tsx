@@ -759,10 +759,22 @@ type CastDetailForm = {
   otherNotes: string; // その他（備考）
   thirtyKComment: string; // 30,000円到達への所感
 
-  idDocType: "" | "運転免許証" | "保険証" | "パスポート" | "マイナンバーカード";
-  residencyProof: "" | "済" | "未";
-  oathStatus: "" | "済" | "未";
-  idMemo: string; // 身分証関連の備考
+  idDocType:
+  | ""
+  | "パスポート"
+  | "マイナンバー"
+  | "学生証"
+  | "免許証"
+  | "社員証"
+  | "その他";
+
+/** 本籍地の証明種別 */
+residencyProof: "" | "パスポート" | "本籍地記載住民票";
+
+/** 宣誓（身分証のない・更新時） */
+oathStatus: "" | "済" | "未";
+
+idMemo: string; // 身分証関連の備考
 
   // ジャンル・NG店舗・専属指名・指名
   genres: CastGenre[];

@@ -52,6 +52,17 @@ type SortMode = "kana" | "legacy" | "legacyDesc";
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
 type CastGenre = (typeof CAST_GENRE_OPTIONS)[number];
 
+/** ティアラ査定時給の選択肢（2500〜10000） */
+const TIARA_HOURLY_OPTIONS = [
+  2500, 3000, 3500, 4000, 4500,
+  5000, 5500, 6000, 6500, 7000,
+  7500, 8000, 8500, 9000, 9500, 10000,
+] as const;
+
+/** ランク選択肢 */
+const CAST_RANK_OPTIONS = ["S", "A", "B", "C"] as const;
+type CastRank = (typeof CAST_RANK_OPTIONS)[number];
+
 /** モーダルを document.body 直下に出すためのポータル */
 function ModalPortal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -391,6 +402,12 @@ export default function Page() {
     const updatedAge =
       calcAgeFromBirthdate(updated.birthdate ?? null) ?? null;
 
+    const updatedAny = updated as any;
+    const updatedOwnerStaffNameRaw =
+      updatedAny.background?.ownerStaffName ??
+      updatedAny.ownerStaffName ??
+      null;
+
     setSelected((prev) =>
       prev
         ? {
@@ -406,6 +423,11 @@ export default function Page() {
             desiredHourly:
               updated.preferences?.desiredHourly ?? prev.desiredHourly,
             age: updatedAge ?? prev.age,
+            ownerStaffName:
+              typeof updatedOwnerStaffNameRaw === "string" &&
+              updatedOwnerStaffNameRaw.trim()
+                ? updatedOwnerStaffNameRaw
+                : prev.ownerStaffName,
           }
         : prev,
     );
@@ -426,6 +448,11 @@ export default function Page() {
                 updated.preferences?.desiredHourly ?? r.desiredHourly,
               age:
                 calcAgeFromBirthdate(updated.birthdate ?? null) ?? r.age,
+              ownerStaffName:
+                typeof updatedOwnerStaffNameRaw === "string" &&
+                updatedOwnerStaffNameRaw.trim()
+                  ? updatedOwnerStaffNameRaw
+                  : r.ownerStaffName,
             }
           : r,
       ),
@@ -656,6 +683,7 @@ export default function Page() {
               detailError={detailError}
               onClose={handleCloseModal}
               onUpdated={handleDetailUpdated}
+              staffOptions={staffOptions}
             />
           </ModalPortal>
         )}
@@ -684,6 +712,7 @@ type CastDetailModalProps = {
   detailError: string | null;
   onClose: () => void;
   onUpdated: (d: CastDetail) => void;
+  staffOptions: string[];
 };
 
 /**
@@ -761,8 +790,12 @@ type CastDetailForm = {
   address: string;
   phone: string;
   email: string;
-  // 希望時給（テキスト入力だが中身は数値を期待）
+  // ティアラ査定時給（プルダウン: 2500〜10000）
   tiaraHourly: string;
+  // ランク（S/A/B/C）
+  rank: CastRank | "";
+  // 担当者（プルダウン）
+  ownerStaffName: string;
   // 希望出勤日（"月/火" などを想定）
   preferredDays: string;
   preferredTimeFrom: string;
@@ -797,21 +830,21 @@ type CastDetailForm = {
   thirtyKComment: string; // 30,000円到達への所感
 
   idDocType:
-  | ""
-  | "パスポート"
-  | "マイナンバー"
-  | "学生証"
-  | "免許証"
-  | "社員証"
-  | "その他";
+    | ""
+    | "パスポート"
+    | "マイナンバー"
+    | "学生証"
+    | "免許証"
+    | "社員証"
+    | "その他";
 
-/** 本籍地の証明種別 */
-residencyProof: "" | "パスポート" | "本籍地記載住民票";
+  /** 本籍地の証明種別 */
+  residencyProof: "" | "パスポート" | "本籍地記載住民票";
 
-/** 宣誓（身分証のない・更新時） */
-oathStatus: "" | "済" | "未";
+  /** 宣誓（身分証のない・更新時） */
+  oathStatus: "" | "済" | "未";
 
-idMemo: string; // 身分証関連の備考
+  idMemo: string; // 身分証関連の備考
 
   // ジャンル・NG店舗・専属指名・指名
   genres: CastGenre[];
@@ -838,6 +871,7 @@ function CastDetailModal({
   detailError,
   onClose,
   onUpdated,
+  staffOptions,
 }: CastDetailModalProps) {
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -909,10 +943,24 @@ function CastDetailModal({
       address: detail.address ?? "",
       phone: detail.phone ?? "",
       email: detail.email ?? "",
-      tiaraHourly:
-        detail.preferences?.desiredHourly != null
-          ? String(detail.preferences.desiredHourly)
-          : "",
+      tiaraHourly: (() => {
+        const v = detail.preferences?.desiredHourly ?? null;
+        if (
+          v != null &&
+          v >= TIARA_HOURLY_OPTIONS[0] &&
+          v <= TIARA_HOURLY_OPTIONS[TIARA_HOURLY_OPTIONS.length - 1]
+        ) {
+          return String(v);
+        }
+        return "";
+      })(),
+      rank:
+        ((detail.background as any)?.rank as CastDetailForm["rank"]) ?? "",
+      ownerStaffName:
+        (detail.background as any)?.ownerStaffName ??
+        (cast.ownerStaffName && cast.ownerStaffName !== "-"
+          ? cast.ownerStaffName
+          : ""),
       salaryNote: (detail.background as any)?.salaryNote ?? "",
       preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
@@ -1009,7 +1057,7 @@ function CastDetailModal({
     });
     setSaveDone(false);
     setSaveError(null);
-  }, [detail, cast.name]);
+  }, [detail, cast.name, cast.ownerStaffName]);
 
   // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
   const today = new Date();
@@ -1046,12 +1094,6 @@ function CastDetailModal({
   const address = form?.address || "—";
   const phone = form?.phone || "—";
   const email = form?.email || "—";
-  const tiaraHourlyLabel =
-    form?.tiaraHourly && form.tiaraHourly.trim()
-      ? `¥${Number(
-          form.tiaraHourly.replace(/[^\d]/g, "") || "0",
-        ).toLocaleString()}`
-      : "—";
 
   const handleSave = async () => {
     if (!detail || !form) return;
@@ -1131,6 +1173,8 @@ function CastDetailModal({
         favoriteShopMemo: form.favoriteShopMemo || null, // 旧仕様との互換
         exclusiveShopMemo: form.exclusiveShopMemo || null,
         nominatedShopMemo: form.favoriteShopMemo || null,
+        rank: form.rank || null,
+        ownerStaffName: form.ownerStaffName || null,
       };
 
       const exclusiveShopIds =
@@ -1202,6 +1246,11 @@ function CastDetailModal({
           genres: form.genres?.length
             ? form.genres
             : updatedAny.background?.genres ?? null,
+          rank: form.rank || updatedAny.background?.rank || null,
+          ownerStaffName:
+            form.ownerStaffName ||
+            updatedAny.background?.ownerStaffName ||
+            null,
         },
         ngShops:
           form.ngShopIds.length > 0
@@ -1423,18 +1472,52 @@ function CastDetailModal({
                         </div>
                       </div>
                     </div>
-                    {/* ティアラ査定時給 */}
-                    <MainInfoRow
+                    {/* ティアラ査定時給（プルダウン） */}
+                    <SelectRow
                       label="ティアラ査定時給"
                       value={form?.tiaraHourly ?? ""}
-                      placeholder={
-                        tiaraHourlyLabel === "—" ? "例: 2500" : tiaraHourlyLabel
-                      }
                       onChange={(v) =>
                         setForm((prev) =>
                           prev ? { ...prev, tiaraHourly: v } : prev,
                         )
                       }
+                      options={TIARA_HOURLY_OPTIONS.map((n) => ({
+                        value: String(n),
+                        label: `¥${n.toLocaleString()}`,
+                      }))}
+                    />
+                    {/* ランク */}
+                    <SelectRow
+                      label="ランク"
+                      value={form?.rank ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                rank: v as CastDetailForm["rank"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={CAST_RANK_OPTIONS.map((r) => ({
+                        value: r,
+                        label: r,
+                      }))}
+                    />
+                    {/* 担当者 */}
+                    <SelectRow
+                      label="担当者"
+                      value={form?.ownerStaffName ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, ownerStaffName: v } : prev,
+                        )
+                      }
+                      options={staffOptions.map((name) => ({
+                        value: name,
+                        label: name,
+                      }))}
                     />
                     {/* NG店舗（複数登録可） */}
                     <MainInfoRow
@@ -1556,144 +1639,144 @@ function CastDetailModal({
                 </div>
               </section>
 
-{/* 右上：身分証＋備考 */}
-<section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
-  <h4 className="text-[11px] font-semibold">
-    身分証明書確認 / 申告・備考
-  </h4>
+              {/* 右上：身分証＋備考 */}
+              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
+                <h4 className="text-[11px] font-semibold">
+                  身分証明書確認 / 申告・備考
+                </h4>
 
-  <div className="grid grid-cols-1 gap-1.5">
-    {/* 上段：プルダウン 3つ */}
-    <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
-      {/* 身分証類 → 顔写真 */}
-      <SelectRow
-        label="顔写真"
-        value={form?.idDocType ?? ""}
-        onChange={(v) =>
-          setForm((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  idDocType: v as CastDetailForm["idDocType"],
-                }
-              : prev,
-          )
-        }
-        options={[
-          { value: "パスポート", label: "パスポート" },
-          { value: "マイナンバー", label: "マイナンバー" },
-          { value: "学生証", label: "学生証" },
-          { value: "免許証", label: "免許証" },
-          { value: "社員証", label: "社員証" },
-          { value: "その他", label: "その他" },
-        ]}
-      />
+                <div className="grid grid-cols-1 gap-1.5">
+                  {/* 上段：プルダウン 3つ */}
+                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
+                    {/* 身分証類 → 顔写真 */}
+                    <SelectRow
+                      label="顔写真"
+                      value={form?.idDocType ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                idDocType:
+                                  v as CastDetailForm["idDocType"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "パスポート", label: "パスポート" },
+                        { value: "マイナンバー", label: "マイナンバー" },
+                        { value: "学生証", label: "学生証" },
+                        { value: "免許証", label: "免許証" },
+                        { value: "社員証", label: "社員証" },
+                        { value: "その他", label: "その他" },
+                      ]}
+                    />
 
-      {/* 住民票・郵便物 → 本籍地 */}
-      <SelectRow
-        label="本籍地"
-        value={form?.residencyProof ?? ""}
-        onChange={(v) =>
-          setForm((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  residencyProof:
-                    v as CastDetailForm["residencyProof"],
-                }
-              : prev,
-          )
-        }
-        options={[
-          { value: "パスポート", label: "パスポート" },
-          {
-            value: "本籍地記載住民票",
-            label: "本籍地記載住民票",
-          },
-        ]}
-      />
+                    {/* 住民票・郵便物 → 本籍地 */}
+                    <SelectRow
+                      label="本籍地"
+                      value={form?.residencyProof ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                residencyProof:
+                                  v as CastDetailForm["residencyProof"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "パスポート", label: "パスポート" },
+                        {
+                          value: "本籍地記載住民票",
+                          label: "本籍地記載住民票",
+                        },
+                      ]}
+                    />
 
-      {/* 宣誓はそのまま */}
-      <SelectRow
-        label="宣誓（身分証のない・更新時）"
-        value={form?.oathStatus ?? ""}
-        onChange={(v) =>
-          setForm((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  oathStatus:
-                    v as CastDetailForm["oathStatus"],
-                }
-              : prev,
-          )
-        }
-        options={[
-          { value: "済", label: "済" },
-          { value: "未", label: "未" },
-        ]}
-      />
-    </div>
+                    {/* 宣誓はそのまま */}
+                    <SelectRow
+                      label="宣誓（身分証のない・更新時）"
+                      value={form?.oathStatus ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                oathStatus:
+                                  v as CastDetailForm["oathStatus"],
+                              }
+                            : prev,
+                        )
+                      }
+                      options={[
+                        { value: "済", label: "済" },
+                        { value: "未", label: "未" },
+                      ]}
+                    />
+                  </div>
 
-    {/* 中段：備考 */}
-    <div className="bg-white rounded-xl p-2 border border-gray-200">
-      <InfoRow
-        label="備考"
-        value={form?.idMemo ?? ""}
-        onChange={(v) =>
-          setForm((prev) =>
-            prev ? { ...prev, idMemo: v } : prev,
-          )
-        }
-      />
-    </div>
+                  {/* 中段：備考 */}
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
+                    <InfoRow
+                      label="備考"
+                      value={form?.idMemo ?? ""}
+                      onChange={(v) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, idMemo: v } : prev,
+                        )
+                      }
+                    />
+                  </div>
 
-    {/* 下段：身分証写真（顔写真／本籍地）
-        → プロフィール写真と同程度のサイズ＋削除ボタン */}
-    <div className="bg-white rounded-xl p-2 border border-gray-200">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* 左：顔写真 */}
-        <div className="flex flex-col items-center">
-          <div className="w-full text-left text-[11px] text-muted mb-1">
-            顔写真
-          </div>
-          <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
-            写真
-          </div>
-          <button
-            type="button"
-            className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
-            onClick={() => {
-              // TODO: 顔写真削除処理（ストレージ削除/API連携は別タスク）
-            }}
-          >
-            顔写真を削除
-          </button>
-        </div>
+                  {/* 下段：身分証写真（顔写真／本籍地）
+                      → プロフィール写真と同程度のサイズ＋削除ボタン */}
+                  <div className="bg-white rounded-xl p-2 border border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* 左：顔写真 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full text-left text-[11px] text-muted mb-1">
+                          顔写真
+                        </div>
+                        <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                          写真
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
+                          onClick={() => {
+                            // TODO: 顔写真削除処理（ストレージ削除/API連携は別タスク）
+                          }}
+                        >
+                          顔写真を削除
+                        </button>
+                      </div>
 
-        {/* 右：本籍地 */}
-        <div className="flex flex-col items-center">
-          <div className="w-full text-left text-[11px] text-muted mb-1">
-            本籍地
-          </div>
-          <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
-            写真
-          </div>
-          <button
-            type="button"
-            className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
-            onClick={() => {
-              // TODO: 本籍地写真削除処理（ストレージ削除/API連携は別タスク）
-            }}
-          >
-            本籍地の写真を削除
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
+                      {/* 右：本籍地 */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full text-left text-[11px] text-muted mb-1">
+                          本籍地
+                        </div>
+                        <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+                          写真
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
+                          onClick={() => {
+                            // TODO: 本籍地写真削除処理（ストレージ削除/API連携は別タスク）
+                          }}
+                        >
+                          本籍地の写真を削除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
               {/* 左下：基本情報 */}
               <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 space-y-1.5 text-[11px]">
@@ -1861,7 +1944,8 @@ function CastDetailModal({
                           prev
                             ? {
                                 ...prev,
-                                needPickup: v as CastDetailForm["needPickup"],
+                                needPickup:
+                                  v as CastDetailForm["needPickup"],
                               }
                             : prev,
                         )
@@ -1879,7 +1963,8 @@ function CastDetailModal({
                           prev
                             ? {
                                 ...prev,
-                                drinkLevel: v as CastDetailForm["drinkLevel"],
+                                drinkLevel:
+                                  v as CastDetailForm["drinkLevel"],
                               }
                             : prev,
                         )

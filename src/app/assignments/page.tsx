@@ -33,6 +33,14 @@ const formatDateLabel = (date: string) => {
   return date;
 };
 
+const formatDateYmdJa = (date: string) => {
+  // YYYY-MM-DD → YYYY/MM/DD 表示用
+  if (!date) return "";
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return date;
+  return `${y}/${m}/${d}`;
+};
+
 // 新規リクエストのひな形（スケジュール共通ストア用）
 const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
   id: `shop_${Date.now()}`,
@@ -71,6 +79,10 @@ export default function Page() {
   const [assignmentDraftIsNew, setAssignmentDraftIsNew] = useState(false);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   // 初期ロード: 本日 + 明日の店舗リクエストを取得
   useEffect(() => {
@@ -130,6 +142,24 @@ export default function Page() {
 
     return list;
   }, [items, keyword, dateFilter]);
+
+  // 集計（資料っぽいヘッダー用：件数・希望人数合計・割当人数合計）
+  const summary = useMemo(() => {
+    const totalShops = filteredItems.length;
+    let totalRequestedHeadcount = 0;
+    let totalAssigned = 0;
+
+    for (const shop of filteredItems) {
+      totalRequestedHeadcount += shop.requestedHeadcount ?? 0;
+      totalAssigned += assignmentsByShop[shop.id]?.length ?? 0;
+    }
+
+    return {
+      totalShops,
+      totalRequestedHeadcount,
+      totalAssigned,
+    };
+  }, [filteredItems, assignmentsByShop]);
 
   // 編集中店舗に紐づく割当（モーダル内表示用）
   const currentEditingAssignments = useMemo(() => {
@@ -260,33 +290,76 @@ export default function Page() {
     return `${names.slice(0, 3).join(" / ")} ほか${names.length - 3}名`;
   };
 
+  // ヘッダー右側に表示する基準日（フィルタと連動というより、「本日」の日付をメイン表示）
+  const todayLabel = formatDateYmdJa(todayKey());
+
   return (
     <AppShell>
       <div className="h-full flex flex-col gap-3">
         {/* ヘッダー */}
         <section className="tiara-panel p-3 flex flex-col gap-2">
-          <header className="flex items-center justify-between">
-            <div className="flex flex-col">
+          <header className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col gap-1">
               <h1 className="text-sm font-semibold text-gray-900">
-                割当確認 / 店舗リクエスト一覧
+                割当確認リスト / 店舗リクエスト一覧
               </h1>
-              <p className="mt-0.5 text-[11px] text-muted">
-                各店舗ごとの「必要人数・条件」と「割当済みキャスト」を一元的に管理します。
+              <p className="text-[11px] text-muted">
+                本日・明日の店舗リクエストに対して、割当済みキャストを一覧で確認・管理する画面です。
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end mr-2">
+                <span className="text-[10px] text-muted">対象日</span>
+                <span className="text-[11px] font-medium text-gray-900">
+                  本日 {todayLabel}
+                </span>
+              </div>
               <button
                 type="button"
-                className="tiara-btn text-[11px] px-3 py-1"
+                className="rounded-xl border border-gray-300 bg-white text-gray-700 px-3 py-1.5 text-[11px] hover:bg-gray-50"
+                onClick={handlePrint}
+              >
+                印刷（割当リスト）
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-[11px] px-3 py-1.5"
                 onClick={openNew}
               >
-                ＋ 新規追加
+                ＋ 新規店舗リクエスト
               </button>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-600">
                 build: {buildStamp}
               </span>
             </div>
           </header>
+
+          {/* 集計バー（資料っぽい帯） */}
+          <div className="mt-1 grid grid-cols-3 gap-2 text-[11px]">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
+              <span className="text-muted whitespace-nowrap">対象店舗数</span>
+              <span className="text-base font-semibold text-sky-900">
+                {summary.totalShops}
+              </span>
+              <span className="text-[10px] text-sky-900/80">件</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+              <span className="text-muted whitespace-nowrap">希望人数合計</span>
+              <span className="text-base font-semibold text-emerald-900">
+                {summary.totalRequestedHeadcount}
+              </span>
+              <span className="text-[10px] text-emerald-900/80">名</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
+              <span className="text-muted whitespace-nowrap">
+                割当済みキャスト合計
+              </span>
+              <span className="text-base font-semibold text-indigo-900">
+                {summary.totalAssigned}
+              </span>
+              <span className="text-[10px] text-indigo-900/80">名</span>
+            </div>
+          </div>
 
           {/* フィルタ */}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -345,11 +418,19 @@ export default function Page() {
         <section className="tiara-panel flex-1 p-3 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-2 text-[11px] text-muted">
             <span>
-              該当店舗：
+              表示中の店舗：
               <span className="font-semibold text-gray-900">
                 {filteredItems.length}
               </span>{" "}
-              件
+              件（希望人数合計{" "}
+              <span className="font-semibold text-gray-900">
+                {summary.totalRequestedHeadcount}
+              </span>
+              名 / 割当済み{" "}
+              <span className="font-semibold text-gray-900">
+                {summary.totalAssigned}
+              </span>
+              名）
             </span>
             <span>
               ※ 行の「割当キャスト」列で、現在の割当状況を一覧で確認できます。
@@ -402,7 +483,10 @@ export default function Page() {
                         <td className="px-3 py-2 font-mono">{shop.code}</td>
                         <td className="px-3 py-2">{shop.name}</td>
                         <td className="px-3 py-2">
-                          {formatDateLabel(shop.date)}
+                          {formatDateLabel(shop.date)}{" "}
+                          <span className="text-[10px] text-muted">
+                            ({formatDateYmdJa(shop.date)})
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-right">
                           {shop.requestedHeadcount} 名

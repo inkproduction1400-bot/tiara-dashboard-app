@@ -1519,124 +1519,144 @@ function CastDetailModal({
                 </div>
               </section>
 
-              {/* 右上：身分証＋備考 */}
-              <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
-                <h4 className="text-[11px] font-semibold">
-                  身分証明書確認 / 申告・備考
-                </h4>
+{/* 右上：身分証＋備考 */}
+<section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 text-[11px] space-y-1.5">
+  <h4 className="text-[11px] font-semibold">
+    身分証明書確認 / 申告・備考
+  </h4>
 
-                <div className="grid grid-cols-1 gap-1.5">
-                  {/* 上段：プルダウン 3つ */}
-                  <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
-                    {/* 身分証類 → 顔写真 */}
-                    <SelectRow
-                      label="顔写真"
-                      value={form?.idDocType ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                idDocType: v as CastDetailForm["idDocType"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "パスポート", label: "パスポート" },
-                        { value: "マイナンバー", label: "マイナンバー" },
-                        { value: "学生証", label: "学生証" },
-                        { value: "免許証", label: "免許証" },
-                        { value: "社員証", label: "社員証" },
-                        { value: "その他", label: "その他" },
-                      ]}
-                    />
+  <div className="grid grid-cols-1 gap-1.5">
+    {/* 上段：プルダウン 3つ */}
+    <div className="bg-white rounded-xl p-2 border border-gray-200 space-y-1">
+      {/* 身分証類 → 顔写真 */}
+      <SelectRow
+        label="顔写真"
+        value={form?.idDocType ?? ""}
+        onChange={(v) =>
+          setForm((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  idDocType: v as CastDetailForm["idDocType"],
+                }
+              : prev,
+          )
+        }
+        options={[
+          { value: "パスポート", label: "パスポート" },
+          { value: "マイナンバー", label: "マイナンバー" },
+          { value: "学生証", label: "学生証" },
+          { value: "免許証", label: "免許証" },
+          { value: "社員証", label: "社員証" },
+          { value: "その他", label: "その他" },
+        ]}
+      />
 
-                    {/* 住民票・郵便物 → 本籍地 */}
-                    <SelectRow
-                      label="本籍地"
-                      value={form?.residencyProof ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                residencyProof:
-                                  v as CastDetailForm["residencyProof"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "パスポート", label: "パスポート" },
-                        {
-                          value: "本籍地記載住民票",
-                          label: "本籍地記載住民票",
-                        },
-                      ]}
-                    />
+      {/* 住民票・郵便物 → 本籍地 */}
+      <SelectRow
+        label="本籍地"
+        value={form?.residencyProof ?? ""}
+        onChange={(v) =>
+          setForm((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  residencyProof:
+                    v as CastDetailForm["residencyProof"],
+                }
+              : prev,
+          )
+        }
+        options={[
+          { value: "パスポート", label: "パスポート" },
+          {
+            value: "本籍地記載住民票",
+            label: "本籍地記載住民票",
+          },
+        ]}
+      />
 
-                    {/* 宣誓はそのまま */}
-                    <SelectRow
-                      label="宣誓（身分証のない・更新時）"
-                      value={form?.oathStatus ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                oathStatus:
-                                  v as CastDetailForm["oathStatus"],
-                              }
-                            : prev,
-                        )
-                      }
-                      options={[
-                        { value: "済", label: "済" },
-                        { value: "未", label: "未" },
-                      ]}
-                    />
-                  </div>
+      {/* 宣誓はそのまま */}
+      <SelectRow
+        label="宣誓（身分証のない・更新時）"
+        value={form?.oathStatus ?? ""}
+        onChange={(v) =>
+          setForm((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  oathStatus:
+                    v as CastDetailForm["oathStatus"],
+                }
+              : prev,
+          )
+        }
+        options={[
+          { value: "済", label: "済" },
+          { value: "未", label: "未" },
+        ]}
+      />
+    </div>
 
-                  {/* 中段：備考 */}
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <InfoRow
-                      label="備考"
-                      value={form?.idMemo ?? ""}
-                      onChange={(v) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, idMemo: v } : prev,
-                        )
-                      }
-                    />
-                  </div>
+    {/* 中段：備考 */}
+    <div className="bg-white rounded-xl p-2 border border-gray-200">
+      <InfoRow
+        label="備考"
+        value={form?.idMemo ?? ""}
+        onChange={(v) =>
+          setForm((prev) =>
+            prev ? { ...prev, idMemo: v } : prev,
+          )
+        }
+      />
+    </div>
 
-                  {/* 下段：身分証写真（顔写真／本籍地） */}
-                  <div className="bg-white rounded-xl p-2 border border-gray-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* 左：顔写真 */}
-                      <div>
-                        <div className="text-[11px] text-muted mb-1">
-                          顔写真
-                        </div>
-                        <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
-                          写真
-                        </div>
-                      </div>
+    {/* 下段：身分証写真（顔写真／本籍地）
+        → プロフィール写真と同程度のサイズ＋削除ボタン */}
+    <div className="bg-white rounded-xl p-2 border border-gray-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 左：顔写真 */}
+        <div className="flex flex-col items-center">
+          <div className="w-full text-left text-[11px] text-muted mb-1">
+            顔写真
+          </div>
+          <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+            写真
+          </div>
+          <button
+            type="button"
+            className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
+            onClick={() => {
+              // TODO: 顔写真削除処理（ストレージ削除/API連携は別タスク）
+            }}
+          >
+            顔写真を削除
+          </button>
+        </div>
 
-                      {/* 右：本籍地 */}
-                      <div>
-                        <div className="text-[11px] text-muted mb-1">
-                          本籍地
-                        </div>
-                        <div className="w-full aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
-                          写真
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
+        {/* 右：本籍地 */}
+        <div className="flex flex-col items-center">
+          <div className="w-full text-left text-[11px] text-muted mb-1">
+            本籍地
+          </div>
+          <div className="w-24 sm:w-28 aspect-[3/4] rounded-2xl bg-gray-200 overflow-hidden flex items-center justify-center text-[11px] text-muted">
+            写真
+          </div>
+          <button
+            type="button"
+            className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
+            onClick={() => {
+              // TODO: 本籍地写真削除処理（ストレージ削除/API連携は別タスク）
+            }}
+          >
+            本籍地の写真を削除
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
               {/* 左下：基本情報 */}
               <section className="bg-gray-50 rounded-2xl p-2 border border-gray-200 space-y-1.5 text-[11px]">

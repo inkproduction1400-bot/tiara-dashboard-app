@@ -16,21 +16,19 @@ export default function Sidebar() {
       title: "運用機能",
       items: [
         {
-          label: "本日出勤キャスト",
+          // 本日出勤キャスト → マッチング
+          label: "マッチング",
           href: "/casts/today",
           active: isActiveDeep("/casts/today"),
         },
         // リクエスト店舗は削除
         {
-          label: "割当確認",
+          // 割当確認 → 割当リスト
+          label: "割当リスト",
           href: "/assignments",
           active: isActiveDeep("/assignments"),
         },
-        {
-          label: "スケジュール",
-          href: "/schedule",
-          active: isActiveDeep("/schedule"),
-        },
+        // スケジュールは項目ごと削除
       ],
     },
     {
@@ -72,7 +70,7 @@ export default function Sidebar() {
 
   return (
     <aside className="side-nav side--manabi slim">
-      {/* ロゴ（ログイン後のデフォルト＝本日出勤キャストへ） */}
+      {/* ロゴ（ログイン後のデフォルト＝マッチングへ） */}
       <div className="side__brand px-2 py-3">
         <Link
           href="/casts/today"

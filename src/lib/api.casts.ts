@@ -18,8 +18,9 @@ function withUser(init?: RequestInit): RequestInit {
   };
 }
 
-/** Cast 一覧（/casts GET の select に対応） */
+/** Cast 一覧（/casts GET のレスポンスをフロント用に正規化した型） */
 export type CastListItem = {
+  /** 一覧では userId をキーとして扱う（API の id or userId を吸収） */
   userId: string;
   displayName: string;
   /** NEW: ふりがな（一覧でも扱えるようにオプショナルで定義） */
@@ -28,11 +29,14 @@ export type CastListItem = {
   email?: string | null;
   drinkOk?: boolean | null;
   hasExperience?: boolean | null;
-  createdAt: string;
+  /** API から来ない可能性があるので null / undefined 許容 */
+  createdAt?: string | null;
   managementNumber?: string | null;
   legacyStaffId?: number | null; // 旧システムのスタッフID
   birthdate?: string | null;
   age?: number | null;
+  /** 一覧で希望時給を表示するため */
+  desiredHourly?: number | null;
 };
 
 export type CastListResponse = {
@@ -75,11 +79,29 @@ export async function listCastsForPicker(
 
   const raw = await apiFetch<any>(path, withUser());
 
+  const mapItem = (it: any): CastListItem => ({
+    userId: it.userId ?? it.id ?? "",
+    displayName: it.displayName ?? "",
+    furigana: it.furigana ?? null,
+    phone: it.phone ?? null,
+    email: it.email ?? null,
+    drinkOk: it.drinkOk ?? null,
+    hasExperience: it.hasExperience ?? null,
+    createdAt: it.createdAt ?? null,
+    managementNumber: it.managementNumber ?? null,
+    legacyStaffId: it.legacyStaffId ?? null,
+    birthdate: it.birthdate ?? null,
+    age: it.age ?? null,
+    desiredHourly: it.desiredHourly ?? null,
+  });
+
   if (Array.isArray(raw)) {
-    return { items: raw as CastListItem[], total: raw.length };
+    const items = (raw as any[]).map(mapItem);
+    return { items, total: items.length };
   }
 
-  const items = Array.isArray(raw?.items) ? (raw.items as CastListItem[]) : [];
+  const rawItems = Array.isArray(raw?.items) ? (raw.items as any[]) : [];
+  const items = rawItems.map(mapItem);
   const total =
     typeof raw?.total === "number" ? (raw.total as number) : items.length;
 
@@ -194,6 +216,10 @@ export type CastDetail = {
   note: string | null;
   profilePhotoUrl: string | null;
 
+  /** NEW: ティアラランク / 担当者名（バックエンド側で順次対応予定） */
+  tiaraRank?: string | null;
+  ownerStaffName?: string | null;
+
   /** 属性・希望条件・背景 */
   attributes: CastAttributes | null;
   preferences: CastPreferences | null;
@@ -202,14 +228,14 @@ export type CastDetail = {
   /** NG 店舗一覧 */
   ngShops: CastNgShop[];
 
-  /** NEW: 専属指名店舗（1件のみ） */
+  /** 専属指名店舗（1件のみ） */
   exclusiveShopId: string | null;
   exclusiveShop: CastNamedShop | null;
 
-  /** NEW: 指名店舗（複数件） */
+  /** 指名店舗（複数件） */
   nominatedShops: CastNamedShop[];
 
-  /** NEW: お気に入り店舗（複数件） */
+  /** お気に入り店舗（複数件） */
   favoriteShops?: CastNamedShop[];
 
   /** 直近シフト（本日〜翌日分） */
@@ -233,6 +259,10 @@ export type CastUpdatePayload = {
   hasExperience?: boolean | null;
   managementNumber?: string | null;
 
+  /** NEW: ティアラランク / 担当者名 */
+  tiaraRank?: string | null;
+  ownerStaffName?: string | null;
+
   /**
    * NG店舗（キャスト都合）のショップID一覧
    * - undefined … 変更なし（API にキーを送らない）
@@ -242,7 +272,7 @@ export type CastUpdatePayload = {
   ngShopIds?: string[];
 
   /**
-   * NEW: 専属指名店舗ID
+   * 専属指名店舗ID
    * - undefined … 変更なし
    * - null / "" … 専属を解除
    * - "shop-uuid" … 該当店舗を専属として設定
@@ -250,7 +280,15 @@ export type CastUpdatePayload = {
   exclusiveShopId?: string | null;
 
   /**
-   * NEW: 指名店舗のショップID一覧
+   * 専属指名店舗IDの配列（/casts/:id PATCH 側では exclusiveShopId / exclusiveShopIds の両方を吸収）
+   * - undefined … 変更なし
+   * - []        … 専属を全削除
+   * - ["shop-uuid"] … 1件だけ専属として設定
+   */
+  exclusiveShopIds?: string[];
+
+  /**
+   * 指名店舗のショップID一覧
    * - undefined … 変更なし
    * - []        … 既存の指名店舗を全削除
    * - ["shop-uuid", ...] … このリストで置き換え
@@ -258,7 +296,7 @@ export type CastUpdatePayload = {
   nominatedShopIds?: string[];
 
   /**
-   * NEW: お気に入り店舗のショップID一覧
+   * お気に入り店舗のショップID一覧
    * - undefined … 変更なし
    * - []        … 既存のお気に入り店舗を全削除
    * - ["shop-uuid", ...] … このリストで置き換え
@@ -287,7 +325,7 @@ export type CastUpdatePayload = {
         preferredArea?: string | null;
         ngShopNotes?: string | null;
         notes?: string | null;
-        /** NEW: 手数料区分 (busy/normal/slow 等) */
+        /** 手数料区分 (busy/normal/slow 等) */
         feeCategory?: string | null;
       }
     | null;
@@ -323,14 +361,43 @@ export type CastUpdatePayload = {
 
 /** ===== 今日出勤キャスト (/casts/today) 用の型 ===== */
 
-/** /casts/today の 1 レコード（必要最低限の型） */
+/** TodayCast の assignment 要素 */
+export type TodayCastAssignmentItem = {
+  id: string;
+  shopId: string;
+  shopName: string;
+  shopNumber: string | null;
+  assignedFrom: string; // ISO文字列
+  assignedTo: string | null; // ISO文字列 or null
+  status: string;
+};
+
+/** TodayCast の attendance 要素 */
+export type TodayCastAttendanceItem = {
+  id: string;
+  shopId: string;
+  checkInAt: string; // ISO文字列
+  returnedAt: string | null;
+  checkOutAt: string | null;
+  method: string | null;
+};
+
+/** /casts/today の 1 レコード（バックエンドの TodayCastItem に対応） */
 export type TodayCastApiItem = {
   castId: string;
-  managementNumber: string | null;
+  managementNumber: string;
   displayName: string;
   age: number | null;
   desiredHourly: number | null;
-  drinkOk: boolean | null;
+  drinkOk: boolean;
+
+  primaryShopId: string;
+  primaryShopName: string;
+  primaryShopNumber: string | null;
+  primaryStatus: string;
+
+  assignments: TodayCastAssignmentItem[];
+  attendance: TodayCastAttendanceItem | null;
 };
 
 /** /casts/today のレスポンス全体 */
@@ -341,19 +408,33 @@ export type TodayCastsApiResponse = {
 
 /**
  * Cast 一覧取得
- * - API 仕様上、クエリで使えるのは q / take / drinkOk / hasExperience のみ
- * - offset を付けると 400 になるため、1 回だけ /casts?take=N で取得する
- * - バック側の上限と揃えて take の最大値は 10,000
+ * - バックエンド側の ListCastsDto に合わせて
+ *   q / take / offset / drinkOk / hasExperience / hasNgShops / hasExclusiveShop / hasNominatedShops
+ *   をクエリで指定可能
+ * - バックのレスポンスが { items, total } or 配列 のどちらでも吸収する
  */
 export async function listCasts(
   params: {
     q?: string;
     limit?: number; // 取得件数（take にマップ）
+    offset?: number;
     drinkOk?: boolean;
     hasExperience?: boolean;
+    hasNgShops?: boolean;
+    hasExclusiveShop?: boolean;
+    hasNominatedShops?: boolean;
   } = {},
 ): Promise<CastListResponse> {
-  const { q, limit, drinkOk, hasExperience } = params;
+  const {
+    q,
+    limit,
+    offset,
+    drinkOk,
+    hasExperience,
+    hasNgShops,
+    hasExclusiveShop,
+    hasNominatedShops,
+  } = params;
 
   // API 側の上限が 10,000 なので、それを越えないように丸める
   const MAX_TAKE = 10_000;
@@ -363,23 +444,52 @@ export async function listCasts(
   const qs = new URLSearchParams();
   if (q) qs.set("q", q);
   if (take) qs.set("take", String(take));
+  if (typeof offset === "number" && offset >= 0) {
+    qs.set("offset", String(offset));
+  }
   if (typeof drinkOk === "boolean") {
     qs.set("drinkOk", String(drinkOk));
   }
   if (typeof hasExperience === "boolean") {
     qs.set("hasExperience", String(hasExperience));
   }
+  if (typeof hasNgShops === "boolean") {
+    qs.set("hasNgShops", String(hasNgShops));
+  }
+  if (typeof hasExclusiveShop === "boolean") {
+    qs.set("hasExclusiveShop", String(hasExclusiveShop));
+  }
+  if (typeof hasNominatedShops === "boolean") {
+    qs.set("hasNominatedShops", String(hasNominatedShops));
+  }
 
   const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
 
-  // API は { items, total } or 配列 どちらもあり得る
   const raw = await apiFetch<any>(path, withUser());
 
+  const mapItem = (it: any): CastListItem => ({
+    userId: it.userId ?? it.id ?? "",
+    displayName: it.displayName ?? "",
+    furigana: it.furigana ?? null,
+    phone: it.phone ?? null,
+    email: it.email ?? null,
+    drinkOk: it.drinkOk ?? null,
+    hasExperience: it.hasExperience ?? null,
+    createdAt: it.createdAt ?? null,
+    managementNumber: it.managementNumber ?? null,
+    legacyStaffId: it.legacyStaffId ?? null,
+    birthdate: it.birthdate ?? null,
+    age: it.age ?? null,
+    desiredHourly: it.desiredHourly ?? null,
+  });
+
   if (Array.isArray(raw)) {
-    return { items: raw as CastListItem[], total: raw.length };
+    const items = (raw as any[]).map(mapItem);
+    return { items, total: items.length };
   }
 
-  const items = Array.isArray(raw?.items) ? (raw.items as CastListItem[]) : [];
+  const rawItems = Array.isArray(raw?.items) ? (raw.items as any[]) : [];
+  const items = rawItems.map(mapItem);
   const total =
     typeof raw?.total === "number" ? (raw.total as number) : items.length;
 

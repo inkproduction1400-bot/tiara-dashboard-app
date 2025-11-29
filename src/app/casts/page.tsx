@@ -1177,11 +1177,13 @@ function CastDetailModal({
         ownerStaffName: form.ownerStaffName || null,
       };
 
+      // ★ NG / 専属 / 指名の ID 配列を仕様に合わせて構築
+      const ngShopIds = form.ngShopIds ?? [];
       const exclusiveShopIds =
         form.exclusiveShopId ? [form.exclusiveShopId] : [];
       const nominatedShopIds = form.favoriteShopIds ?? [];
 
-      const payload = {
+      const payload: Parameters<typeof updateCast>[1] = {
         displayName: form.displayName || null,
         furigana: form.furigana || null,
         birthdate: form.birthdate || null,
@@ -1205,18 +1207,17 @@ function CastDetailModal({
           preferredTimeFrom: form.preferredTimeFrom || null,
           preferredTimeTo: form.preferredTimeTo || null,
           preferredArea: form.preferredArea || null,
-          // NG メモ・備考欄は今のところ background 側で管理
-          ngShopNotes: detail.preferences?.ngShopNotes ?? null,
+          // NG メモは background 側で統一管理。ngShopNotes は送信しない。
           notes: detail.preferences?.notes ?? null,
         },
         background,
         hasExperience: hasExperienceFlag,
         // ★ NG店舗ID（モーダルで更新）
-        ngShopIds: form.ngShopIds?.length ? form.ngShopIds : null,
+        ngShopIds,
         // ★ 専属指名・指名店舗
         exclusiveShopIds,
         nominatedShopIds,
-      } as Parameters<typeof updateCast>[1];
+      };
 
       const updated = await updateCast(cast.id, payload);
 

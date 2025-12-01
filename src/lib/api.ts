@@ -1,3 +1,4 @@
+// src/lib/api.ts
 "use client";
 
 import { getToken } from "./device";
@@ -49,18 +50,18 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const token = getToken();
   // 認証系エンドポイントかどうか
-  const isAuthPath = path.startsWith('/auth/');
+  const isAuthPath = path.startsWith("/auth/");
 
   // 基本ヘッダ
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(init?.headers ?? {}),
     // /auth/* のときは Authorization を付けない
     ...(!isAuthPath && token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await fetch(url, { ...init, headers, cache: 'no-store' });
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, { ...init, headers, cache: "no-store" });
 
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText}`);
@@ -68,6 +69,24 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
+
+// ========= 汎用ヘルパー =========
+
+export async function apiGet<T>(path: string): Promise<T> {
+  return apiFetch<T>(path, { method: "GET" });
+}
+
+export async function apiPost<T>(
+  path: string,
+  body?: unknown
+): Promise<T> {
+  return apiFetch<T>(path, {
+    method: "POST",
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
+// ========= 認証系 =========
 
 export async function login(
   email: string,
@@ -89,4 +108,27 @@ export async function verifyChallenge(
     method: "POST",
     body: JSON.stringify({ tx_id, code, device_id }),
   });
+}
+
+// ========= 通知サマリー（headerUnreadCount / talkUnreadCount） =========
+
+export type NotificationSummary = {
+  headerUnreadCount: number;
+  talkUnreadCount: number;
+};
+
+/**
+ * ヘッダー／トーク用の未読サマリーを取得
+ * GET /me/notifications/summary
+ */
+export function fetchNotificationSummary(): Promise<NotificationSummary> {
+  return apiGet<NotificationSummary>("/me/notifications/summary");
+}
+
+/**
+ * トーク画面側から既読更新
+ * POST /me/notifications/mark-talk-read
+ */
+export function markTalkRead(): Promise<NotificationSummary> {
+  return apiPost<NotificationSummary>("/me/notifications/mark-talk-read", {});
 }

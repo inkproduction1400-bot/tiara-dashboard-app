@@ -8,8 +8,9 @@ import { useNotifications } from "@/contexts/NotificationsContext";
 
 export default function Sidebar() {
   const pathname = usePathname() || "/";
-  const { talkUnread } = useNotifications();
-
+  //const { talkUnread } = useNotifications();
+  // デザイン確認用：未読5件として固定表示
+  const talkUnread = 5;
   const isActiveExact = (href: string) => pathname === href;
   const isActiveDeep = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");

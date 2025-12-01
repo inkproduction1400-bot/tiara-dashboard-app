@@ -5,10 +5,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAuth } from "@/lib/device";
-import {
-  fetchNotificationSummary,
-  type NotificationSummary,
-} from "@/lib/api";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 type Props = {
   title: string;
@@ -20,41 +17,18 @@ type Props = {
 export default function Header({ title, subtitle, userName }: Props) {
   const router = useRouter();
   const [name, setName] = useState<string>(userName ?? "");
-  const [headerUnread, setHeaderUnread] = useState<number>(0);
+  const { headerUnread } = useNotifications();
 
   // デモ用：ローカル保持名を採用（実サービスでは認証情報から取得）
   useEffect(() => {
     if (userName) return;
     const local =
-      localStorage.getItem("tiara_user_name") ||
-      localStorage.getItem("tiara_login_id");
+      (typeof window !== "undefined" &&
+        (localStorage.getItem("tiara_user_name") ||
+          localStorage.getItem("tiara_login_id"))) ||
+      "";
     setName(local && local.trim() ? local : "ゲスト");
   }, [userName]);
-
-  // ヘッダー未読数のポーリング（30秒ごと）
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const res: NotificationSummary = await fetchNotificationSummary();
-        if (!cancelled) {
-          setHeaderUnread(res.headerUnreadCount ?? 0);
-        }
-      } catch (e) {
-        // サマリー取得失敗は致命的ではないのでログだけ
-        // console.error("[Header] fetchNotificationSummary failed:", e);
-      }
-    };
-
-    load();
-    const timer = setInterval(load, 30_000); // 30秒ごとに更新
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
 
   const onLogout = async () => {
     try {

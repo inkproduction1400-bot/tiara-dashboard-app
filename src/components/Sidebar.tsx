@@ -1,11 +1,14 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import Image from "next/image";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 export default function Sidebar() {
   const pathname = usePathname() || "/";
+  const { talkUnread } = useNotifications();
 
   const isActiveExact = (href: string) => pathname === href;
   const isActiveDeep = (href: string) =>
@@ -47,7 +50,11 @@ export default function Sidebar() {
     {
       title: "通信機能",
       items: [
-        { label: "チャット", href: "/chat", active: isActiveDeep("/chat") },
+        {
+          label: "チャット",
+          href: "/chat",
+          active: isActiveDeep("/chat"),
+        },
         // SOS は削除
       ],
     },
@@ -97,20 +104,31 @@ export default function Sidebar() {
           <div className="nav__section" key={sec.title}>
             <div className="nav__title">{sec.title}</div>
             <ul className="nav__list">
-              {sec.items.map((it) => (
-                <li key={it.href}>
-                  <Link
-                    href={it.href}
-                    className={clsx(
-                      "nav__item no-ico",
-                      it.active && "is-active",
-                    )}
-                    prefetch={false}
-                  >
-                    <span className="nav__label">{it.label}</span>
-                  </Link>
-                </li>
-              ))}
+              {sec.items.map((it) => {
+                const isChat = it.href === "/chat";
+
+                return (
+                  <li key={it.href}>
+                    <Link
+                      href={it.href}
+                      className={clsx(
+                        "nav__item no-ico",
+                        it.active && "is-active",
+                      )}
+                      prefetch={false}
+                    >
+                      <span className="nav__label inline-flex items-center gap-1">
+                        {it.label}
+                        {isChat && talkUnread > 0 && (
+                          <span className="ml-0.5 inline-flex min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-[10px] font-semibold text-white items-center justify-center">
+                            {talkUnread > 99 ? "99+" : talkUnread}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}

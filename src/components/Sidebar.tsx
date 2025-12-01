@@ -117,10 +117,13 @@ export default function Sidebar() {
                       )}
                       prefetch={false}
                     >
-                      <span className="nav__label inline-flex items-center gap-1">
-                        {it.label}
+                      <span className="nav__label flex items-center justify-between gap-2">
+                        {/* 左側：ラベル（truncate で崩れ防止） */}
+                        <span className="truncate">{it.label}</span>
+
+                        {/* 右側：チャット未読バッジのみ表示 */}
                         {isChat && talkUnread > 0 && (
-                          <span className="ml-0.5 inline-flex min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-[10px] font-semibold text-white items-center justify-center">
+                          <span className="inline-flex min-w-[14px] h-[14px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
                             {talkUnread > 99 ? "99+" : talkUnread}
                           </span>
                         )}

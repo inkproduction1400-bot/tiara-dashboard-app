@@ -129,36 +129,28 @@ function ChatContent() {
 
   const handleSelectChat = (chatId: string) => {
     setSelectedChatId(chatId);
-    // TODO: 後で「会話別の既読処理」を入れる場合はここで API 呼び出し
+    // TODO: 会話別の既読処理を入れる場合はここで API 呼び出し
   };
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-120px)]">
-      {/* 上部：フィルタなどのヘッダー */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold">チャット一覧</h2>
-          <p className="text-xs text-muted">
-            全キャストとのチャットを一覧で確認できます。担当者で絞り込みも可能です。
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-muted whitespace-nowrap">
-            担当者フィルタ
-          </label>
-          <select
-            className="tiara-input h-8 text-xs"
-            value={staffFilter}
-            onChange={(e) => setStaffFilter(e.target.value)}
-          >
-            <option value="all">すべての担当者</option>
-            {DUMMY_STAFFS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* 上部：担当者フィルタ（左端に配置） */}
+      <div className="flex items-center gap-2 justify-start">
+        <label className="text-xs text-muted whitespace-nowrap">
+          担当者フィルタ
+        </label>
+        <select
+          className="tiara-input h-8 text-xs"
+          value={staffFilter}
+          onChange={(e) => setStaffFilter(e.target.value)}
+        >
+          <option value="all">すべての担当者</option>
+          {DUMMY_STAFFS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* 下部：一覧 + チャット本体 */}

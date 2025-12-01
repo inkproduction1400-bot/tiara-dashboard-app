@@ -3,8 +3,9 @@
 
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { getToken } from "@/lib/device";
 
 type Props = {
   children: React.ReactNode;
@@ -30,6 +31,15 @@ const PATH_TITLE_MAP: Record<string, { title: string; subtitle?: string }> = {
 };
 
 export default function AppShell({ children, title, subtitle }: Props) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
+    }
+  }, [router]);
+
   const pathname = usePathname() || "/";
   const base = "/" + (pathname.split("/").slice(0, 3).join("/") || "");
   const fallback =

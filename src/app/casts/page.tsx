@@ -594,7 +594,7 @@ export default function Page() {
           {/* 右：担当者＆並び替え */}
           <div className="flex flex-col md:flex-row gap-2 md:items-center justify-end">
             {/* 担当者ドロップダウン */}
-            <div className="flex itemscenter gap-1">
+            <div className="flex items-center gap-1">
               <span className="text-xs text-muted">担当者</span>
               <select
                 className="tiara-input min-w-[120px]"

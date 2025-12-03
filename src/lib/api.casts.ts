@@ -37,6 +37,8 @@ export type CastListItem = {
   age?: number | null;
   /** 一覧で希望時給を表示するため */
   desiredHourly?: number | null;
+  /** NEW: キャストID（英字+数字ランダム） */
+  castCode?: string | null;
 };
 
 export type CastListResponse = {
@@ -93,6 +95,7 @@ export async function listCastsForPicker(
     birthdate: it.birthdate ?? null,
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
+    castCode: it.castCode ?? null,
   });
 
   if (Array.isArray(raw)) {
@@ -206,6 +209,8 @@ export type CastDetail = {
   /** NEW: ふりがな（バックエンドの buildCastDetail に合わせて追加） */
   furigana: string | null;
   managementNumber: string | null;
+  /** NEW: キャストID（英字+数字ランダム） */
+  castCode: string | null;
   birthdate: string | null;
   age: number | null;
   address: string | null;
@@ -386,6 +391,8 @@ export type TodayCastAttendanceItem = {
 export type TodayCastApiItem = {
   castId: string;
   managementNumber: string;
+  /** NEW: キャストID（英字+数字ランダム） */
+  castCode: string | null;
   displayName: string;
   age: number | null;
   desiredHourly: number | null;
@@ -481,6 +488,7 @@ export async function listCasts(
     birthdate: it.birthdate ?? null,
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
+    castCode: it.castCode ?? null,
   });
 
   if (Array.isArray(raw)) {

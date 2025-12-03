@@ -180,7 +180,9 @@ export default function Page() {
             age: ageFromBirth,
             // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
             desiredHourly: (c as any).desiredHourly ?? null,
-            castCode: "-", // 仕様確定後に API フィールドと紐付け
+            // API からのキャストID（例: A001 など）。castCode / cast_code 両方ケア
+            castCode:
+              (c as any).castCode ?? (c as any).cast_code ?? "-",
             ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
             legacyStaffId: (c as any).legacyStaffId ?? null,
           };
@@ -224,7 +226,7 @@ export default function Page() {
 
       // 管理番号 / 名前 / ふりがな / 旧スタッフID に含まれていればヒット（旧ID検索対応）
       const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
-      const hay = `${r.managementNumber} ${r.name} ${r.furigana} ${legacy}`;
+      const hay = `${r.managementNumber} ${r.castCode} ${r.name} ${r.furigana} ${legacy}`;
       return hay.includes(query);
     });
 
@@ -504,6 +506,7 @@ export default function Page() {
         <thead className="bg-gray-50 text-muted">
           <tr>
             <th className="text-left px-2 py-1 w-24">管理番号</th>
+            <th className="text-left px-2 py-1 w-20">キャストID</th>
             <th className="text-left px-2 py-1">名前</th>
             <th className="text-left px-2 py-1 w-10">年齢</th>
             <th className="text-left px-2 py-1 w-20">希望時給</th>
@@ -521,6 +524,9 @@ export default function Page() {
             >
               <td className="px-2 py-1 font-mono text-[11px]">
                 {r.managementNumber}
+              </td>
+              <td className="px-2 py-1 font-mono text-[11px]">
+                {r.castCode || "-"}
               </td>
               <td className="px-2 py-1 truncate">{r.name}</td>
               <td className="px-2 py-1 text-center">

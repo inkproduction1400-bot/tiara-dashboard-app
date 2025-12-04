@@ -430,24 +430,30 @@ section.menu-strip {
   border-bottom: 1px solid var(--sb-border);
   overflow: visible !important;
 }
+
+/* slim サイドバーに収まるロゴボックス */
 .side--manabi .side__brand .brand__logo-box {
-  width: 168px;
-  height: 48px;
-  max-width: 90%;
+  width: calc(var(--sb-width) - 24px);
+  max-width: 100%;
+  height: 40px;
   position: relative;
-  overflow: hidden;
 }
+
+/* XL 以上は少しだけ高さアップ */
 @media (min-width: 1280px) {
   .side--manabi .side__brand .brand__logo-box {
-    width: 188px;
-    height: 52px;
+    width: calc(var(--sb-width) - 20px);
+    height: 44px;
   }
 }
+
+/* 中の img/svg をボックス内にきれいにフィットさせる */
 .side--manabi .side__brand .brand__logo-box :where(img, svg) {
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* ===== Left edge flush (保険) ===== */

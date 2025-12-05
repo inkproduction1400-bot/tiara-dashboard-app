@@ -20,7 +20,7 @@ export async function listRides(
   const qs = new URLSearchParams();
 
   if (params.status) {
-    qs.set("status", params.status);
+    qs.set("status", params.status as RideStatus);
   }
   if (params.pickup_city) {
     qs.set("pickup_city", params.pickup_city);
@@ -38,6 +38,7 @@ export async function listRides(
   const query = qs.toString();
   const url = query ? `/rides?${query}` : "/rides";
 
+  // apiFetch は Promise<unknown> なので Response にキャスト
   const res = (await apiFetch(url, { method: "GET" })) as Response;
 
   if (!res.ok) {
@@ -46,8 +47,9 @@ export async function listRides(
 
   const json = (await res.json()) as RideListItemFromApi[];
 
+  // API 側は snake_case、そのまま UI 用の型に詰め替える
   return json.map(
-    (r): RideListItem => ({
+    (r: RideListItemFromApi): RideListItem => ({
       id: r.id,
       request_date: r.request_date,
       status: r.status,

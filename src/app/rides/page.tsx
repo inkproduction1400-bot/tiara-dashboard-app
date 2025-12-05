@@ -1,13 +1,19 @@
 // src/app/rides/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, ChangeEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  ChangeEvent,
+  useCallback,
+} from "react";
 import AppShell from "@/components/AppShell";
 import { listRides, updateRide } from "@/lib/api.rides";
-import type { RideListItem, RideStatus } from "@/lib/api.rides";
 import { generateTimes } from "@/lib/time";
 import { format, addDays, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
+import type { RideListItem, UpdateRidePayload } from "@/lib/types.rides";
 
 export default function RidesPage() {
   const [rides, setRides] = useState<RideListItem[]>([]);
@@ -52,11 +58,7 @@ export default function RidesPage() {
   const timeOptions = useMemo(() => generateTimes(), []);
 
   // ---- 送迎リスト読み込み ----
-  useEffect(() => {
-    void load();
-  }, [selectedDate]);
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await listRides({ date: selectedDate });
@@ -64,15 +66,18 @@ export default function RidesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   // ---- PATCH: 各項目変更時 ----
   async function patchField(
     id: string,
-    field: string,
-    value: string | number | null,
+    field: UpdateRidePayload["field"],
+    value: UpdateRidePayload["value"],
   ) {
-    // UpdateRidePayload は { field, value } 形式
     await updateRide(id, { field, value });
     await load();
   }
@@ -109,14 +114,15 @@ export default function RidesPage() {
     id: string,
     e: ChangeEvent<HTMLSelectElement>,
   ) {
-    const v = e.target.value as RideStatus;
+    const v = e.target.value;
     await patchField(id, "status", v);
   }
 
-  function StatusBadge({ status }: { status: RideStatus }) {
-    // status: pending | accepted | completed | canceled
-    let style = "bg-gray-100 text-gray-700 border-gray-300";
-    let label: string = status;
+  function StatusBadge({ status }: { status: string }) {
+    // status: pending | accepted | completed | cancelled
+    let style =
+      "bg-gray-100 text-gray-700 border-gray-300"; // fallback
+    let label = status;
 
     if (status === "pending") {
       style = "bg-yellow-100 text-yellow-700 border-yellow-300";
@@ -124,11 +130,10 @@ export default function RidesPage() {
     } else if (status === "completed") {
       style = "bg-green-100 text-green-700 border-green-300";
       label = "完了";
-    } else if (status === "canceled") {
+    } else if (status === "cancelled") {
       style = "bg-red-100 text-red-700 border-red-300";
       label = "キャンセル";
     } else if (status === "accepted") {
-      // いまは UI からは使わないが、将来用
       style = "bg-blue-100 text-blue-700 border-blue-300";
       label = "配車済";
     }
@@ -267,10 +272,9 @@ export default function RidesPage() {
                           value={r.status}
                           onChange={(e) => handleStatusChange(r.id, e)}
                         >
-                          {/* pending / completed / canceled の 3 状態を使う */}
                           <option value="pending">受付済</option>
                           <option value="completed">完了</option>
-                          <option value="canceled">キャンセル</option>
+                          <option value="cancelled">キャンセル</option>
                         </select>
                       </div>
                     </td>

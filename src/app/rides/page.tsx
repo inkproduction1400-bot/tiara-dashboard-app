@@ -4,10 +4,10 @@
 import { useEffect, useMemo, useState, ChangeEvent } from "react";
 import AppShell from "@/components/AppShell";
 import { listRides, updateRide } from "@/lib/api.rides";
+import type { RideListItem, RideStatus } from "@/lib/api.rides";
 import { generateTimes } from "@/lib/time";
 import { format, addDays, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import type { RideListItem } from "@/lib/types.rides";
 
 export default function RidesPage() {
   const [rides, setRides] = useState<RideListItem[]>([]);
@@ -72,7 +72,8 @@ export default function RidesPage() {
     field: string,
     value: string | number | null,
   ) {
-    await updateRide(id, { [field]: value });
+    // UpdateRidePayload は { field, value } 形式
+    await updateRide(id, { field, value });
     await load();
   }
 
@@ -108,15 +109,14 @@ export default function RidesPage() {
     id: string,
     e: ChangeEvent<HTMLSelectElement>,
   ) {
-    const v = e.target.value;
+    const v = e.target.value as RideStatus;
     await patchField(id, "status", v);
   }
 
-  function StatusBadge({ status }: { status: string }) {
-    // status は RideRequestStatus を想定: pending | assigned | completed | cancelled
-    let style =
-      "bg-gray-100 text-gray-700 border-gray-300"; // fallback（未知の値）
-    let label = status;
+  function StatusBadge({ status }: { status: RideStatus }) {
+    // status: pending | accepted | completed | canceled
+    let style = "bg-gray-100 text-gray-700 border-gray-300";
+    let label: string = status;
 
     if (status === "pending") {
       style = "bg-yellow-100 text-yellow-700 border-yellow-300";
@@ -124,11 +124,11 @@ export default function RidesPage() {
     } else if (status === "completed") {
       style = "bg-green-100 text-green-700 border-green-300";
       label = "完了";
-    } else if (status === "cancelled") {
+    } else if (status === "canceled") {
       style = "bg-red-100 text-red-700 border-red-300";
       label = "キャンセル";
-    } else if (status === "assigned") {
-      // いまは UI からは使わないが、過去データがあった場合に備え表示だけ残す
+    } else if (status === "accepted") {
+      // いまは UI からは使わないが、将来用
       style = "bg-blue-100 text-blue-700 border-blue-300";
       label = "配車済";
     }
@@ -198,10 +198,10 @@ export default function RidesPage() {
                 return (
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 border font-medium">
-                      {r.cast.display_name}
+                      {r.cast_name ?? "-"}
                     </td>
                     <td className="px-3 py-2 border text-center">
-                      {r.cast.management_number}
+                      {r.cast_management_number ?? "-"}
                     </td>
                     <td className="px-3 py-2 border">
                       {r.pickup_city || "-"}
@@ -267,12 +267,10 @@ export default function RidesPage() {
                           value={r.status}
                           onChange={(e) => handleStatusChange(r.id, e)}
                         >
-                          {/* 送迎依頼作成時は pending 固定。
-                              以後の状態変更はダッシュボードのみで
-                              pending / completed / cancelled の 3 状態を使う */}
+                          {/* pending / completed / canceled の 3 状態を使う */}
                           <option value="pending">受付済</option>
                           <option value="completed">完了</option>
-                          <option value="cancelled">キャンセル</option>
+                          <option value="canceled">キャンセル</option>
                         </select>
                       </div>
                     </td>

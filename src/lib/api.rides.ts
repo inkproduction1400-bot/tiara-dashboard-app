@@ -2,37 +2,13 @@
 "use client";
 
 import { apiFetch } from "./api";
-import type { RideListItem } from "./types.rides";
-
-/**
- * 送迎ステータス
- * （必要に応じて実際の enum に合わせて追加・変更してください）
- */
-export type RideStatus = "pending" | "accepted" | "completed" | "cancelled";
-
-/**
- * /api/v1/rides のクエリパラメータ
- */
-export type ListRidesParams = {
-  status?: RideStatus;
-  pickup_city?: string;
-  date?: string; // YYYY-MM-DD
-  from?: string; // ISO8601 など
-  to?: string;   // ISO8601 など
-};
-
-/**
- * PATCH /api/v1/rides/:id のペイロード
- * page.tsx では `updateRide(id, { [field]: value })` として
- * 部分更新で使っているので全部 optional にしておく
- */
-export type UpdateRidePayload = {
-  car_number?: string | null;
-  boarding_time?: string | null;
-  arrival_time?: string | null;
-  note?: string | null;
-  status?: RideStatus;
-};
+import type {
+  RideListItem,
+  RideStatus,
+  ListRidesParams,
+  RideListItemFromApi,
+  UpdateRidePayload,
+} from "./types.rides";
 
 /**
  * 送迎依頼一覧取得（Dashboard 用）
@@ -60,24 +36,49 @@ export async function listRides(
   }
 
   const query = qs.toString();
-  const path = query ? `/rides?${query}` : "/rides";
+  const url = query ? `/rides?${query}` : "/rides";
 
-  // Authorization ヘッダー付きで叩く
-  return apiFetch<RideListItem[]>(path);
+  const res = (await apiFetch(url, { method: "GET" })) as Response;
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch rides: ${res.status}`);
+  }
+
+  const json = (await res.json()) as RideListItemFromApi[];
+
+  return json.map(
+    (r): RideListItem => ({
+      id: r.id,
+      request_date: r.request_date,
+      status: r.status,
+      pickup_city: r.pickup_city,
+      note: r.note,
+      car_number: r.car_number,
+      boarding_time: r.boarding_time,
+      arrival_time: r.arrival_time,
+      created_at: r.created_at,
+      cast_name: r.cast_name,
+      cast_management_number: r.cast_management_number,
+      shop_name: r.shop_name,
+    }),
+  );
 }
 
 /**
- * 送迎依頼の更新（PATCH /rides/:id）
+ * 送迎依頼の更新（Dashboard 用）
+ * PATCH /api/v1/rides/:id
  */
 export async function updateRide(
   id: string,
   payload: UpdateRidePayload,
-): Promise<RideListItem> {
-  return apiFetch<RideListItem>(`/rides/${id}`, {
+): Promise<void> {
+  const res = (await apiFetch(`/rides/${id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
+  })) as Response;
+
+  if (!res.ok) {
+    throw new Error(`Failed to update ride: ${res.status}`);
+  }
 }

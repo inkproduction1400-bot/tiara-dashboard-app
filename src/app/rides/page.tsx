@@ -30,7 +30,7 @@ function toDateString(date: Date): string {
 function StatusBadge({ status }: { status: RideStatus }) {
   let style =
     "bg-gray-100 text-gray-700 border-gray-300 px-2 py-1 rounded text-xs";
-  let label = ""; // string 型で初期化
+  let label = "";
 
   if (status === "pending") {
     style =
@@ -60,7 +60,7 @@ export default function RidesPage() {
   const [rides, setRides] = useState<RideListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const times = generateTimes(); // "HH:mm" の配列想定
+  const times = generateTimes(); // "HH:mm" の配列
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -209,76 +209,87 @@ export default function RidesPage() {
               )}
 
               {!loading &&
-                rides.map((ride) => (
-                  <tr key={ride.id} className="border-t">
-                    <td className="px-3 py-2">
-                      {ride.cast_name ?? "未設定"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {ride.cast_management_number ?? "-"}
-                    </td>
-                    <td className="px-3 py-2">
-                      {/* 場所：pickup_city を優先し、なければ店舗名、それもなければ "-" */}
-                      {ride.pickup_city ?? ride.shop_name ?? "-"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <select
-                        className="border rounded px-2 py-1 text-xs"
-                        value={ride.car_number ?? ""}
-                        onChange={(e) => handleCarNumberChange(ride.id, e)}
-                      >
-                        <option value="">未設定</option>
-                        {/* 必要なら車番候補をここに列挙 */}
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <select
-                        className="border rounded px-2 py-1 text-xs"
-                        value={ride.boarding_time ?? ""}
-                        onChange={(e) => handleBoardingChange(ride.id, e)}
-                      >
-                        <option value="">未設定</option>
-                        {times.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <select
-                        className="border rounded px-2 py-1 text-xs"
-                        value={ride.arrival_time ?? ""}
-                        onChange={(e) => handleArrivalChange(ride.id, e)}
-                      >
-                        <option value="">未設定</option>
-                        {times.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={ride.status} />
+                rides.map((ride) => {
+                  // 場所は pickup_city を優先し、なければ shop 名
+                  const location =
+                    ride.pickup_city ?? ride.shop_name ?? "-";
+
+                  return (
+                    <tr key={ride.id} className="border-t">
+                      <td className="px-3 py-2">
+                        {ride.cast_name ?? "未設定"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {ride.cast_management_number ?? "-"}
+                      </td>
+                      <td className="px-3 py-2">{location}</td>
+                      <td className="px-3 py-2">
                         <select
                           className="border rounded px-2 py-1 text-xs"
-                          value={ride.status}
-                          onChange={(e) => handleStatusChange(ride.id, e)}
+                          value={ride.car_number ?? ""}
+                          onChange={(e) =>
+                            handleCarNumberChange(ride.id, e)
+                          }
                         >
-                          <option value="pending">受付済み</option>
-                          <option value="accepted">配車済み</option>
-                          <option value="completed">終了</option>
-                          <option value="canceled">キャンセル</option>
+                          <option value="">未設定</option>
+                          {/* 必要なら車番候補をここに列挙 */}
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
                         </select>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          className="border rounded px-2 py-1 text-xs"
+                          value={ride.boarding_time ?? ""}
+                          onChange={(e) =>
+                            handleBoardingChange(ride.id, e)
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {times.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          className="border rounded px-2 py-1 text-xs"
+                          value={ride.arrival_time ?? ""}
+                          onChange={(e) =>
+                            handleArrivalChange(ride.id, e)
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {times.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={ride.status} />
+                          <select
+                            className="border rounded px-2 py-1 text-xs"
+                            value={ride.status}
+                            onChange={(e) =>
+                              handleStatusChange(ride.id, e)
+                            }
+                          >
+                            <option value="pending">受付済み</option>
+                            <option value="accepted">配車済み</option>
+                            <option value="completed">終了</option>
+                            <option value="canceled">キャンセル</option>
+                          </select>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

@@ -6,7 +6,6 @@ import type {
   RideListItem,
   RideStatus,
   ListRidesParams,
-  RideListItemFromApi,
   UpdateRidePayload,
 } from "./types.rides";
 
@@ -38,30 +37,32 @@ export async function listRides(
   const query = qs.toString();
   const url = query ? `/rides?${query}` : "/rides";
 
-  // apiFetch は Promise<unknown> なので Response にキャスト
+  // apiFetch は unknown を返すので Response として扱う
   const res = (await apiFetch(url, { method: "GET" })) as Response;
 
   if (!res.ok) {
     throw new Error(`Failed to fetch rides: ${res.status}`);
   }
 
-  const json = (await res.json()) as RideListItemFromApi[];
+  // ★ 実際の API は camelCase + ネストされた cast / shop
+  const json = (await res.json()) as any[];
 
-  // API 側は snake_case、そのまま UI 用の型に詰め替える
+  // ★ UI 用に snake_case + フラット構造へ変換
   return json.map(
-    (r: RideListItemFromApi): RideListItem => ({
+    (r): RideListItem => ({
       id: r.id,
-      request_date: r.request_date,
+      request_date: r.requestDate,
       status: r.status,
-      pickup_city: r.pickup_city,
-      note: r.note,
-      car_number: r.car_number,
-      boarding_time: r.boarding_time,
-      arrival_time: r.arrival_time,
-      created_at: r.created_at,
-      cast_name: r.cast_name,
-      cast_management_number: r.cast_management_number,
-      shop_name: r.shop_name,
+      pickup_city: r.pickupCity ?? null,
+      note: r.note ?? null,
+      car_number: r.carNumber ?? null,
+      boarding_time: r.boardingTime ?? null,
+      arrival_time: r.arrivalTime ?? null,
+      created_at: r.createdAt,
+
+      cast_name: r.cast?.displayName ?? null,
+      cast_management_number: r.cast?.managementNumber ?? null,
+      shop_name: r.shop?.name ?? null,
     }),
   );
 }

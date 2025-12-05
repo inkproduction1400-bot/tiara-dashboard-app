@@ -3,17 +3,18 @@
 
 import { apiFetch } from "./api";
 import type {
-  RideListItem,
   RideStatus,
   ListRidesParams,
+  RideListItem,
+  RideListItemFromApi,
   UpdateRidePayload,
 } from "./types.rides";
 
 /**
- * 送迎依頼一覧取得（Dashboard 用）
+ * 送迎管理一覧取得（Dashboard 用）
  * GET /api/v1/rides
  */
-export async function listRides(
+export async function ListRides(
   params: ListRidesParams = {},
 ): Promise<RideListItem[]> {
   const qs = new URLSearchParams();
@@ -37,17 +38,10 @@ export async function listRides(
   const query = qs.toString();
   const url = query ? `/rides?${query}` : "/rides";
 
-  // apiFetch は unknown を返すので Response として扱う
-  const res = (await apiFetch(url, { method: "GET" })) as Response;
+  // apiFetch のジェネリクスでレスポンス型を固定
+  const json = await apiFetch<RideListItemFromApi[]>(url, { method: "GET" });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch rides: ${res.status}`);
-  }
-
-  // ★ 実際の API は camelCase + ネストされた cast / shop
-  const json = (await res.json()) as any[];
-
-  // ★ UI 用に snake_case + フラット構造へ変換
+  // API の camelCase + ネストされた cast / shop → UI 用 snake_case ＋フラット
   return json.map(
     (r): RideListItem => ({
       id: r.id,
@@ -59,7 +53,6 @@ export async function listRides(
       boarding_time: r.boardingTime ?? null,
       arrival_time: r.arrivalTime ?? null,
       created_at: r.createdAt,
-
       cast_name: r.cast?.displayName ?? null,
       cast_management_number: r.cast?.managementNumber ?? null,
       shop_name: r.shop?.name ?? null,
@@ -68,20 +61,18 @@ export async function listRides(
 }
 
 /**
- * 送迎依頼の更新（Dashboard 用）
+ * 送迎情報の更新（Dashboard 用）
  * PATCH /api/v1/rides/:id
  */
 export async function updateRide(
   id: string,
   payload: UpdateRidePayload,
 ): Promise<void> {
-  const res = (await apiFetch(`/rides/${id}`, {
+  await apiFetch<void>(`/rides/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(payload),
-  })) as Response;
-
-  if (!res.ok) {
-    throw new Error(`Failed to update ride: ${res.status}`);
-  }
+  });
 }

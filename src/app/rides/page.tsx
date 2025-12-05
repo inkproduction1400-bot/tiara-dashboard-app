@@ -28,28 +28,29 @@ function toDateString(date: Date): string {
 }
 
 function StatusBadge({ status }: { status: RideStatus }) {
-  let style = "bg-gray-100 text-gray-700 border-gray-300 px-2 py-1 rounded text-xs";
-  let label = ""; // ← string 型として初期化（空文字でOK）
+  let style =
+    "bg-gray-100 text-gray-700 border-gray-300 px-2 py-1 rounded text-xs";
+  let label = ""; // string 型で初期化
 
   if (status === "pending") {
-    style = "bg-yellow-100 text-yellow-700 border-yellow-300 px-2 py-1 rounded text-xs";
+    style =
+      "bg-yellow-100 text-yellow-700 border-yellow-300 px-2 py-1 rounded text-xs";
     label = "受付済み";
   } else if (status === "completed") {
-    style = "bg-green-100 text-green-700 border-green-300 px-2 py-1 rounded text-xs";
+    style =
+      "bg-green-100 text-green-700 border-green-300 px-2 py-1 rounded text-xs";
     label = "終了";
   } else if (status === "canceled") {
-    style = "bg-red-100 text-red-700 border-red-300 px-2 py-1 rounded text-xs";
+    style =
+      "bg-red-100 text-red-700 border-red-300 px-2 py-1 rounded text-xs";
     label = "キャンセル";
   } else if (status === "accepted") {
-    style = "bg-blue-100 text-blue-700 border-blue-300 px-2 py-1 rounded text-xs";
+    style =
+      "bg-blue-100 text-blue-700 border-blue-300 px-2 py-1 rounded text-xs";
     label = "配車済み";
   }
 
-  return (
-    <span className={style}>
-      {label}
-    </span>
-  );
+  return <span className={style}>{label}</span>;
 }
 
 export default function RidesPage() {
@@ -167,9 +168,7 @@ export default function RidesPage() {
             翌日 &gt;
           </button>
 
-          <div className="ml-4 text-sm">
-            {formatDateLabel(selectedDate)}
-          </div>
+          <div className="ml-4 text-sm">{formatDateLabel(selectedDate)}</div>
         </div>
 
         {/* テーブル */}
@@ -219,15 +218,14 @@ export default function RidesPage() {
                       {ride.cast_management_number ?? "-"}
                     </td>
                     <td className="px-3 py-2">
-                      {ride.shop_name ?? "-"}
+                      {/* 場所：pickup_city を優先し、なければ店舗名、それもなければ "-" */}
+                      {ride.pickup_city ?? ride.shop_name ?? "-"}
                     </td>
                     <td className="px-3 py-2">
                       <select
                         className="border rounded px-2 py-1 text-xs"
                         value={ride.car_number ?? ""}
-                        onChange={(e) =>
-                          handleCarNumberChange(ride.id, e)
-                        }
+                        onChange={(e) => handleCarNumberChange(ride.id, e)}
                       >
                         <option value="">未設定</option>
                         {/* 必要なら車番候補をここに列挙 */}
@@ -240,9 +238,7 @@ export default function RidesPage() {
                       <select
                         className="border rounded px-2 py-1 text-xs"
                         value={ride.boarding_time ?? ""}
-                        onChange={(e) =>
-                          handleBoardingChange(ride.id, e)
-                        }
+                        onChange={(e) => handleBoardingChange(ride.id, e)}
                       >
                         <option value="">未設定</option>
                         {times.map((t) => (
@@ -256,9 +252,7 @@ export default function RidesPage() {
                       <select
                         className="border rounded px-2 py-1 text-xs"
                         value={ride.arrival_time ?? ""}
-                        onChange={(e) =>
-                          handleArrivalChange(ride.id, e)
-                        }
+                        onChange={(e) => handleArrivalChange(ride.id, e)}
                       >
                         <option value="">未設定</option>
                         {times.map((t) => (
@@ -274,9 +268,7 @@ export default function RidesPage() {
                         <select
                           className="border rounded px-2 py-1 text-xs"
                           value={ride.status}
-                          onChange={(e) =>
-                            handleStatusChange(ride.id, e)
-                          }
+                          onChange={(e) => handleStatusChange(ride.id, e)}
                         >
                           <option value="pending">受付済み</option>
                           <option value="accepted">配車済み</option>

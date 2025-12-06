@@ -27,6 +27,13 @@ function toDateString(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
+// 受付時間用（created_at から HH:mm 抽出）
+function formatTimeLabel(isoStr: string | null | undefined): string {
+  if (!isoStr) return "未設定";
+  const d = parseISO(isoStr);
+  return format(d, "HH:mm");
+}
+
 function StatusBadge({ status }: { status: RideStatus }) {
   let style =
     "bg-gray-100 text-gray-700 border-gray-300 px-2 py-1 rounded text-xs";
@@ -180,6 +187,7 @@ export default function RidesPage() {
                 <th className="px-3 py-2 text-left">ID</th>
                 <th className="px-3 py-2 text-left">場所</th>
                 <th className="px-3 py-2 text-left">車番</th>
+                <th className="px-3 py-2 text-left">受付時間</th>
                 <th className="px-3 py-2 text-left">乗車時間</th>
                 <th className="px-3 py-2 text-left">到着時間</th>
                 <th className="px-3 py-2 text-left">ステータス</th>
@@ -189,7 +197,7 @@ export default function RidesPage() {
               {loading && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     読み込み中…
@@ -200,7 +208,7 @@ export default function RidesPage() {
               {!loading && rides.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     この日の送迎情報はありません。
@@ -237,6 +245,9 @@ export default function RidesPage() {
                           <option value="2">2</option>
                           <option value="3">3</option>
                         </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        {formatTimeLabel(ride.created_at)}
                       </td>
                       <td className="px-3 py-2">
                         <select

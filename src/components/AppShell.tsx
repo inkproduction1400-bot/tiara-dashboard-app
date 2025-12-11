@@ -15,7 +15,6 @@ type Props = {
 };
 
 const PATH_TITLE_MAP: Record<string, { title: string; subtitle?: string }> = {
-  "/dashboard": { title: "ダッシュボード", subtitle: "最短で目的の機能へ" },
   "/casts": { title: "キャスト管理", subtitle: "登録・編集・検索・各種設定" },
   "/casts/today": { title: "本日出勤キャスト", subtitle: "確認・割当て" },
   "/requests": { title: "リクエスト店舗", subtitle: "当日の依頼を確認・登録" },

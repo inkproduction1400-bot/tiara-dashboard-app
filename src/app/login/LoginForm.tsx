@@ -43,7 +43,7 @@ export default function LoginForm() {
       // ---- デモモード：即時成功（トークン保存して遷移）----
       if (DEMO) {
         saveToken("demo-token");
-        router.replace("/dashboard");
+        router.replace("/casts/today");
         return;
       }
 
@@ -51,7 +51,7 @@ export default function LoginForm() {
       const res = await login(uid, pw, device_id);
       if (res.status === "ok") {
         saveToken(res.token);
-        router.replace("/dashboard");
+        router.replace("/casts/today");
         return;
       }
       if (res.status === "challenge") {
@@ -79,14 +79,14 @@ export default function LoginForm() {
         // デモ時に OTP ダイアログを開くことは想定外だが、開いた場合も成功扱いにする
         saveToken("demo-token");
         setOtpOpen(false);
-        router.replace("/dashboard");
+        router.replace("/casts/today");
         return;
       }
       if (!txId) throw new Error("tx_id が取得できていません");
       const v = await verifyChallenge(txId, code, device_id);
       saveToken(v.token);
       setOtpOpen(false);
-      router.replace("/dashboard");
+      router.replace("/casts/today");
     } catch (ex: any) {
       setErr(ex?.message ?? "確認コードが正しくありません");
     } finally {

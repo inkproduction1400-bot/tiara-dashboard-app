@@ -1,7 +1,6 @@
 // src/components/Header.tsx
 "use client";
 
-import ThemeToggle from "@/components/ThemeToggle";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAuth } from "@/lib/device";
@@ -54,7 +53,6 @@ export default function Header({ title, subtitle, userName }: Props) {
       {/* 右：テーマ切替 → ユーザー → ログアウト */}
       <div className="flex items-center gap-3">
         {/* テーマ切替（アイコン左隣に配置） */}
-        <ThemeToggle />
 
         {/* ユーザーアイコン + 名前（縦並び）＋ヘッダー未読バッジ */}
         <div className="relative flex flex-col items-center -mt-0.5">

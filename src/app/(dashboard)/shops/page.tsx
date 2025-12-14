@@ -546,7 +546,7 @@ export default function ShopsPage() {
             </div>
           ) : (
             <div className="min-w-[1100px]">
-              <table className="w-full border-collapse text-[11px]">
+              <table className="w-full border-collapse text-[12px] text-slate-900 dark:text-slate-100">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-slate-900/75 backdrop-blur border-b border-white/10">
                     <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
@@ -601,12 +601,12 @@ export default function ShopsPage() {
                         }
                         onClick={() => handleOpenShop(r)}
                       >
-                        <td className="px-3 py-2 font-mono text-slate-50">
+                        <td className="px-3 py-2 font-mono text-slate-900 dark:text-slate-50">
                           {formatShopNumber(r.shopNumber)}
                         </td>
 
                         <td className="px-3 py-2">
-                          <div className="text-slate-50 font-semibold truncate">
+                          <div className="text-slate-900 dark:text-slate-50 font-semibold truncate">
                             {r.name}
                           </div>
                           <div className="text-[10px] text-slate-300 truncate">
@@ -614,7 +614,7 @@ export default function ShopsPage() {
                           </div>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-50">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
                           {r.phone ?? "-"}
                         </td>
 
@@ -624,7 +624,7 @@ export default function ShopsPage() {
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (exclusive
                                 ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-100"
-                                : "border-slate-400/30 bg-white/5 text-slate-200")
+                                : "border-slate-400/30 bg-white/5 text-slate-700 dark:text-slate-200")
                             }
                           >
                             {exclusive ? "あり" : "なし"}
@@ -637,28 +637,28 @@ export default function ShopsPage() {
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (nominated
                                 ? "border-violet-300/40 bg-violet-500/10 text-violet-100"
-                                : "border-slate-400/30 bg-white/5 text-slate-200")
+                                : "border-slate-400/30 bg-white/5 text-slate-700 dark:text-slate-200")
                             }
                           >
                             {nominated ? "あり" : "なし"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-50">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
                           <span className="truncate inline-block max-w-[110px]">
                             {wageLabel || "-"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-50">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
                           {getGenreLabel(r.genre ?? null)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-50">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
                           {getContactLabel(contact)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-200">
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
                           {r.updatedAt
                             ? new Date(r.updatedAt).toLocaleString()
                             : "-"}
@@ -1182,10 +1182,10 @@ function ShopDetailModal({
                           >
                             <div className="w-20">
                               <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
+                              <div className="font-mono text-xs text-slate-900 dark:text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-900 dark:text-slate-50">{labelName}</div>
                               {row.note && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   メモ: {row.note}
@@ -1224,10 +1224,10 @@ function ShopDetailModal({
                           >
                             <div className="w-20">
                               <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
+                              <div className="font-mono text-xs text-slate-900 dark:text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-900 dark:text-slate-50">{labelName}</div>
                               {row.reason && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   NG理由: {row.reason}

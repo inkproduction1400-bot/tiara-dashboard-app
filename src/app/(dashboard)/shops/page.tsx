@@ -167,9 +167,7 @@ export default function ShopsPage() {
 
   // ★ ジャンルフィルタ & 並び替えモード
   const [genreFilter, setGenreFilter] = useState<ShopGenre | "">("");
-  const [sortMode, setSortMode] = useState<"kana" | "number" | "favorite">(
-    "kana",
-  );
+  const [sortMode, setSortMode] = useState<"kana" | "number" | "favorite">("kana");
 
   // ★ 追加：Excelレイアウトに合わせたフィルタ（一覧）
   const [exclusiveFilter, setExclusiveFilter] = useState<YesNoFilter>(""); // 専属（あり/なし）
@@ -270,17 +268,10 @@ export default function ShopsPage() {
     return limit;
   }, [limit, filteredItems.length]);
 
-  const page = useMemo(
-    () => Math.floor(offset / perPage) + 1,
-    [offset, perPage],
-  );
+  const page = useMemo(() => Math.floor(offset / perPage) + 1, [offset, perPage]);
 
   const maxPage = useMemo(
-    () =>
-      Math.max(
-        1,
-        Math.ceil(filteredItems.length / Math.max(1, perPage)),
-      ),
+    () => Math.max(1, Math.ceil(filteredItems.length / Math.max(1, perPage))),
     [filteredItems.length, perPage],
   );
 
@@ -352,81 +343,92 @@ export default function ShopsPage() {
   }, []);
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-col md:flex-row md:items-center gap-3 justify-end">
-        {/* ★ 店舗一覧テキストパーツ削除 */}
-        <div className="flex flex-wrap gap-2">
-          {/* ★ Excel一括アップロード削除 */}
-          <Link href="/shops/new" className="tiara-btn">
-            新規店舗登録
-          </Link>
-        </div>
-      </header>
+    <div className="space-y-2">
+      {/* 右上：新規店舗登録だけ（高さを取らない） */}
+      <div className="flex items-center justify-end">
+        <Link href="/shops/new" className="tiara-btn h-10">
+          新規店舗登録
+        </Link>
+      </div>
 
-      {/* 検索まわり：キーワード ＋ 店舗番号 ＋ ジャンル絞り込み ＋ 並び替え ＋ 表示件数 */}
-      <div className="flex flex-col gap-3">
-        {/* 上段: キーワード / 店舗番号 */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            id="shopSearch"
-            name="q"
-            value={q}
-            onChange={(e) => {
-              setOffset(0);
-              setQ(e.target.value);
-            }}
-            placeholder="店舗名・市区町村・キーワードで検索"
-            className="tiara-input w-full sm:w-72"
-          />
-          <input
-            id="shopNumber"
-            name="shopNumber"
-            value={shopNumber}
-            onChange={(e) => {
-              setOffset(0);
-              setShopNumber(e.target.value);
-            }}
-            placeholder="店舗番号で検索"
-            className="tiara-input w-full sm:w-40"
-          />
-        </div>
+      {/* 検索・フィルタ：1パネルに圧縮 */}
+      <section className="tiara-panel p-3">
+        <div className="flex flex-col gap-2">
+          {/* 検索（上段） */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              id="shopSearch"
+              name="q"
+              value={q}
+              onChange={(e) => {
+                setOffset(0);
+                setQ(e.target.value);
+              }}
+              placeholder="店舗名・市区町村・キーワードで検索"
+              className="tiara-input w-full sm:w-[420px]"
+            />
+            <input
+              id="shopNumber"
+              name="shopNumber"
+              value={shopNumber}
+              onChange={(e) => {
+                setOffset(0);
+                setShopNumber(e.target.value);
+              }}
+              placeholder="店舗番号で検索"
+              className="tiara-input w-full sm:w-44"
+            />
+            <div className="flex-1" />
+            <button
+              type="button"
+              className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
+              onClick={() => {
+                setOffset(0);
+                setQ("");
+                setShopNumber("");
+                setExclusiveFilter("");
+                setNominatedFilter("");
+                setWageFilter("");
+                setGenreFilter("");
+                setContactFilter("");
+                setSortMode("kana");
+                setLimit(20);
+              }}
+            >
+              絞り込みリセット
+            </button>
+          </div>
 
-        {/* 中段: Excelレイアウト準拠フィルタ（専属/指名/時給/ジャンル/連絡方法） */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">専属</span>
+          {/* フィルタ（中段）：詰めるため grid で折返し管理 */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
             <select
               value={exclusiveFilter}
               onChange={(e) => {
                 setOffset(0);
                 setExclusiveFilter((e.target.value || "") as YesNoFilter);
               }}
-              className="tiara-input h-9 min-w-[120px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="専属"
             >
-              <option value="">すべて</option>
-              <option value="yes">あり</option>
-              <option value="no">なし</option>
+              <option value="">専属：すべて</option>
+              <option value="yes">専属：あり</option>
+              <option value="no">専属：なし</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">指名</span>
             <select
               value={nominatedFilter}
               onChange={(e) => {
                 setOffset(0);
                 setNominatedFilter((e.target.value || "") as YesNoFilter);
               }}
-              className="tiara-input h-9 min-w-[120px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="指名"
             >
-              <option value="">すべて</option>
-              <option value="yes">あり</option>
-              <option value="no">なし</option>
+              <option value="">指名：すべて</option>
+              <option value="yes">指名：あり</option>
+              <option value="no">指名：なし</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">時給</span>
             <select
               value={wageFilter === "" ? "" : String(wageFilter)}
               onChange={(e) => {
@@ -434,119 +436,91 @@ export default function ShopsPage() {
                 const v = e.target.value;
                 setWageFilter(v ? Number(v) : "");
               }}
-              className="tiara-input h-9 min-w-[140px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="時給"
             >
-              <option value="">すべて</option>
+              <option value="">時給：すべて</option>
               {wageSteps.map((v) => (
                 <option key={v} value={v}>
-                  {v}円
+                  時給：{v}円
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">ジャンル</span>
             <select
               value={genreFilter}
               onChange={(e) => {
                 setOffset(0);
                 setGenreFilter((e.target.value || "") as ShopGenre | "");
               }}
-              className="tiara-input h-9 min-w-[140px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="ジャンル"
             >
-              <option value="">すべて</option>
-              <option value="club">クラブ</option>
-              <option value="snack">スナック</option>
-              <option value="cabaret">キャバクラ</option>
-              <option value="gb">GB</option>
+              <option value="">ジャンル：すべて</option>
+              <option value="club">ジャンル：クラブ</option>
+              <option value="snack">ジャンル：スナック</option>
+              <option value="cabaret">ジャンル：キャバクラ</option>
+              <option value="gb">ジャンル：GB</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">連絡方法</span>
             <select
               value={contactFilter}
               onChange={(e) => {
                 setOffset(0);
                 setContactFilter((e.target.value || "") as ContactMethodFilter);
               }}
-              className="tiara-input h-9 min-w-[140px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="連絡方法"
             >
-              <option value="">すべて</option>
-              <option value="line">LINE</option>
-              <option value="sms">SMS</option>
-              <option value="tel">TEL</option>
+              <option value="">連絡：すべて</option>
+              <option value="line">連絡：LINE</option>
+              <option value="sms">連絡：SMS</option>
+              <option value="tel">連絡：TEL</option>
             </select>
-          </div>
 
-          <div className="flex-1" />
-
-          <button
-            type="button"
-            className="px-3 py-2 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
-            onClick={() => {
-              setOffset(0);
-              setQ("");
-              setShopNumber("");
-              setExclusiveFilter("");
-              setNominatedFilter("");
-              setWageFilter("");
-              setGenreFilter("");
-              setContactFilter("");
-              setSortMode("kana");
-              setLimit(20);
-            }}
-          >
-            絞り込みリセット
-          </button>
-        </div>
-
-        {/* 下段: 並び替え + 表示件数（横一列で並べる） */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1">
-            <span className="text-muted whitespace-nowrap">並び替え</span>
             <select
               value={sortMode}
               onChange={(e) => {
                 setOffset(0);
                 setSortMode(e.target.value as "kana" | "number" | "favorite");
               }}
-              className="tiara-input h-9 min-w[160px] text-[11px]"
+              className="tiara-input h-9 text-[11px]"
+              title="並び替え"
             >
-              <option value="kana">50音順</option>
-              <option value="number">店舗番号順</option>
-              <option value="favorite">よく使う店舗順</option>
+              <option value="kana">並び：50音順</option>
+              <option value="number">並び：店舗番号順</option>
+              <option value="favorite">並び：よく使う店舗順</option>
             </select>
           </div>
 
-          <DisplayCountControl
-            limit={limit}
-            total={filteredItems.length}
-            onChange={(next) => {
-              setOffset(0);
-              setLimit(next);
-            }}
-          />
-
-          <div className="flex-1" />
-
-          <span className="text-[11px] text-muted">
-            該当店舗:{" "}
-            <span className="font-semibold text-ink">{filteredItems.length}</span>{" "}
-            件（全 {total} 件中）
-          </span>
+          {/* 下段：表示件数＋件数表示（右寄せで詰める） */}
+          <div className="flex flex-wrap items-center gap-2">
+            <DisplayCountControl
+              limit={limit}
+              total={filteredItems.length}
+              onChange={(next) => {
+                setOffset(0);
+                setLimit(next);
+              }}
+            />
+            <div className="flex-1" />
+            <span className="text-[11px] text-muted">
+              該当店舗:{" "}
+              <span className="font-semibold text-ink">{filteredItems.length}</span> 件（全{" "}
+              {total} 件中）
+            </span>
+          </div>
         </div>
-      </div>
 
-      {message && (
-        <div className="text-[11px] px-3 py-2 rounded-full border border-amber-200 bg-amber-50 text-amber-800">
-          {message}
-        </div>
-      )}
+        {message && (
+          <div className="mt-2 text-[11px] px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+            {message}
+          </div>
+        )}
+      </section>
 
       {/* 一覧 + ページング（上・下） */}
-      <section className="tiara-panel flex-1 p-3 flex flex-col overflow-hidden">
+      <section className="tiara-panel flex-1 p-2 flex flex-col overflow-hidden">
         <PaginationBar
           page={page}
           maxPage={maxPage}
@@ -560,46 +534,46 @@ export default function ShopsPage() {
           }
         />
 
-        {/* ★ 視認性改善：ライト/ダークで背景・文字色を最適化 */}
-        <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+        {/* テーブル（視認性UP：文字色を薄くしすぎない） */}
+        <div className="flex-1 overflow-auto rounded-lg border border-white/10 bg-white/5">
           {loading ? (
-            <div className="h-full flex items-center justify-center text-[11px] text-slate-600 dark:text-slate-300 p-6">
+            <div className="h-full flex items-center justify-center text-[11px] text-muted p-4">
               読み込み中…
             </div>
           ) : pagedItems.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-[11px] text-slate-600 dark:text-slate-300 p-6">
+            <div className="h-full flex items-center justify-center text-[11px] text-muted p-4">
               該当データがありません
             </div>
           ) : (
-            <div className="min-w-[1200px]">
+            <div className="min-w-[1100px]">
               <table className="w-full border-collapse text-[11px]">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-slate-100 border-b border-slate-200 dark:bg-slate-900/70 dark:backdrop-blur dark:border-white/10">
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
+                  <tr className="bg-slate-900/75 backdrop-blur border-b border-white/10">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
                       店番号
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[280px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[280px]">
                       店舗名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
                       TEL
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
                       専属
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
                       指名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[120px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[120px]">
                       時給
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
                       ジャンル
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
                       連絡方法
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[170px]">
+                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[170px]">
                       最終更新
                     </th>
                   </tr>
@@ -621,28 +595,26 @@ export default function ShopsPage() {
                       <tr
                         key={r.id}
                         className={
-                          "border-b border-slate-200 cursor-pointer dark:border-white/5 " +
-                          (zebra
-                            ? "bg-slate-50 dark:bg-white/[0.03]"
-                            : "bg-white dark:bg-transparent") +
-                          " hover:bg-sky-50 dark:hover:bg-sky-500/10"
+                          "border-b border-white/5 cursor-pointer " +
+                          (zebra ? "bg-white/[0.035]" : "bg-transparent") +
+                          " hover:bg-sky-500/10"
                         }
                         onClick={() => handleOpenShop(r)}
                       >
-                        <td className="px-3 py-2 font-mono text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 font-mono text-slate-50">
                           {formatShopNumber(r.shopNumber)}
                         </td>
 
                         <td className="px-3 py-2">
-                          <div className="text-slate-900 dark:text-slate-100 font-semibold truncate">
+                          <div className="text-slate-50 font-semibold truncate">
                             {r.name}
                           </div>
-                          <div className="text-[10px] text-slate-600 dark:text-slate-400 truncate">
+                          <div className="text-[10px] text-slate-300 truncate">
                             {(r.nameKana ?? (r as any).kana ?? "") || "—"}
                           </div>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 text-slate-50">
                           {r.phone ?? "-"}
                         </td>
 
@@ -651,8 +623,8 @@ export default function ShopsPage() {
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (exclusive
-                                ? "border-emerald-400/60 bg-emerald-50 text-emerald-700 dark:border-emerald-300/40 dark:bg-emerald-500/10 dark:text-emerald-200"
-                                : "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-400/30 dark:bg-white/5 dark:text-slate-300")
+                                ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-100"
+                                : "border-slate-400/30 bg-white/5 text-slate-200")
                             }
                           >
                             {exclusive ? "あり" : "なし"}
@@ -664,29 +636,29 @@ export default function ShopsPage() {
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (nominated
-                                ? "border-violet-400/60 bg-violet-50 text-violet-700 dark:border-violet-300/40 dark:bg-violet-500/10 dark:text-violet-200"
-                                : "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-400/30 dark:bg-white/5 dark:text-slate-300")
+                                ? "border-violet-300/40 bg-violet-500/10 text-violet-100"
+                                : "border-slate-400/30 bg-white/5 text-slate-200")
                             }
                           >
                             {nominated ? "あり" : "なし"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 text-slate-50">
                           <span className="truncate inline-block max-w-[110px]">
                             {wageLabel || "-"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 text-slate-50">
                           {getGenreLabel(r.genre ?? null)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+                        <td className="px-3 py-2 text-slate-50">
                           {getContactLabel(contact)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
+                        <td className="px-3 py-2 text-slate-200">
                           {r.updatedAt
                             ? new Date(r.updatedAt).toLocaleString()
                             : "-"}
@@ -700,6 +672,7 @@ export default function ShopsPage() {
           )}
         </div>
 
+        {/* 下部にもページングバーを複製 */}
         <PaginationBar
           page={page}
           maxPage={maxPage}
@@ -761,31 +734,30 @@ function PaginationBar({
 
   return (
     <div
-      className={`flex items-center justify-between px-4 py-2 text-[11px] bg-white border-slate-200 text-slate-700 dark:bg-white/10 dark:border-white/10 dark:text-slate-300 ${
-        bottom ? "border-t" : "border-b"
+      className={`flex items-center justify-between px-3 py-1.5 text-[11px] text-muted bg-white/10 ${
+        bottom ? "border-t border-white/10" : "border-b border-white/10"
       }`}
     >
-      <div>
-        全 {total} 件中 {startIndex === 0 ? 0 : startIndex} - {endIndex}
-        件を表示
+      <div className="whitespace-nowrap">
+        全 {total} 件中 {startIndex === 0 ? 0 : startIndex} - {endIndex} 件
       </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
           disabled={page <= 1}
           onClick={onPrev}
-          className="px-2 py-1 rounded-full border border-slate-300 bg-white text-[11px] text-slate-700 disabled:opacity-40 dark:bg-white/80"
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
         >
           前へ
         </button>
-        <span className="text-[11px]">
+        <span className="text-[11px] whitespace-nowrap">
           {page} / {maxPage}
         </span>
         <button
           type="button"
           disabled={page >= maxPage}
           onClick={onNext}
-          className="px-2 py-1 rounded-full border border-slate-300 bg-white text-[11px] text-slate-700 disabled:opacity-40 dark:bg-white/80"
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
         >
           次へ
         </button>
@@ -800,11 +772,7 @@ type DisplayCountControlProps = {
   onChange: (next: PerPage) => void;
 };
 
-function DisplayCountControl({
-  limit,
-  total,
-  onChange,
-}: DisplayCountControlProps) {
+function DisplayCountControl({ limit, total, onChange }: DisplayCountControlProps) {
   const options: (number | "all")[] = [10, 20, 50, 100, 150, 200, "all"];
 
   const isActive = (opt: number | "all") =>
@@ -812,7 +780,7 @@ function DisplayCountControl({
     (typeof opt === "number" && limit !== "all" && limit === opt);
 
   return (
-    <div className="flex items-center gap-1 text-xs">
+    <div className="flex items-center gap-2 text-xs">
       <span className="text-muted whitespace-nowrap">表示件数</span>
       <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
         {options.map((opt, idx) => (
@@ -833,7 +801,7 @@ function DisplayCountControl({
           </button>
         ))}
       </div>
-      <span className="text-[10px] text-muted">（全{total}件）</span>
+      <span className="text-[10px] text-muted whitespace-nowrap">（全{total}件）</span>
     </div>
   );
 }
@@ -867,30 +835,22 @@ function ShopDetailModal({
     (shop as ShopDetail).nameKana ?? (shop as any).kana ?? "",
   ); // ③カナ
 
-  const [rank, setRank] = useState<ShopRank | "">(
-    (shop?.rank as ShopRank | null) ?? "",
-  ); // ④ランク
+  const [rank, setRank] = useState<ShopRank | "">((shop?.rank as ShopRank | null) ?? ""); // ④ランク
 
   const [addressLine, setAddressLine] = useState<string>(shop?.addressLine ?? ""); // ⑤店住所
-  const [buildingName, setBuildingName] = useState<string>(
-    (shop as ShopDetail).buildingName ?? "",
-  ); // ⑥ビル名
+  const [buildingName, setBuildingName] = useState<string>((shop as ShopDetail).buildingName ?? ""); // ⑥ビル名
 
-  const [hourlyRate, setHourlyRate] = useState<string>(
-    (shop as ShopDetail).wageLabel ?? "",
-  ); // ⑦時給カテゴリ
+  const [hourlyRate, setHourlyRate] = useState<string>((shop as ShopDetail).wageLabel ?? ""); // ⑦時給カテゴリ
   const [phone, setPhone] = useState<string>(shop?.phone ?? ""); // ⑧電話
   const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック（現状はUIのみ）
 
   // 既存項目：ジャンル
-  const [genre, setGenre] = useState<ShopGenre | "">(
-    (shop?.genre as ShopGenre | null) ?? "",
-  );
+  const [genre, setGenre] = useState<ShopGenre | "">((shop?.genre as ShopGenre | null) ?? "");
 
   // 飲酒希望（店舗側）
-  const [drinkPreference, setDrinkPreference] = useState<
-    ShopDrinkPreference | ""
-  >(((shop as ShopDetail).drinkPreference as ShopDrinkPreference | null) ?? "");
+  const [drinkPreference, setDrinkPreference] = useState<ShopDrinkPreference | "">(
+    ((shop as ShopDetail).drinkPreference as ShopDrinkPreference | null) ?? "",
+  );
 
   // ★ 専属指名キャスト / NGキャスト（表示のみ）
   const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
@@ -902,9 +862,7 @@ function ShopDetailModal({
   const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
     (shop as ShopDetail).idDocumentRequirement ?? "",
   );
-  const [ownerStaff, setOwnerStaff] = useState<string>(
-    (shop as any).ownerStaff ?? "",
-  );
+  const [ownerStaff, setOwnerStaff] = useState<string>((shop as any).ownerStaff ?? "");
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -936,16 +894,7 @@ function ShopDetailModal({
   ];
 
   // 担当スタッフ候補（ログインできるスタッフ）
-  const staffOptions = [
-    "北村",
-    "北村2",
-    "川上",
-    "馬場崎",
-    "長谷川",
-    "陣内",
-    "梶原",
-    "宮崎",
-  ];
+  const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
 
   // ---- 専属 / NG 初期ロード（表示用）----
   useEffect(() => {
@@ -996,9 +945,7 @@ function ShopDetailModal({
     // 店舗番号バリデーション（空 or 3〜4桁の半角数字）
     const trimmedNumber = shopNumber.trim();
     if (trimmedNumber && !/^\d{3,4}$/.test(trimmedNumber)) {
-      setShopNumberError(
-        "店舗番号は3〜4桁の半角数字で入力してください（例: 001, 0701）",
-      );
+      setShopNumberError("店舗番号は3〜4桁の半角数字で入力してください（例: 001, 0701）");
       setSaving(false);
       return;
     }
@@ -1029,17 +976,13 @@ function ShopDetailModal({
     payload.rank = rank ? (rank as ShopRank) : null;
 
     // 飲酒希望
-    payload.drinkPreference = drinkPreference
-      ? (drinkPreference as ShopDrinkPreference)
-      : null;
+    payload.drinkPreference = drinkPreference ? (drinkPreference as ShopDrinkPreference) : null;
 
     // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
 
     // 身分証
-    payload.idDocumentRequirement = idDocument
-      ? (idDocument as ShopIdRequirement)
-      : null;
+    payload.idDocumentRequirement = idDocument ? (idDocument as ShopIdRequirement) : null;
 
     try {
       // 店舗本体のみ更新（専属/NGキャストはキャスト管理側で編集）
@@ -1060,9 +1003,7 @@ function ShopDetailModal({
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-ink">店舗詳細・編集</h2>
             {loading && (
-              <span className="text-[11px] text-slate-400">
-                詳細を読み込み中…
-              </span>
+              <span className="text-[11px] text-slate-400">詳細を読み込み中…</span>
             )}
           </div>
 
@@ -1079,9 +1020,7 @@ function ShopDetailModal({
               <label className="block">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-slate-300 text-sm">店舗番号</span>
-                  <span className="text-[11px] text-slate-500">
-                    3〜4桁の半角数字
-                  </span>
+                  <span className="text-[11px] text-slate-500">3〜4桁の半角数字</span>
                 </div>
                 <input
                   value={shopNumber}
@@ -1093,9 +1032,7 @@ function ShopDetailModal({
                   placeholder="657 など"
                 />
                 {shopNumberError && (
-                  <div className="mt-1 text-xs text-red-400">
-                    {shopNumberError}
-                  </div>
+                  <div className="mt-1 text-xs text-red-400">{shopNumberError}</div>
                 )}
               </label>
 
@@ -1112,9 +1049,7 @@ function ShopDetailModal({
 
               {/* カナ */}
               <label className="block">
-                <div className="text-sm text-slate-300 mb-1">
-                  カナ（読み方）
-                </div>
+                <div className="text-sm text-slate-300 mb-1">カナ（読み方）</div>
                 <input
                   value={kana}
                   onChange={(e) => setKana(e.target.value)}
@@ -1128,9 +1063,7 @@ function ShopDetailModal({
                 <div className="text-sm text-slate-300 mb-1">ランク</div>
                 <select
                   value={rank}
-                  onChange={(e) =>
-                    setRank((e.target.value || "") as ShopRank | "")
-                  }
+                  onChange={(e) => setRank((e.target.value || "") as ShopRank | "")}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
                   <option value="">（未設定）</option>
@@ -1211,9 +1144,7 @@ function ShopDetailModal({
                 <div className="text-sm text-slate-300 mb-1">ジャンル</div>
                 <select
                   value={genre}
-                  onChange={(e) =>
-                    setGenre((e.target.value || "") as ShopGenre | "")
-                  }
+                  onChange={(e) => setGenre((e.target.value || "") as ShopGenre | "")}
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
                   <option value="">（未設定）</option>
@@ -1231,9 +1162,7 @@ function ShopDetailModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-sm text-slate-300">専属指名キャスト</div>
-                  <div className="text-[11px] text-slate-500">
-                    （編集はキャスト管理ページから）
-                  </div>
+                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
                 </div>
 
                 <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
@@ -1244,27 +1173,19 @@ function ShopDetailModal({
                   ) : (
                     <ul className="space-y-2">
                       {fixedCasts.map((row) => {
-                        const labelName =
-                          row.cast.displayName || "(名前未登録)";
-                        const mng =
-                          row.cast.managementNumber || row.cast.castCode || "-";
+                        const labelName = row.cast.displayName || "(名前未登録)";
+                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
                         return (
                           <li
                             key={row.castId}
                             className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
                           >
                             <div className="w-20">
-                              <div className="text-[10px] text-slate-400">
-                                管理番号
-                              </div>
-                              <div className="font-mono text-xs text-slate-50">
-                                {mng}
-                              </div>
+                              <div className="text-[10px] text-slate-400">管理番号</div>
+                              <div className="font-mono text-xs text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">
-                                {labelName}
-                              </div>
+                              <div className="text-xs text-slate-50">{labelName}</div>
                               {row.note && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   メモ: {row.note}
@@ -1283,9 +1204,7 @@ function ShopDetailModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-sm text-slate-300">NGキャスト</div>
-                  <div className="text-[11px] text-slate-500">
-                    （編集はキャスト管理ページから）
-                  </div>
+                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
                 </div>
 
                 <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
@@ -1296,27 +1215,19 @@ function ShopDetailModal({
                   ) : (
                     <ul className="space-y-2">
                       {ngCasts.map((row) => {
-                        const labelName =
-                          row.cast.displayName || "(名前未登録)";
-                        const mng =
-                          row.cast.managementNumber || row.cast.castCode || "-";
+                        const labelName = row.cast.displayName || "(名前未登録)";
+                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
                         return (
                           <li
                             key={row.castId}
                             className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
                           >
                             <div className="w-20">
-                              <div className="text-[10px] text-slate-400">
-                                管理番号
-                              </div>
-                              <div className="font-mono text-xs text-slate-50">
-                                {mng}
-                              </div>
+                              <div className="text-[10px] text-slate-400">管理番号</div>
+                              <div className="font-mono text-xs text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">
-                                {labelName}
-                              </div>
+                              <div className="text-xs text-slate-50">{labelName}</div>
                               {row.reason && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   NG理由: {row.reason}
@@ -1340,9 +1251,7 @@ function ShopDetailModal({
                 <select
                   value={idDocument}
                   onChange={(e) =>
-                    setIdDocument(
-                      (e.target.value || "") as ShopIdRequirement | "",
-                    )
+                    setIdDocument((e.target.value || "") as ShopIdRequirement | "")
                   }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
@@ -1360,9 +1269,7 @@ function ShopDetailModal({
                 <select
                   value={drinkPreference}
                   onChange={(e) =>
-                    setDrinkPreference(
-                      (e.target.value || "") as ShopDrinkPreference | "",
-                    )
+                    setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
                   }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >

@@ -1,9 +1,10 @@
 // src/app/chat/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import clsx from "clsx";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Staff = {
   id: string;
@@ -11,7 +12,17 @@ type Staff = {
 };
 
 type ChatPreview = {
-  id: string;
+  /**
+   * API 連動では chat_rooms.id (= roomId) を入れる（UI の主キー）
+   */
+  id: string; // roomId
+
+  /**
+   * API 連動では casts.user_id (= castId) を保持する
+   * ※スタッフ側メッセージ取得APIが /chat/rooms/:castId/messages のため
+   */
+  castId: string;
+
   castName: string;
   castCode: string;
   age: number;
@@ -19,6 +30,7 @@ type ChatPreview = {
   lastMessage: string;
   lastMessageAt: string; // ISO string
   unreadCount: number;
+
   staffId: string;
   staffName: string;
 };
@@ -49,7 +61,8 @@ const DUMMY_CHATS: ChatPreview[] = Array.from({ length: 100 }, (_, i) => {
   const genre = GENRES[i % GENRES.length];
 
   return {
-    id: `c${index}`,
+    id: `c${index}`, // dummy roomId
+    castId: `dummy-cast-${index}`, // dummy castId
     castName: `キャスト${index.toString().padStart(3, "0")}`,
     castCode: `T${index.toString().padStart(4, "0")}`,
     age: 20 + (i % 10),
@@ -113,49 +126,570 @@ function formatTimeLabel(iso: string): string {
   return `${hh}:${mm}`;
 }
 
+/**
+ * ========= API Helpers =========
+ */
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const primary = localStorage.getItem("access_token");
+  if (primary) return primary;
+
+  return (
+    localStorage.getItem("tiara_token") ||
+    localStorage.getItem("tiara_access_token") ||
+    localStorage.getItem("tiara_access_token_v2") ||
+    localStorage.getItem("tiara_accessToken") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token") ||
+    null
+  );
+}
+
+function getApiBase(): string {
+  const envBase =
+    (process.env.NEXT_PUBLIC_API_URL || "").trim() ||
+    "http://localhost:4000/api/v1";
+  return envBase.replace(/\/+$/, "");
+}
+
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+  opts?: { signal?: AbortSignal },
+): Promise<T> {
+  const base = getApiBase();
+  const token = getAuthToken();
+
+  const res = await fetch(`${base}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal: opts?.signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `API ${res.status} ${res.statusText}: ${text || "(no body)"}`,
+    );
+  }
+
+  return (await res.json()) as T;
+}
+
+/**
+ * ========= API Types (最小限) =========
+ */
+type ApiRoom = {
+  id: string; // roomId
+  castId?: string;
+  cast_id?: string;
+  castUserId?: string;
+  cast?: {
+    userId?: string;
+    castCode?: string;
+    displayName?: string | null;
+    age?: number | null;
+    genre?: string | null;
+  } | null;
+  lastMessage?: {
+    text?: string | null;
+    createdAt?: string | null;
+  } | null;
+};
+
+type ApiRoomsResponse = ApiRoom[];
+
+type ApiMessage = {
+  id: string;
+  roomId: string;
+  text: string;
+  createdAt: string;
+  sender?: { userType?: string } | null;
+};
+
+type ApiMessagesResponse = ApiMessage[];
+
+type ApiUnreadResponse = {
+  roomId: string;
+  unreadForCast: number;
+  unreadForStaff: number;
+};
+
+type ApiSummaryResponse = {
+  unreadNotifications: number;
+  counts: Record<string, number>;
+};
+
+// 送信レスポンス（cast-app側のログを見る限りこの形）
+type ApiSendMessageResponse = {
+  id: string;
+  roomId: string;
+  senderUserId: string;
+  text: string;
+  createdAt: string;
+  sender?: {
+    id?: string;
+    userType?: string;
+    email?: string | null;
+    loginId?: string | null;
+  } | null;
+};
+
+function pickCastIdFromRoom(r: ApiRoom): string {
+  const castId =
+    (typeof r.castId === "string" && r.castId) ||
+    (typeof r.cast_id === "string" && r.cast_id) ||
+    (typeof r.castUserId === "string" && r.castUserId) ||
+    (typeof r.cast?.userId === "string" && r.cast.userId) ||
+    "";
+  return castId;
+}
+
 function ChatContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [drinkFilter, setDrinkFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // 初期値として「先頭の会話ID」を選択
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(
-    DUMMY_CHATS[0]?.id ?? null,
-  );
+  const [rooms, setRooms] = useState<ChatPreview[]>(DUMMY_CHATS);
+  const [roomsLoaded, setRoomsLoaded] = useState<boolean>(false);
 
-  // 一覧の絞り込み
+  const selectedRoomIdFromUrl = searchParams.get("roomId");
+
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(() => {
+    return selectedRoomIdFromUrl || (DUMMY_CHATS[0]?.id ?? null);
+  });
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoaded, setMessagesLoaded] = useState<boolean>(false);
+
+  const lastMarkedReadRoomIdRef = useRef<string | null>(null);
+
+  // ====== 送信UI ======
+  const [draft, setDraft] = useState<string>("");
+  const [sending, setSending] = useState<boolean>(false);
+  const sendAbortRef = useRef<AbortController | null>(null);
+
+  // ====== スクロール追従（最下部） ======
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    const el = messagesEndRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior, block: "end" });
+  };
+
   const filteredChats = useMemo(() => {
-    let list = DUMMY_CHATS;
+    let list = rooms;
+
     if (staffFilter !== "all") {
       list = list.filter((c) => c.staffId === staffFilter);
     }
     if (genreFilter !== "all") {
       list = list.filter((c) => c.genre === genreFilter);
     }
-    // drink / status は将来 API 連動時にロジック追加
-    return list;
-  }, [staffFilter, genreFilter]);
 
-  // 選択中の会話は「全件」から取得（フィルタに影響されない）
+    void drinkFilter;
+    void statusFilter;
+
+    return list;
+  }, [rooms, staffFilter, genreFilter, drinkFilter, statusFilter]);
+
   const selectedChat: ChatPreview | null =
     useMemo(
-      () => DUMMY_CHATS.find((c) => c.id === selectedChatId) ?? null,
-      [selectedChatId],
+      () => rooms.find((c) => c.id === selectedRoomId) ?? null,
+      [rooms, selectedRoomId],
     ) ?? null;
 
-  const messages = useMemo(
-    () => makeDummyMessages(selectedChat),
-    [selectedChat],
-  );
+  // URL → state 追従
+  useEffect(() => {
+    if (!selectedRoomIdFromUrl) return;
+    if (selectedRoomIdFromUrl !== selectedRoomId) {
+      setSelectedRoomId(selectedRoomIdFromUrl);
+    }
+  }, [selectedRoomIdFromUrl, selectedRoomId]);
 
-  const handleSelectChat = (chatId: string) => {
-    setSelectedChatId(chatId);
+  // rooms load
+  useEffect(() => {
+    let mounted = true;
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        const apiRooms = await apiFetch<ApiRoomsResponse>(
+          "/chat/rooms",
+          { method: "GET" },
+          { signal: ac.signal },
+        );
+
+        if (!mounted) return;
+
+        const mappedBase: ChatPreview[] = apiRooms.map((r, idx) => {
+          const castId = pickCastIdFromRoom(r);
+
+          const displayName =
+            r.cast?.displayName ??
+            (r.cast?.castCode
+              ? `キャスト(${r.cast.castCode})`
+              : castId
+                ? `キャスト(${castId.slice(0, 6)}…)`
+                : `キャスト${idx + 1}`);
+
+          const castCode = r.cast?.castCode ?? "-";
+          const age = typeof r.cast?.age === "number" ? r.cast.age ?? 0 : 0;
+          const genre = r.cast?.genre ?? "未設定";
+
+          const lastMessageText =
+            r.lastMessage?.text?.toString().trim() || "（メッセージなし）";
+
+          const lastMessageAt =
+            r.lastMessage?.createdAt || new Date().toISOString();
+
+          return {
+            id: r.id,
+            castId,
+            castName: displayName,
+            castCode,
+            age,
+            genre,
+            lastMessage: lastMessageText,
+            lastMessageAt,
+            unreadCount: 0,
+            staffId: "staff",
+            staffName: "担当者",
+          };
+        });
+
+        setRooms(mappedBase);
+        setRoomsLoaded(true);
+
+        if (!selectedRoomIdFromUrl && mappedBase[0]?.id) {
+          const p = new URLSearchParams(Array.from(searchParams.entries()));
+          p.set("roomId", mappedBase[0].id);
+          router.replace(`${pathname}?${p.toString()}`);
+        }
+
+        const targets = mappedBase.slice(0, 80);
+        const results = await Promise.allSettled(
+          targets.map((room) =>
+            apiFetch<ApiUnreadResponse>(
+              `/chat/rooms/${room.id}/unread`,
+              { method: "GET" },
+              { signal: ac.signal },
+            ).then((counts) => ({
+              roomId: room.id,
+              unreadForStaff: counts.unreadForStaff,
+            })),
+          ),
+        );
+
+        if (!mounted || ac.signal.aborted) return;
+
+        const unreadMap = new Map<string, number>();
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            unreadMap.set(
+              r.value.roomId,
+              Math.max(0, Number(r.value.unreadForStaff) || 0),
+            );
+          }
+        }
+
+        if (unreadMap.size > 0) {
+          setRooms((prev) =>
+            prev.map((room) =>
+              unreadMap.has(room.id)
+                ? { ...room, unreadCount: unreadMap.get(room.id)! }
+                : room,
+            ),
+          );
+        }
+      } catch (e) {
+        setRooms(DUMMY_CHATS);
+        setRoomsLoaded(true);
+
+        if (!selectedRoomIdFromUrl && DUMMY_CHATS[0]?.id) {
+          const p = new URLSearchParams(Array.from(searchParams.entries()));
+          p.set("roomId", DUMMY_CHATS[0].id);
+          router.replace(`${pathname}?${p.toString()}`);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      ac.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ルーム選択時：messages GET + staff既読POST + summary dispatch + 初回スクロール最下部
+  useEffect(() => {
+    if (!selectedChat?.id) {
+      setMessages([]);
+      setMessagesLoaded(false);
+      return;
+    }
+
+    const roomId = selectedChat.id;
+    const castId = selectedChat.castId;
+
+    setMessagesLoaded(false);
+
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        if (!castId) throw new Error("castId is missing");
+
+        const apiMsgs = await apiFetch<ApiMessagesResponse>(
+          `/chat/rooms/${castId}/messages?limit=50`,
+          { method: "GET" },
+          { signal: ac.signal },
+        );
+
+        const mapped: ChatMessage[] = apiMsgs.map((m) => {
+          const from = m.sender?.userType === "cast" ? "cast" : "staff";
+          return {
+            id: m.id,
+            from,
+            text: m.text,
+            sentAt: m.createdAt,
+          };
+        });
+
+        if (!ac.signal.aborted) {
+          setMessages(mapped);
+          setMessagesLoaded(true);
+
+          // 取得直後に最下部へ（LINEっぽさ）
+          requestAnimationFrame(() => scrollToBottom("auto"));
+        }
+      } catch (e) {
+        if (!ac.signal.aborted) {
+          setMessages(makeDummyMessages(selectedChat));
+          setMessagesLoaded(true);
+
+          requestAnimationFrame(() => scrollToBottom("auto"));
+        }
+      }
+    })();
+
+    (async () => {
+      try {
+        if (lastMarkedReadRoomIdRef.current === roomId) return;
+
+        await apiFetch<ApiUnreadResponse>(
+          `/me/notifications/mark-staff-talk-read/${roomId}`,
+          { method: "POST" },
+          { signal: ac.signal },
+        );
+
+        lastMarkedReadRoomIdRef.current = roomId;
+
+        setRooms((prev) =>
+          prev.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
+        );
+
+        const summary = await apiFetch<ApiSummaryResponse>(
+          "/me/notifications/summary",
+          { method: "GET" },
+          { signal: ac.signal },
+        );
+
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("tiara:notification-summary", { detail: summary }),
+          );
+        }
+      } catch (e) {
+        // 通信失敗してもUIは止めない
+      }
+    })();
+
+    return () => {
+      ac.abort();
+    };
+  }, [selectedChat]);
+
+  const handleSelectChat = (roomId: string) => {
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    p.set("roomId", roomId);
+    router.push(`${pathname}?${p.toString()}`);
+    setSelectedRoomId(roomId);
   };
 
   const handleNewChat = () => {
     // TODO: 新規チャット作成モーダルなどを後で実装
   };
+
+  async function refreshMessagesAndSummary(params: {
+    roomId: string;
+    castId: string;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    const { roomId, castId, signal } = params;
+
+    try {
+      const apiMsgs = await apiFetch<ApiMessagesResponse>(
+        `/chat/rooms/${castId}/messages?limit=50`,
+        { method: "GET" },
+        { signal },
+      );
+
+      const mapped: ChatMessage[] = apiMsgs.map((m) => {
+        const from = m.sender?.userType === "cast" ? "cast" : "staff";
+        return {
+          id: m.id,
+          from,
+          text: m.text,
+          sentAt: m.createdAt,
+        };
+      });
+
+      if (!signal?.aborted) {
+        setMessages(mapped);
+        setMessagesLoaded(true);
+
+        // 再フェッチ後も最下部へ
+        requestAnimationFrame(() => scrollToBottom("auto"));
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const summary = await apiFetch<ApiSummaryResponse>(
+        "/me/notifications/summary",
+        { method: "GET" },
+        { signal },
+      );
+
+      if (typeof window !== "undefined" && !signal?.aborted) {
+        window.dispatchEvent(
+          new CustomEvent("tiara:notification-summary", { detail: summary }),
+        );
+      }
+    } catch {
+      // ignore
+    }
+
+    // 送信後は「開いてるルーム」なので、未読0を維持したい
+    setRooms((prev) =>
+      prev.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
+    );
+  }
+
+  const handleSend = async () => {
+    if (!selectedChat) return;
+    if (sending) return;
+
+    const roomId = selectedChat.id;
+    const castId = selectedChat.castId;
+
+    const text = draft.trim();
+    if (!text) return;
+
+    // castId が無い場合は送信不可（API仕様上）
+    if (!castId) {
+      return;
+    }
+
+    try {
+      sendAbortRef.current?.abort();
+    } catch {
+      // ignore
+    }
+    const ac = new AbortController();
+    sendAbortRef.current = ac;
+
+    setSending(true);
+
+    // 体感用：楽観的に表示へ追加（LINEっぽさ）
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticSentAt = new Date().toISOString();
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticId,
+        from: "staff",
+        text,
+        sentAt: optimisticSentAt,
+      },
+    ]);
+
+    // 追加直後は最下部へ（送信感を出す）
+    requestAnimationFrame(() => scrollToBottom("smooth"));
+
+    // 左一覧の最終メッセージも先に更新（体感）
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.id === roomId
+          ? {
+              ...r,
+              lastMessage: text,
+              lastMessageAt: optimisticSentAt,
+              unreadCount: 0,
+            }
+          : r,
+      ),
+    );
+
+    setDraft("");
+
+    try {
+      const res = await apiFetch<ApiSendMessageResponse>(
+        `/chat/rooms/${castId}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        },
+        { signal: ac.signal },
+      );
+
+      if (!ac.signal.aborted) {
+        // 左一覧をサーバー時刻に寄せる
+        setRooms((prev) =>
+          prev.map((r) =>
+            r.id === roomId
+              ? {
+                  ...r,
+                  lastMessage: res.text || text,
+                  lastMessageAt: res.createdAt || optimisticSentAt,
+                  unreadCount: 0,
+                }
+              : r,
+          ),
+        );
+      }
+
+      // 送信後：右メッセージ再フェッチ & summary再フェッチ→dispatch
+      await refreshMessagesAndSummary({ roomId, castId, signal: ac.signal });
+
+      // 念押し：送信後も最下部へ（スムーズ）
+      requestAnimationFrame(() => scrollToBottom("smooth"));
+    } catch (e) {
+      // 失敗時：最新状態へ寄せる
+      await refreshMessagesAndSummary({ roomId, castId, signal: ac.signal }).catch(
+        () => {},
+      );
+    } finally {
+      if (!ac.signal.aborted) {
+        setSending(false);
+      }
+    }
+  };
+
+  const canSend = Boolean(selectedChat) && Boolean(draft.trim()) && !sending;
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-120px)]">
@@ -238,7 +772,11 @@ function ChatContent() {
                 （{filteredChats.length} 件）
               </span>
             </span>
+            <span className="text-[10px] text-muted/70">
+              {roomsLoaded ? "loaded" : "loading..."}
+            </span>
           </div>
+
           <div className="flex-1 overflow-y-auto pr-1">
             {filteredChats.length === 0 ? (
               <div className="p-4 text-xs text-muted">
@@ -248,7 +786,7 @@ function ChatContent() {
               <div className="p-2">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
                   {filteredChats.map((chat) => {
-                    const isActive = chat.id === selectedChatId;
+                    const isActive = chat.id === selectedRoomId;
                     return (
                       <button
                         key={chat.id}
@@ -307,7 +845,6 @@ function ChatContent() {
             {selectedChat ? (
               <>
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* プロフィール写真（ダミー：イニシャル） */}
                   <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-[12px] font-semibold text-accent flex-shrink-0">
                     {selectedChat.castName.slice(0, 2)}
                   </div>
@@ -323,6 +860,9 @@ function ChatContent() {
                     <div className="mt-0.5 text-[11px] text-muted truncate">
                       年齢: {selectedChat.age}歳　/　ジャンル:{" "}
                       {selectedChat.genre}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-muted/70 truncate">
+                      roomId: {selectedChat.id}
                     </div>
                   </div>
                 </div>
@@ -342,43 +882,49 @@ function ChatContent() {
           {/* メッセージリスト（LINE風 吹き出し） */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-gradient-to-b from-transparent to-white/40">
             {selectedChat && messages.length > 0 ? (
-              messages.map((msg) => {
-                const isStaff = msg.from === "staff";
-                return (
-                  <div
-                    key={msg.id}
-                    className={clsx(
-                      "flex w-full",
-                      isStaff ? "justify-end" : "justify-start",
-                    )}
-                  >
+              <>
+                {messages.map((msg) => {
+                  const isStaff = msg.from === "staff";
+                  return (
                     <div
+                      key={msg.id}
                       className={clsx(
-                        "max-w-[80%] rounded-2xl px-3 py-2 text-xs shadow-sm",
-                        isStaff
-                          ? "bg-accent text-white rounded-br-sm"
-                          : "bg-white text-foreground rounded-bl-sm border border-ink/70",
+                        "flex w-full",
+                        isStaff ? "justify-end" : "justify-start",
                       )}
                     >
-                      <div className="whitespace-pre-wrap break-words leading-relaxed">
-                        {msg.text}
-                      </div>
                       <div
                         className={clsx(
-                          "mt-1 text-[9px] flex items-center justify-end gap-1",
-                          isStaff ? "text-white/80" : "text-muted",
+                          "max-w-[80%] rounded-2xl px-3 py-2 text-xs shadow-sm",
+                          isStaff
+                            ? "bg-accent text-white rounded-br-sm"
+                            : "bg-white text-foreground rounded-bl-sm border border-ink/70",
                         )}
                       >
-                        <span>{formatTimeLabel(msg.sentAt)}</span>
-                        {isStaff && <span>既読</span>}
+                        <div className="whitespace-pre-wrap break-words leading-relaxed">
+                          {msg.text}
+                        </div>
+                        <div
+                          className={clsx(
+                            "mt-1 text-[9px] flex items-center justify-end gap-1",
+                            isStaff ? "text-white/80" : "text-muted",
+                          )}
+                        >
+                          <span>{formatTimeLabel(msg.sentAt)}</span>
+                          {isStaff && <span>既読</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+                {/* 最下部追従アンカー */}
+                <div ref={messagesEndRef} />
+              </>
             ) : selectedChat ? (
               <div className="h-full flex items-center justify-center text-xs text-muted">
-                まだメッセージはありません。下の入力欄から送信できます。
+                {messagesLoaded
+                  ? "まだメッセージはありません。下の入力欄から送信できます。"
+                  : "読み込み中..."}
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-muted">
@@ -387,24 +933,33 @@ function ChatContent() {
             )}
           </div>
 
-          {/* 入力欄（ダミー） */}
+          {/* 入力欄（API送信対応） */}
           <div className="border-t px-3 py-2 flex items-center gap-2 bg-white/60 backdrop-blur-sm">
             <input
               type="text"
               className="tiara-input flex-1 h-9 text-xs"
               placeholder={
                 selectedChat
-                  ? "メッセージを入力して送信（※現段階ではダミー）"
+                  ? "メッセージを入力して送信"
                   : "会話を選択すると入力できます"
               }
-              disabled={!selectedChat}
+              disabled={!selectedChat || sending}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (canSend) void handleSend();
+                }
+              }}
             />
             <button
               type="button"
               className="tiara-btn h-9 px-3 text-xs"
-              disabled={!selectedChat}
+              disabled={!selectedChat || sending || !draft.trim()}
+              onClick={() => void handleSend()}
             >
-              送信
+              {sending ? "送信中..." : "送信"}
             </button>
           </div>
         </div>

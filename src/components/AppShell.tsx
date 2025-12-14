@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getToken } from "@/lib/device";
-import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
 
 type Props = {
   children: React.ReactNode;
@@ -33,6 +33,101 @@ const PATH_TITLE_MAP: Record<string, { title: string; subtitle?: string }> = {
   "/rides/schedule": { title: "送迎スケジュール", subtitle: "登録・確認" },
 };
 
+type ApiSummaryResponse = {
+  unreadNotifications: number;
+  counts: Record<string, number>;
+};
+
+function getApiBase(): string {
+  const envBase =
+    (process.env.NEXT_PUBLIC_API_URL || "").trim() ||
+    "http://localhost:4000/api/v1";
+  return envBase.replace(/\/+$/, "");
+}
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const base = getApiBase();
+  const token = getToken();
+
+  const res = await fetch(`${base}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `API ${res.status} ${res.statusText}: ${text || "(no body)"}`,
+    );
+  }
+
+  return (await res.json()) as T;
+}
+
+/**
+ * NotificationsProvider 配下で Context を更新するブリッジ
+ * - 初回に summary を取得
+ * - window の "tiara:notification-summary" を受け取って Context に流す
+ */
+function NotificationBridge() {
+  const n = useNotifications() as any;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const apply = (detail: ApiSummaryResponse) => {
+      // Context 側の実装差に備えて、複数候補で更新
+      if (typeof n?.setSummary === "function") n.setSummary(detail);
+      if (typeof n?.setCounts === "function") n.setCounts(detail.counts);
+      if (typeof n?.setUnreadNotifications === "function")
+        n.setUnreadNotifications(detail.unreadNotifications);
+
+      // 最低限: counts を直置きしても Sidebar が拾えるように
+      if (typeof n === "object" && n) {
+        try {
+          n.counts = detail.counts;
+        } catch {
+          // noop
+        }
+      }
+    };
+
+    // 初回 fetch
+    (async () => {
+      try {
+        const summary = await apiFetch<ApiSummaryResponse>(
+          "/me/notifications/summary",
+          { method: "GET" },
+        );
+        if (!mounted) return;
+        apply(summary);
+      } catch {
+        // 未ログイン/サーバ未起動でも AppShell は落とさない
+      }
+    })();
+
+    // イベント購読
+    const onSummary = (ev: Event) => {
+      const ce = ev as CustomEvent<ApiSummaryResponse>;
+      if (!ce?.detail) return;
+      apply(ce.detail);
+    };
+
+    window.addEventListener("tiara:notification-summary", onSummary);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("tiara:notification-summary", onSummary);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
 export default function AppShell({ children, title, subtitle }: Props) {
   const router = useRouter();
 
@@ -51,6 +146,8 @@ export default function AppShell({ children, title, subtitle }: Props) {
 
   return (
     <NotificationsProvider>
+      <NotificationBridge />
+
       <main className="h-[100dvh] overflow-hidden">
         <div className="h-full flex">
           {/* 左：サイドバー（幅固定・縮まない） */}

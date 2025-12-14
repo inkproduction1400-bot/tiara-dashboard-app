@@ -8,9 +8,19 @@ import { useNotifications } from "@/contexts/NotificationsContext";
 
 export default function Sidebar() {
   const pathname = usePathname() || "/";
-  //const { talkUnread } = useNotifications();
-  // デザイン確認用：未読5件として固定表示
-  const talkUnread = 5;
+
+  // NotificationsContext の形が多少違っても落ちないように吸う
+  const n = useNotifications() as any;
+
+  // staff側のチャット未読は counts.staffTalk を優先
+  const talkUnread: number =
+    (typeof n?.counts?.staffTalk === "number" ? n.counts.staffTalk : null) ??
+    (typeof n?.summary?.counts?.staffTalk === "number"
+      ? n.summary.counts.staffTalk
+      : null) ??
+    (typeof n?.staffTalk === "number" ? n.staffTalk : null) ??
+    (typeof n?.talkUnread === "number" ? n.talkUnread : 0);
+
   const isActiveExact = (href: string) => pathname === href;
   const isActiveDeep = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -25,14 +35,12 @@ export default function Sidebar() {
           href: "/casts/today",
           active: isActiveDeep("/casts/today"),
         },
-        // リクエスト店舗は削除
         {
           // 割当確認 → 割当リスト
           label: "割当リスト",
           href: "/assignments",
           active: isActiveDeep("/assignments"),
         },
-        // スケジュールは項目ごと削除
       ],
     },
     {
@@ -56,7 +64,6 @@ export default function Sidebar() {
           href: "/chat",
           active: isActiveDeep("/chat"),
         },
-        // SOS は削除
       ],
     },
     {
@@ -86,7 +93,6 @@ export default function Sidebar() {
           prefetch={false}
           aria-label="TIARA ダッシュボードへ"
         >
-          {/* CSS側の .brand__logo-box に合わせてシンプルに */}
           <div className="brand__logo-box">
             <Image
               src="/img/logo4.png"
@@ -119,10 +125,8 @@ export default function Sidebar() {
                       prefetch={false}
                     >
                       <span className="nav__label flex items-center justify-between gap-2">
-                        {/* 左側：ラベル（truncate で崩れ防止） */}
                         <span className="truncate">{it.label}</span>
 
-                        {/* 右側：チャット未読バッジのみ表示 */}
                         {isChat && talkUnread > 0 && (
                           <span className="inline-flex min-w-[14px] h-[14px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
                             {talkUnread > 99 ? "99+" : talkUnread}

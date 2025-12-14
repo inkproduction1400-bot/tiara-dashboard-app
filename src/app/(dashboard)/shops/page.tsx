@@ -535,7 +535,7 @@ export default function ShopsPage() {
         />
 
         {/* テーブル（視認性UP：文字色を薄くしすぎない） */}
-        <div className="flex-1 overflow-auto rounded-lg border border-white/10 bg-white/5">
+        <div className="flex-1 overflow-auto rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
           {loading ? (
             <div className="h-full flex items-center justify-center text-[11px] text-muted p-4">
               読み込み中…

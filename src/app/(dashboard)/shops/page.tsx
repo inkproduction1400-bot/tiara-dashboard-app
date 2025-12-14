@@ -344,13 +344,6 @@ export default function ShopsPage() {
 
   return (
     <div className="space-y-2">
-      {/* 右上：新規店舗登録だけ（高さを取らない） */}
-      <div className="flex items-center justify-end">
-        <Link href="/shops/new" className="tiara-btn h-10">
-          新規店舗登録
-        </Link>
-      </div>
-
       {/* 検索・フィルタ：1パネルに圧縮 */}
       <section className="tiara-panel p-3">
         <div className="flex flex-col gap-2">
@@ -379,25 +372,32 @@ export default function ShopsPage() {
               className="tiara-input w-full sm:w-44"
             />
             <div className="flex-1" />
-            <button
-              type="button"
-              className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
-              onClick={() => {
-                setOffset(0);
-                setQ("");
-                setShopNumber("");
-                setExclusiveFilter("");
-                setNominatedFilter("");
-                setWageFilter("");
-                setGenreFilter("");
-                setContactFilter("");
-                setSortMode("kana");
-                setLimit(20);
-              }}
-            >
-              絞り込みリセット
-            </button>
-          </div>
+
+<div className="flex items-center gap-2">
+  <button
+    type="button"
+    className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
+    onClick={() => {
+      setOffset(0);
+      setQ("");
+      setShopNumber("");
+      setExclusiveFilter("");
+      setNominatedFilter("");
+      setWageFilter("");
+      setGenreFilter("");
+      setContactFilter("");
+      setSortMode("kana");
+      setLimit(20);
+    }}
+  >
+    絞り込みリセット
+  </button>
+
+  <Link href="/shops/new" className="tiara-btn h-10">
+    新規店舗登録
+  </Link>
+</div>
+            </div>
 
           {/* フィルタ（中段）：詰めるため grid で折返し管理 */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">

@@ -821,17 +821,12 @@ function ShopDetailModal({
   // ---- 必須 1〜8項目＋追加項目の state ----
   const [shopNumber, setShopNumber] = useState<string>(shop?.shopNumber ?? ""); // ①店舗番号
   const [name, setName] = useState<string>(shop?.name ?? ""); // ②店名
-
-  // API から来ている nameKana / kana を初期表示
   const [kana, setKana] = useState<string>(
     (shop as ShopDetail).nameKana ?? (shop as any).kana ?? "",
   ); // ③カナ
-
   const [rank, setRank] = useState<ShopRank | "">((shop?.rank as ShopRank | null) ?? ""); // ④ランク
-
   const [addressLine, setAddressLine] = useState<string>(shop?.addressLine ?? ""); // ⑤店住所
   const [buildingName, setBuildingName] = useState<string>((shop as ShopDetail).buildingName ?? ""); // ⑥ビル名
-
   const [hourlyRate, setHourlyRate] = useState<string>((shop as ShopDetail).wageLabel ?? ""); // ⑦時給カテゴリ
   const [phone, setPhone] = useState<string>(shop?.phone ?? ""); // ⑧電話
   const [phoneChecked, setPhoneChecked] = useState<boolean>(false); // 電話チェック（現状はUIのみ）
@@ -855,6 +850,20 @@ function ShopDetailModal({
     (shop as ShopDetail).idDocumentRequirement ?? "",
   );
   const [ownerStaff, setOwnerStaff] = useState<string>((shop as any).ownerStaff ?? "");
+
+  // ---- スクショに合わせて「UIのみ」追加（後でAPI連動）----
+  const [postalCode, setPostalCode] = useState<string>("");
+  const [heightUi, setHeightUi] = useState<string>("");
+  const [bodyTypeUi, setBodyTypeUi] = useState<string>("");
+  const [cautionUi, setCautionUi] = useState<string>("");
+
+  // 当日特別オーダー（UIのみ）
+  const [todaysContactConfirm, setTodaysContactConfirm] = useState<string>("");
+  const [todaysDrink, setTodaysDrink] = useState<string>("");
+  const [todaysHeight, setTodaysHeight] = useState<string>("");
+  const [todaysBodyType, setTodaysBodyType] = useState<string>("");
+  const [todaysHairSet, setTodaysHairSet] = useState<string>("");
+  const [todaysWage, setTodaysWage] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -885,7 +894,6 @@ function ShopDetailModal({
     "6000円以上",
   ];
 
-  // 担当スタッフ候補（ログインできるスタッフ）
   const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
 
   // ---- 専属 / NG 初期ロード（表示用）----
@@ -948,36 +956,20 @@ function ShopDetailModal({
       phone: phone.trim(),
     } as Parameters<typeof updateShop>[1];
 
-    if (trimmedNumber) {
-      payload.shopNumber = trimmedNumber;
-    }
+    if (trimmedNumber) payload.shopNumber = trimmedNumber;
 
     const kanaTrimmed = kana.trim();
-    if (kanaTrimmed) {
-      payload.nameKana = kanaTrimmed;
-    }
+    if (kanaTrimmed) payload.nameKana = kanaTrimmed;
 
-    if (buildingName.trim()) {
-      payload.buildingName = buildingName.trim();
-    }
+    if (buildingName.trim()) payload.buildingName = buildingName.trim();
 
-    // ジャンル
     payload.genre = genre ? (genre as ShopGenre) : null;
-
-    // ランク
     payload.rank = rank ? (rank as ShopRank) : null;
-
-    // 飲酒希望
     payload.drinkPreference = drinkPreference ? (drinkPreference as ShopDrinkPreference) : null;
-
-    // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
-
-    // 身分証
     payload.idDocumentRequirement = idDocument ? (idDocument as ShopIdRequirement) : null;
 
     try {
-      // 店舗本体のみ更新（専属/NGキャストはキャスト管理側で編集）
       const updated = await updateShop(base.id, payload);
       await onSaved(updated);
     } catch (e: any) {
@@ -987,338 +979,532 @@ function ShopDetailModal({
     }
   };
 
+  // ---- ここからレイアウト（スクショ寄せ・ライト固定） ----
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <div className="text-sm font-semibold text-white/95">{children}</div>
+  );
+
+  const Field = ({ children }: { children: React.ReactNode }) => (
+    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
+      {children}
+    </div>
+  );
+
+  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
+        (props.className ?? "")
+      }
+    />
+  );
+
+  const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+    <select
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 " +
+        (props.className ?? "")
+      }
+    />
+  );
+
+  const ChipTitle = ({ children }: { children: React.ReactNode }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
+  const SubTitle = ({ children }: { children: React.ReactNode }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#78a64a] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
   return (
-    <>
-      <div className="fixed inset-0 z-50">
-        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-        <div className="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl p-6 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-ink">店舗詳細・編集</h2>
-            {loading && (
-              <span className="text-[11px] text-slate-400">詳細を読み込み中…</span>
-            )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      {/* overlay */}
+      <div className="absolute inset-0 bg-black/55" onClick={onClose} />
+
+      {/* modal */}
+      <div className="relative w-full max-w-[1280px] h-[90vh] overflow-hidden rounded-lg border-2 border-slate-900 shadow-2xl bg-white">
+        {/* header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-slate-900 bg-white">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-slate-900">店舗詳細・編集</h2>
+            {loading && <span className="text-xs text-slate-500">詳細を読み込み中…</span>}
           </div>
 
-          {error && (
-            <div className="mb-3 text-[11px] px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700">
-              {error}
-            </div>
-          )}
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            type="button"
+            disabled={saving}
+          >
+            閉じる
+          </button>
+        </div>
 
-          <div className="space-y-6 text-sm text-ink">
-            {/* 基本情報 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 店舗番号 */}
-              <label className="block">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-slate-300 text-sm">店舗番号</span>
-                  <span className="text-[11px] text-slate-500">3〜4桁の半角数字</span>
+        {(error || err) && (
+          <div className="px-4 py-2 border-b border-slate-200 bg-amber-50 text-amber-900 text-sm">
+            {error || err}
+          </div>
+        )}
+
+        <div className="h-full overflow-y-auto">
+          {/* ===== 上段：登録情報 ===== */}
+          <section className="px-4 py-4 bg-[#78a64a] border-b-2 border-slate-900">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <ChipTitle>登録情報①</ChipTitle>
+
+              <div className="flex items-center gap-2">
+                <div className="rounded-sm border border-slate-900/70 bg-[#3f67b6] text-white px-3 py-2 text-sm font-semibold">
+                  最終オーダー日　●年・月・日
                 </div>
-                <input
-                  value={shopNumber}
-                  onChange={(e) => {
-                    setShopNumber(e.target.value);
-                    setShopNumberError(null);
-                  }}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white font-mono"
-                  placeholder="657 など"
-                />
-                {shopNumberError && (
-                  <div className="mt-1 text-xs text-red-400">{shopNumberError}</div>
-                )}
-              </label>
-
-              {/* 店舗名 */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">店舗名</div>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="クラブ ○○ など"
-                />
-              </label>
-
-              {/* カナ */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">カナ（読み方）</div>
-                <input
-                  value={kana}
-                  onChange={(e) => setKana(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="クラブ アリア など"
-                />
-              </label>
-
-              {/* ランク */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">ランク</div>
-                <select
-                  value={rank}
-                  onChange={(e) => setRank((e.target.value || "") as ShopRank | "")}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  <option value="S">S</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                </select>
-              </label>
-            </div>
-
-            {/* 住所系 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">店住所</div>
-                <input
-                  value={addressLine}
-                  onChange={(e) => setAddressLine(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="福岡県福岡市博多区中洲1-2-3 など"
-                />
-              </label>
-
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">ビル名</div>
-                <input
-                  value={buildingName}
-                  onChange={(e) => setBuildingName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                  placeholder="○○ビル 3F など"
-                />
-              </label>
-            </div>
-
-            {/* 時給・電話・ジャンル */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 時給 */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">時給</div>
-                <select
-                  value={hourlyRate}
-                  onChange={(e) => setHourlyRate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  {wageOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* 電話 */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">電話</div>
-                <div className="flex gap-2 items-center">
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                    placeholder="090-xxxx-xxxx"
-                  />
-                  <label className="flex items-center gap-1 text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4"
-                      checked={phoneChecked}
-                      onChange={(e) => setPhoneChecked(e.target.checked)}
-                    />
-                    <span>電話チェック済み</span>
-                  </label>
-                </div>
-              </label>
-
-              {/* ジャンル（表示はカタカナ） */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">ジャンル</div>
-                <select
-                  value={genre}
-                  onChange={(e) => setGenre((e.target.value || "") as ShopGenre | "")}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  <option value="club">クラブ</option>
-                  <option value="cabaret">キャバクラ</option>
-                  <option value="snack">スナック</option>
-                  <option value="gb">GB</option>
-                </select>
-              </label>
-            </div>
-
-            {/* キャスト関連（専属 / NG：表示のみ） */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 専属指名キャスト */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm text-slate-300">専属指名キャスト</div>
-                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
-                  {fixedLoading ? (
-                    <div className="text-slate-400">読み込み中…</div>
-                  ) : fixedCasts.length === 0 ? (
-                    <div className="text-slate-500">登録なし</div>
-                  ) : (
-                    <ul className="space-y-2">
-                      {fixedCasts.map((row) => {
-                        const labelName = row.cast.displayName || "(名前未登録)";
-                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
-                        return (
-                          <li
-                            key={row.castId}
-                            className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
-                          >
-                            <div className="w-20">
-                              <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
-                              {row.note && (
-                                <div className="mt-0.5 text-[10px] text-slate-400">
-                                  メモ: {row.note}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              {/* NGキャスト */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm text-slate-300">NGキャスト</div>
-                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
-                </div>
-
-                <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
-                  {ngLoadingState ? (
-                    <div className="text-slate-400">読み込み中…</div>
-                  ) : ngCasts.length === 0 ? (
-                    <div className="text-slate-500">登録なし</div>
-                  ) : (
-                    <ul className="space-y-2">
-                      {ngCasts.map((row) => {
-                        const labelName = row.cast.displayName || "(名前未登録)";
-                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
-                        return (
-                          <li
-                            key={row.castId}
-                            className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
-                          >
-                            <div className="w-20">
-                              <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
-                              {row.reason && (
-                                <div className="mt-0.5 text-[10px] text-slate-400">
-                                  NG理由: {row.reason}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+                <div className="rounded-sm border border-slate-900/70 bg-[#3f67b6] text-white px-3 py-2 text-sm font-semibold">
+                  オーダー回数　●回
                 </div>
               </div>
             </div>
 
-            {/* 条件系：身分証・飲酒希望・担当 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 身分証 */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">身分証</div>
-                <select
-                  value={idDocument}
-                  onChange={(e) =>
-                    setIdDocument((e.target.value || "") as ShopIdRequirement | "")
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  <option value="none">条件なし</option>
-                  <option value="photo_only">顔写真</option>
-                  <option value="address_only">本籍地</option>
-                  <option value="both">どちらも必要</option>
-                </select>
-              </label>
+            <div className="grid grid-cols-12 gap-4">
+              {/* 左：写真＋左下の3ドロップ */}
+              <div className="col-span-12 md:col-span-4">
+                <div className="rounded border-2 border-slate-900 bg-[#4d73c9] h-[360px] flex items-center justify-center text-white font-bold">
+                  写真
+                </div>
 
-              {/* 飲酒希望 */}
-              <label className="block">
-                <div className="text-sm text-slate-300 mb-1">飲酒希望</div>
-                <select
-                  value={drinkPreference}
-                  onChange={(e) =>
-                    setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  {drinkOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  キャスト側の飲酒設定と組み合わせてマッチングに利用予定です。
-                </p>
-              </label>
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <Label>ランク</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select
+                          value={rank}
+                          onChange={(e) => setRank((e.target.value || "") as ShopRank | "")}
+                        >
+                          <option value="">プルダウン</option>
+                          <option value="S">S</option>
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
 
-              {/* 担当（UIのみ：スタッフ候補ドロップダウン） */}
-              <label className="block md:col-span-2">
-                <div className="text-sm text-slate-300 mb-1">担当</div>
-                <select
-                  value={ownerStaff}
-                  onChange={(e) => setOwnerStaff(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
-                >
-                  <option value="">（未設定）</option>
-                  {staffOptions.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  現在はUIのみ（後日スタッフマスタとの連携を実装予定）。
-                </p>
-              </label>
+                  {/* 連絡方法（UIのみ。実データが無いので保持だけ） */}
+                  <div>
+                    <Label>連絡方法</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select value={""} onChange={() => {}}>
+                          <option value="">プルダウン</option>
+                          <option value="line">LINE</option>
+                          <option value="sms">SMS</option>
+                          <option value="tel">TEL</option>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* ヘアーセット（UIのみ） */}
+                  <div>
+                    <Label>ヘアーセット</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select value={""} onChange={() => {}}>
+                          <option value="">プルダウン</option>
+                          <option value="none">不要</option>
+                          <option value="need">必要</option>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 右：フォーム群 */}
+              <div className="col-span-12 md:col-span-8">
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-12">
+                    <Label>店舗番号</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={shopNumber}
+                          onChange={(e) => {
+                            setShopNumber(e.target.value);
+                            setShopNumberError(null);
+                          }}
+                          placeholder="自由入力"
+                        />
+                      </Field>
+                      {shopNumberError && (
+                        <div className="mt-1 text-xs text-red-200 font-semibold">{shopNumberError}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>店舗名</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="自由入力" />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>仮名（読み方）</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input value={kana} onChange={(e) => setKana(e.target.value)} placeholder="自由入力" />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>郵便番号</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          placeholder="自由入力または住所から自動反映"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>店住所</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={addressLine}
+                          onChange={(e) => setAddressLine(e.target.value)}
+                          placeholder="自由入力または郵便番号から自動反映"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>ビル名</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input value={buildingName} onChange={(e) => setBuildingName(e.target.value)} placeholder="自由入力" />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>電話番号</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="flex-1">
+                        <Field>
+                          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="自動入力" />
+                        </Field>
+                      </div>
+                      <label className="inline-flex items-center gap-2 text-white/95 text-sm font-semibold">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={phoneChecked}
+                          onChange={(e) => setPhoneChecked(e.target.checked)}
+                        />
+                        電話チェック済み
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>ジャンル</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select value={genre} onChange={(e) => setGenre((e.target.value || "") as ShopGenre | "")}>
+                          <option value="">プルダウン</option>
+                          <option value="club">クラブ</option>
+                          <option value="cabaret">キャバクラ</option>
+                          <option value="snack">スナック</option>
+                          <option value="gb">GB</option>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>時給</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)}>
+                          <option value="">プルダウン</option>
+                          {wageOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* 専属指名 / NG（スクショ右側＋追加ボタン風） */}
+                  <div className="col-span-12">
+                    <Label>専属指名</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="flex-1">
+                        <Field>
+                          <div className="text-slate-500 text-sm">
+                            {fixedLoading ? "読み込み中…" : fixedCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
+                          </div>
+                        </Field>
+                      </div>
+                      <button
+                        type="button"
+                        className="h-10 px-4 rounded-lg border-2 border-slate-900 bg-[#3f67b6] text-white font-semibold"
+                        disabled
+                        title="編集はキャスト管理ページから（現状は表示のみ）"
+                      >
+                        +追加
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>NGキャスト</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="flex-1">
+                        <Field>
+                          <div className="text-slate-500 text-sm">
+                            {ngLoadingState ? "読み込み中…" : ngCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
+                          </div>
+                        </Field>
+                      </div>
+                      <button
+                        type="button"
+                        className="h-10 px-4 rounded-lg border-2 border-slate-900 bg-[#3f67b6] text-white font-semibold"
+                        disabled
+                        title="編集はキャスト管理ページから（現状は表示のみ）"
+                      >
+                        +追加
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>身分証</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select
+                          value={idDocument}
+                          onChange={(e) => setIdDocument((e.target.value || "") as ShopIdRequirement | "")}
+                        >
+                          <option value="">プルダウン</option>
+                          <option value="none">条件なし</option>
+                          <option value="photo_only">顔写真</option>
+                          <option value="address_only">本籍地</option>
+                          <option value="both">どちらも必要</option>
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>飲酒希望</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select
+                          value={drinkPreference}
+                          onChange={(e) =>
+                            setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
+                          }
+                        >
+                          <option value="">プルダウン</option>
+                          {drinkOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>身長</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={heightUi}
+                          onChange={(e) => setHeightUi(e.target.value)}
+                          placeholder="数値又は範囲プルダウン（UIのみ）"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>体型</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={bodyTypeUi}
+                          onChange={(e) => setBodyTypeUi(e.target.value)}
+                          placeholder="細い・普通・太いのプルダウン？（UIのみ）"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>注意点</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Input
+                          value={cautionUi}
+                          onChange={(e) => setCautionUi(e.target.value)}
+                          placeholder="自由入力（UIのみ）"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="col-span-12">
+                    <Label>担当</Label>
+                    <div className="mt-1">
+                      <Field>
+                        <Select value={ownerStaff} onChange={(e) => setOwnerStaff(e.target.value)}>
+                          <option value="">プルダウン</option>
+                          {staffOptions.map((n) => (
+                            <option key={n} value={n}>
+                              {n}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== 下段：当日特別オーダー ===== */}
+          <section className="px-4 py-4 bg-[#f0c24f] border-b-2 border-slate-900">
+            <div className="mb-3">
+              <ChipTitle>当日特別オーダー</ChipTitle>
             </div>
 
-            {err && <div className="text-red-400 text-sm">{err}</div>}
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-12 md:col-span-6 space-y-4">
+                <div>
+                  <SubTitle>連絡確認</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysContactConfirm}
+                        onChange={(e) => setTodaysContactConfirm(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
 
-            <div className="flex gap-2 pt-2 justify-end">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-slate-700 text-white"
-                disabled={saving}
-              >
-                閉じる
-              </button>
+                <div>
+                  <SubTitle>飲酒</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysDrink}
+                        onChange={(e) => setTodaysDrink(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>身長</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysHeight}
+                        onChange={(e) => setTodaysHeight(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-12 md:col-span-6 space-y-4">
+                <div>
+                  <SubTitle>体型</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysBodyType}
+                        onChange={(e) => setTodaysBodyType(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>ヘアーセット</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysHairSet}
+                        onChange={(e) => setTodaysHairSet(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>時給</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Input
+                        value={todaysWage}
+                        onChange={(e) => setTodaysWage(e.target.value)}
+                        placeholder="プルダウン（UIのみ）"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* footer buttons */}
+            <div className="mt-8 flex items-center justify-end gap-6">
               <button
                 onClick={save}
-                className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-50"
+                className="px-10 py-3 rounded border-2 border-slate-900 bg-[#4d73c9] text-white font-bold hover:brightness-105 disabled:opacity-60"
                 disabled={saving}
+                type="button"
               >
                 {saving ? "保存中…" : "保存"}
               </button>
+
+              <button
+                onClick={onClose}
+                className="px-10 py-3 rounded border-2 border-slate-900 bg-[#4d73c9] text-white font-bold hover:brightness-105 disabled:opacity-60"
+                disabled={saving}
+                type="button"
+              >
+                終了
+              </button>
             </div>
-          </div>
+          </section>
         </div>
       </div>
-    </>
+    </div>
   );
 }

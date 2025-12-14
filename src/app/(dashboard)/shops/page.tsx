@@ -1,10 +1,9 @@
 // src/app/(dashboard)/shops/page.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  importShopsExcel,
   listShops,
   updateShop,
   getShop,
@@ -164,7 +163,6 @@ export default function ShopsPage() {
   const [limit, setLimit] = useState<PerPage>(20);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   // ★ ジャンルフィルタ & 並び替えモード
@@ -178,8 +176,6 @@ export default function ShopsPage() {
   const [nominatedFilter, setNominatedFilter] = useState<YesNoFilter>(""); // 指名（あり/なし）
   const [wageFilter, setWageFilter] = useState<WageFilter>(""); // 2500..6500
   const [contactFilter, setContactFilter] = useState<ContactMethodFilter>(""); // LINE/SMS/TEL
-
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   // === 店舗詳細モーダル用の状態 ===
   const [selectedShop, setSelectedShop] = useState<ShopListItem | null>(null);
@@ -326,27 +322,6 @@ export default function ShopsPage() {
     reload();
   }, [reload]);
 
-  const onUpload = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-      setImporting(true);
-      setMessage(null);
-      try {
-        const res = await importShopsExcel(file);
-        setMessage(
-          `取り込み完了: total ${res.total} / created ${res.created} / updated ${res.updated} / skipped ${res.skipped}`,
-        );
-        await reload();
-      } catch (e: any) {
-        setMessage(e?.message ?? "Import failed");
-      } finally {
-        setImporting(false);
-        if (fileRef.current) fileRef.current.value = "";
-      }
-    },
-    [reload],
-  );
-
   // 店舗カードクリック → 詳細取得 → モーダル表示
   const handleOpenShop = useCallback(async (row: ShopListItem) => {
     setSelectedShop(row);
@@ -378,22 +353,10 @@ export default function ShopsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-        <h1 className="text-2xl font-semibold text-ink">店舗一覧</h1>
+      <header className="flex flex-col md:flex-row md:items-center gap-3 justify-end">
+        {/* ★ 店舗一覧テキストパーツ削除 */}
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex items-center tiara-btn cursor-pointer">
-            <input
-              ref={fileRef}
-              id="excelInput"
-              name="excelInput"
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              className="hidden"
-              onChange={(e) => onUpload(e.target.files?.[0] ?? null)}
-              disabled={importing}
-            />
-            {importing ? "アップロード中…" : "Excel一括アップロード"}
-          </label>
+          {/* ★ Excel一括アップロード削除 */}
           <Link href="/shops/new" className="tiara-btn">
             新規店舗登録
           </Link>
@@ -557,7 +520,6 @@ export default function ShopsPage() {
             </select>
           </div>
 
-          {/* 並び替えのすぐ右隣に表示件数コントロール */}
           <DisplayCountControl
             limit={limit}
             total={filteredItems.length}
@@ -598,46 +560,46 @@ export default function ShopsPage() {
           }
         />
 
-        {/* テーブル（見やすいシステムUI） */}
-        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-white/5">
+        {/* ★ 視認性改善：ライト/ダークで背景・文字色を最適化 */}
+        <div className="flex-1 overflow-auto rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
           {loading ? (
-            <div className="h-full flex items-center justify-center text-[11px] text-muted p-6">
+            <div className="h-full flex items-center justify-center text-[11px] text-slate-600 dark:text-slate-300 p-6">
               読み込み中…
             </div>
           ) : pagedItems.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-[11px] text-muted p-6">
+            <div className="h-full flex items-center justify-center text-[11px] text-slate-600 dark:text-slate-300 p-6">
               該当データがありません
             </div>
           ) : (
             <div className="min-w-[1200px]">
               <table className="w-full border-collapse text-[11px]">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-slate-900/70 backdrop-blur border-b border-white/10">
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[90px]">
+                  <tr className="bg-slate-100 border-b border-slate-200 dark:bg-slate-900/70 dark:backdrop-blur dark:border-white/10">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
                       店番号
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[280px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[280px]">
                       店舗名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
                       TEL
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
                       専属
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[90px]">
                       指名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[120px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[120px]">
                       時給
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
                       ジャンル
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[140px]">
                       連絡方法
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-200 font-semibold w-[170px]">
+                    <th className="px-3 py-2 text-left text-slate-700 dark:text-slate-200 font-semibold w-[170px]">
                       最終更新
                     </th>
                   </tr>
@@ -659,26 +621,28 @@ export default function ShopsPage() {
                       <tr
                         key={r.id}
                         className={
-                          "border-b border-white/5 cursor-pointer " +
-                          (zebra ? "bg-white/[0.03]" : "bg-transparent") +
-                          " hover:bg-sky-500/10"
+                          "border-b border-slate-200 cursor-pointer dark:border-white/5 " +
+                          (zebra
+                            ? "bg-slate-50 dark:bg-white/[0.03]"
+                            : "bg-white dark:bg-transparent") +
+                          " hover:bg-sky-50 dark:hover:bg-sky-500/10"
                         }
                         onClick={() => handleOpenShop(r)}
                       >
-                        <td className="px-3 py-2 font-mono text-slate-100">
+                        <td className="px-3 py-2 font-mono text-slate-900 dark:text-slate-100">
                           {formatShopNumber(r.shopNumber)}
                         </td>
 
                         <td className="px-3 py-2">
-                          <div className="text-slate-100 font-semibold truncate">
+                          <div className="text-slate-900 dark:text-slate-100 font-semibold truncate">
                             {r.name}
                           </div>
-                          <div className="text-[10px] text-slate-400 truncate">
+                          <div className="text-[10px] text-slate-600 dark:text-slate-400 truncate">
                             {(r.nameKana ?? (r as any).kana ?? "") || "—"}
                           </div>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-100">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
                           {r.phone ?? "-"}
                         </td>
 
@@ -687,8 +651,8 @@ export default function ShopsPage() {
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (exclusive
-                                ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-200"
-                                : "border-slate-400/30 bg-white/5 text-slate-300")
+                                ? "border-emerald-400/60 bg-emerald-50 text-emerald-700 dark:border-emerald-300/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+                                : "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-400/30 dark:bg-white/5 dark:text-slate-300")
                             }
                           >
                             {exclusive ? "あり" : "なし"}
@@ -700,29 +664,29 @@ export default function ShopsPage() {
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (nominated
-                                ? "border-violet-300/40 bg-violet-500/10 text-violet-200"
-                                : "border-slate-400/30 bg-white/5 text-slate-300")
+                                ? "border-violet-400/60 bg-violet-50 text-violet-700 dark:border-violet-300/40 dark:bg-violet-500/10 dark:text-violet-200"
+                                : "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-400/30 dark:bg-white/5 dark:text-slate-300")
                             }
                           >
                             {nominated ? "あり" : "なし"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-100">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
                           <span className="truncate inline-block max-w-[110px]">
                             {wageLabel || "-"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-100">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
                           {getGenreLabel(r.genre ?? null)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-100">
+                        <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
                           {getContactLabel(contact)}
                         </td>
 
-                        <td className="px-3 py-2 text-slate-300">
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                           {r.updatedAt
                             ? new Date(r.updatedAt).toLocaleString()
                             : "-"}
@@ -736,7 +700,6 @@ export default function ShopsPage() {
           )}
         </div>
 
-        {/* 下部にもページングバーを複製 */}
         <PaginationBar
           page={page}
           maxPage={maxPage}
@@ -798,8 +761,8 @@ function PaginationBar({
 
   return (
     <div
-      className={`flex items-center justify-between px-4 py-2 text-[11px] text-muted bg-white/10 ${
-        bottom ? "border-t border-white/10" : "border-b border-white/10"
+      className={`flex items-center justify-between px-4 py-2 text-[11px] bg-white border-slate-200 text-slate-700 dark:bg-white/10 dark:border-white/10 dark:text-slate-300 ${
+        bottom ? "border-t" : "border-b"
       }`}
     >
       <div>
@@ -811,7 +774,7 @@ function PaginationBar({
           type="button"
           disabled={page <= 1}
           onClick={onPrev}
-          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white text-[11px] text-slate-700 disabled:opacity-40 dark:bg-white/80"
         >
           前へ
         </button>
@@ -822,7 +785,7 @@ function PaginationBar({
           type="button"
           disabled={page >= maxPage}
           onClick={onNext}
-          className="px-2 py-1 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 disabled:opacity-40"
+          className="px-2 py-1 rounded-full border border-slate-300 bg-white text-[11px] text-slate-700 disabled:opacity-40 dark:bg-white/80"
         >
           次へ
         </button>
@@ -837,7 +800,11 @@ type DisplayCountControlProps = {
   onChange: (next: PerPage) => void;
 };
 
-function DisplayCountControl({ limit, total, onChange }: DisplayCountControlProps) {
+function DisplayCountControl({
+  limit,
+  total,
+  onChange,
+}: DisplayCountControlProps) {
   const options: (number | "all")[] = [10, 20, 50, 100, 150, 200, "all"];
 
   const isActive = (opt: number | "all") =>
@@ -921,9 +888,9 @@ function ShopDetailModal({
   );
 
   // 飲酒希望（店舗側）
-  const [drinkPreference, setDrinkPreference] = useState<ShopDrinkPreference | "">(
-    ((shop as ShopDetail).drinkPreference as ShopDrinkPreference | null) ?? "",
-  );
+  const [drinkPreference, setDrinkPreference] = useState<
+    ShopDrinkPreference | ""
+  >(((shop as ShopDetail).drinkPreference as ShopDrinkPreference | null) ?? "");
 
   // ★ 専属指名キャスト / NGキャスト（表示のみ）
   const [fixedCasts, setFixedCasts] = useState<FixedRow[]>([]);
@@ -935,7 +902,9 @@ function ShopDetailModal({
   const [idDocument, setIdDocument] = useState<ShopIdRequirement | "">(
     (shop as ShopDetail).idDocumentRequirement ?? "",
   );
-  const [ownerStaff, setOwnerStaff] = useState<string>((shop as any).ownerStaff ?? "");
+  const [ownerStaff, setOwnerStaff] = useState<string>(
+    (shop as any).ownerStaff ?? "",
+  );
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -967,7 +936,16 @@ function ShopDetailModal({
   ];
 
   // 担当スタッフ候補（ログインできるスタッフ）
-  const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
+  const staffOptions = [
+    "北村",
+    "北村2",
+    "川上",
+    "馬場崎",
+    "長谷川",
+    "陣内",
+    "梶原",
+    "宮崎",
+  ];
 
   // ---- 専属 / NG 初期ロード（表示用）----
   useEffect(() => {
@@ -976,7 +954,10 @@ function ShopDetailModal({
       try {
         setFixedLoading(true);
         setNgLoadingState(true);
-        const [fixed, ng] = await Promise.all([listShopFixedCasts(base.id), listShopNgCasts(base.id)]);
+        const [fixed, ng] = await Promise.all([
+          listShopFixedCasts(base.id),
+          listShopNgCasts(base.id),
+        ]);
         if (cancelled) return;
         setFixedCasts(
           fixed.map((row) => ({
@@ -1015,7 +996,9 @@ function ShopDetailModal({
     // 店舗番号バリデーション（空 or 3〜4桁の半角数字）
     const trimmedNumber = shopNumber.trim();
     if (trimmedNumber && !/^\d{3,4}$/.test(trimmedNumber)) {
-      setShopNumberError("店舗番号は3〜4桁の半角数字で入力してください（例: 001, 0701）");
+      setShopNumberError(
+        "店舗番号は3〜4桁の半角数字で入力してください（例: 001, 0701）",
+      );
       setSaving(false);
       return;
     }
@@ -1046,13 +1029,17 @@ function ShopDetailModal({
     payload.rank = rank ? (rank as ShopRank) : null;
 
     // 飲酒希望
-    payload.drinkPreference = drinkPreference ? (drinkPreference as ShopDrinkPreference) : null;
+    payload.drinkPreference = drinkPreference
+      ? (drinkPreference as ShopDrinkPreference)
+      : null;
 
     // 時給
     payload.wageLabel = hourlyRate.trim() ? hourlyRate.trim() : null;
 
     // 身分証
-    payload.idDocumentRequirement = idDocument ? (idDocument as ShopIdRequirement) : null;
+    payload.idDocumentRequirement = idDocument
+      ? (idDocument as ShopIdRequirement)
+      : null;
 
     try {
       // 店舗本体のみ更新（専属/NGキャストはキャスト管理側で編集）
@@ -1073,7 +1060,9 @@ function ShopDetailModal({
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-ink">店舗詳細・編集</h2>
             {loading && (
-              <span className="text-[11px] text-slate-400">詳細を読み込み中…</span>
+              <span className="text-[11px] text-slate-400">
+                詳細を読み込み中…
+              </span>
             )}
           </div>
 
@@ -1090,7 +1079,9 @@ function ShopDetailModal({
               <label className="block">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-slate-300 text-sm">店舗番号</span>
-                  <span className="text-[11px] text-slate-500">3〜4桁の半角数字</span>
+                  <span className="text-[11px] text-slate-500">
+                    3〜4桁の半角数字
+                  </span>
                 </div>
                 <input
                   value={shopNumber}
@@ -1102,7 +1093,9 @@ function ShopDetailModal({
                   placeholder="657 など"
                 />
                 {shopNumberError && (
-                  <div className="mt-1 text-xs text-red-400">{shopNumberError}</div>
+                  <div className="mt-1 text-xs text-red-400">
+                    {shopNumberError}
+                  </div>
                 )}
               </label>
 
@@ -1119,7 +1112,9 @@ function ShopDetailModal({
 
               {/* カナ */}
               <label className="block">
-                <div className="text-sm text-slate-300 mb-1">カナ（読み方）</div>
+                <div className="text-sm text-slate-300 mb-1">
+                  カナ（読み方）
+                </div>
                 <input
                   value={kana}
                   onChange={(e) => setKana(e.target.value)}
@@ -1133,7 +1128,9 @@ function ShopDetailModal({
                 <div className="text-sm text-slate-300 mb-1">ランク</div>
                 <select
                   value={rank}
-                  onChange={(e) => setRank((e.target.value || "") as ShopRank | "")}
+                  onChange={(e) =>
+                    setRank((e.target.value || "") as ShopRank | "")
+                  }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
                   <option value="">（未設定）</option>
@@ -1214,7 +1211,9 @@ function ShopDetailModal({
                 <div className="text-sm text-slate-300 mb-1">ジャンル</div>
                 <select
                   value={genre}
-                  onChange={(e) => setGenre((e.target.value || "") as ShopGenre | "")}
+                  onChange={(e) =>
+                    setGenre((e.target.value || "") as ShopGenre | "")
+                  }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
                   <option value="">（未設定）</option>
@@ -1232,7 +1231,9 @@ function ShopDetailModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-sm text-slate-300">専属指名キャスト</div>
-                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
+                  <div className="text-[11px] text-slate-500">
+                    （編集はキャスト管理ページから）
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
@@ -1243,19 +1244,27 @@ function ShopDetailModal({
                   ) : (
                     <ul className="space-y-2">
                       {fixedCasts.map((row) => {
-                        const labelName = row.cast.displayName || "(名前未登録)";
-                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
+                        const labelName =
+                          row.cast.displayName || "(名前未登録)";
+                        const mng =
+                          row.cast.managementNumber || row.cast.castCode || "-";
                         return (
                           <li
                             key={row.castId}
                             className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
                           >
                             <div className="w-20">
-                              <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
+                              <div className="text-[10px] text-slate-400">
+                                管理番号
+                              </div>
+                              <div className="font-mono text-xs text-slate-50">
+                                {mng}
+                              </div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-50">
+                                {labelName}
+                              </div>
                               {row.note && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   メモ: {row.note}
@@ -1274,7 +1283,9 @@ function ShopDetailModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-sm text-slate-300">NGキャスト</div>
-                  <div className="text-[11px] text-slate-500">（編集はキャスト管理ページから）</div>
+                  <div className="text-[11px] text-slate-500">
+                    （編集はキャスト管理ページから）
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-2 max-h-56 overflow-y-auto text-xs">
@@ -1285,19 +1296,27 @@ function ShopDetailModal({
                   ) : (
                     <ul className="space-y-2">
                       {ngCasts.map((row) => {
-                        const labelName = row.cast.displayName || "(名前未登録)";
-                        const mng = row.cast.managementNumber || row.cast.castCode || "-";
+                        const labelName =
+                          row.cast.displayName || "(名前未登録)";
+                        const mng =
+                          row.cast.managementNumber || row.cast.castCode || "-";
                         return (
                           <li
                             key={row.castId}
                             className="flex items-start gap-2 rounded-lg px-2 py-1 bg-slate-900/60"
                           >
                             <div className="w-20">
-                              <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-50">{mng}</div>
+                              <div className="text-[10px] text-slate-400">
+                                管理番号
+                              </div>
+                              <div className="font-mono text-xs text-slate-50">
+                                {mng}
+                              </div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-50">
+                                {labelName}
+                              </div>
                               {row.reason && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   NG理由: {row.reason}
@@ -1321,7 +1340,9 @@ function ShopDetailModal({
                 <select
                   value={idDocument}
                   onChange={(e) =>
-                    setIdDocument((e.target.value || "") as ShopIdRequirement | "")
+                    setIdDocument(
+                      (e.target.value || "") as ShopIdRequirement | "",
+                    )
                   }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >
@@ -1339,7 +1360,9 @@ function ShopDetailModal({
                 <select
                   value={drinkPreference}
                   onChange={(e) =>
-                    setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
+                    setDrinkPreference(
+                      (e.target.value || "") as ShopDrinkPreference | "",
+                    )
                   }
                   className="w-full px-3 py-2 rounded-xl bg-slate-800 text-white"
                 >

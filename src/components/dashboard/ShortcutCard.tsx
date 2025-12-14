@@ -22,7 +22,7 @@ export default function ShortcutCard({
         'group relative rounded-2xl transition-shadow',
         'border bg-white text-zinc-900 backdrop-blur',
         'border-zinc-200 shadow-sm hover:shadow-md',
-        'dark:border-white/10 dark:bg-white/5 dark:text-white',
+        // dark: を廃止（ライト固定）
         'min-h-[160px] md:min-h-[180px] p-4 md:p-4',
       ].join(' ')}
     >
@@ -33,7 +33,7 @@ export default function ShortcutCard({
       >
         <button
           aria-label="Drag handle"
-          className="p-2 md:p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 cursor-grab active:cursor-grabbing"
+          className="p-2 md:p-1 rounded hover:bg-black/5 cursor-grab active:cursor-grabbing"
           {...dragHandleProps}
           type="button"
         >
@@ -42,7 +42,7 @@ export default function ShortcutCard({
         {onEdit && (
           <button
             aria-label="Edit"
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+            className="p-1 rounded hover:bg-black/5"
             onClick={onEdit}
             type="button"
           >
@@ -52,7 +52,7 @@ export default function ShortcutCard({
         {onDelete && (
           <button
             aria-label="Delete"
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+            className="p-1 rounded hover:bg-black/5"
             onClick={onDelete}
             type="button"
           >
@@ -69,7 +69,8 @@ export default function ShortcutCard({
       >
         <div
           className={[
-            'rounded-2xl p-5 text-white shadow ring-1 ring-black/5 dark:ring-white/10 transition-transform',
+            // dark:ring を廃止（ライト固定）
+            'rounded-2xl p-5 text-white shadow ring-1 ring-black/5 transition-transform',
             'group-hover:scale-[1.02]',
             badgeClass ?? 'bg-zinc-600',
           ].join(' ')}

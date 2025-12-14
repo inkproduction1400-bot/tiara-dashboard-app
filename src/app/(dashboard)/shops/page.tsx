@@ -373,31 +373,31 @@ export default function ShopsPage() {
             />
             <div className="flex-1" />
 
-<div className="flex items-center gap-2">
-  <button
-    type="button"
-    className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
-    onClick={() => {
-      setOffset(0);
-      setQ("");
-      setShopNumber("");
-      setExclusiveFilter("");
-      setNominatedFilter("");
-      setWageFilter("");
-      setGenreFilter("");
-      setContactFilter("");
-      setSortMode("kana");
-      setLimit(20);
-    }}
-  >
-    絞り込みリセット
-  </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
+                onClick={() => {
+                  setOffset(0);
+                  setQ("");
+                  setShopNumber("");
+                  setExclusiveFilter("");
+                  setNominatedFilter("");
+                  setWageFilter("");
+                  setGenreFilter("");
+                  setContactFilter("");
+                  setSortMode("kana");
+                  setLimit(20);
+                }}
+              >
+                絞り込みリセット
+              </button>
 
-  <Link href="/shops/new" className="tiara-btn h-10">
-    新規店舗登録
-  </Link>
-</div>
+              <Link href="/shops/new" className="tiara-btn h-10">
+                新規店舗登録
+              </Link>
             </div>
+          </div>
 
           {/* フィルタ（中段）：詰めるため grid で折返し管理 */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
@@ -534,8 +534,8 @@ export default function ShopsPage() {
           }
         />
 
-        {/* テーブル（視認性UP：文字色を薄くしすぎない） */}
-        <div className="flex-1 overflow-auto rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+        {/* テーブル（ライト固定：dark:系を排除＋薄さ解消） */}
+        <div className="flex-1 overflow-auto rounded-lg border border-slate-200 bg-white">
           {loading ? (
             <div className="h-full flex items-center justify-center text-[11px] text-muted p-4">
               読み込み中…
@@ -546,34 +546,34 @@ export default function ShopsPage() {
             </div>
           ) : (
             <div className="min-w-[1100px]">
-              <table className="w-full border-collapse text-[12px] text-slate-900 dark:text-slate-100">
+              <table className="w-full border-collapse text-[12px] text-slate-900">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-slate-900/75 backdrop-blur border-b border-white/10">
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
+                  <tr className="bg-slate-800 border-b border-slate-200">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[90px]">
                       店番号
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[280px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[280px]">
                       店舗名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[140px]">
                       TEL
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[90px]">
                       専属
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[90px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[90px]">
                       指名
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[120px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[120px]">
                       時給
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[140px]">
                       ジャンル
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[140px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[140px]">
                       連絡方法
                     </th>
-                    <th className="px-3 py-2 text-left text-slate-100 font-semibold w-[170px]">
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[170px]">
                       最終更新
                     </th>
                   </tr>
@@ -595,36 +595,34 @@ export default function ShopsPage() {
                       <tr
                         key={r.id}
                         className={
-                          "border-b border-white/5 cursor-pointer " +
-                          (zebra ? "bg-white/[0.035]" : "bg-transparent") +
-                          " hover:bg-sky-500/10"
+                          "border-b border-slate-200 cursor-pointer " +
+                          (zebra ? "bg-slate-50" : "bg-white") +
+                          " hover:bg-sky-50"
                         }
                         onClick={() => handleOpenShop(r)}
                       >
-                        <td className="px-3 py-2 font-mono text-slate-900 dark:text-slate-50">
+                        <td className="px-3 py-2 font-mono text-slate-900">
                           {formatShopNumber(r.shopNumber)}
                         </td>
 
                         <td className="px-3 py-2">
-                          <div className="text-slate-900 dark:text-slate-50 font-semibold truncate">
+                          <div className="text-slate-900 font-semibold truncate">
                             {r.name}
                           </div>
-                          <div className="text-[10px] text-slate-300 truncate">
+                          <div className="text-[10px] text-slate-500 truncate">
                             {(r.nameKana ?? (r as any).kana ?? "") || "—"}
                           </div>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
-                          {r.phone ?? "-"}
-                        </td>
+                        <td className="px-3 py-2 text-slate-900">{r.phone ?? "-"}</td>
 
                         <td className="px-3 py-2">
                           <span
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (exclusive
-                                ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-100"
-                                : "border-slate-400/30 bg-white/5 text-slate-700 dark:text-slate-200")
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                                : "border-slate-300 bg-slate-50 text-slate-700")
                             }
                           >
                             {exclusive ? "あり" : "なし"}
@@ -636,32 +634,26 @@ export default function ShopsPage() {
                             className={
                               "inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] " +
                               (nominated
-                                ? "border-violet-300/40 bg-violet-500/10 text-violet-100"
-                                : "border-slate-400/30 bg-white/5 text-slate-700 dark:text-slate-200")
+                                ? "border-violet-300 bg-violet-50 text-violet-800"
+                                : "border-slate-300 bg-slate-50 text-slate-700")
                             }
                           >
                             {nominated ? "あり" : "なし"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
+                        <td className="px-3 py-2 text-slate-900">
                           <span className="truncate inline-block max-w-[110px]">
                             {wageLabel || "-"}
                           </span>
                         </td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
-                          {getGenreLabel(r.genre ?? null)}
-                        </td>
+                        <td className="px-3 py-2 text-slate-900">{getGenreLabel(r.genre ?? null)}</td>
 
-                        <td className="px-3 py-2 text-slate-900 dark:text-slate-50">
-                          {getContactLabel(contact)}
-                        </td>
+                        <td className="px-3 py-2 text-slate-900">{getContactLabel(contact)}</td>
 
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
-                          {r.updatedAt
-                            ? new Date(r.updatedAt).toLocaleString()
-                            : "-"}
+                        <td className="px-3 py-2 text-slate-700">
+                          {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : "-"}
                         </td>
                       </tr>
                     );
@@ -1182,10 +1174,10 @@ function ShopDetailModal({
                           >
                             <div className="w-20">
                               <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-900 dark:text-slate-50">{mng}</div>
+                              <div className="font-mono text-xs text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-900 dark:text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-50">{labelName}</div>
                               {row.note && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   メモ: {row.note}
@@ -1224,10 +1216,10 @@ function ShopDetailModal({
                           >
                             <div className="w-20">
                               <div className="text-[10px] text-slate-400">管理番号</div>
-                              <div className="font-mono text-xs text-slate-900 dark:text-slate-50">{mng}</div>
+                              <div className="font-mono text-xs text-slate-50">{mng}</div>
                             </div>
                             <div className="flex-1">
-                              <div className="text-xs text-slate-900 dark:text-slate-50">{labelName}</div>
+                              <div className="text-xs text-slate-50">{labelName}</div>
                               {row.reason && (
                                 <div className="mt-0.5 text-[10px] text-slate-400">
                                   NG理由: {row.reason}

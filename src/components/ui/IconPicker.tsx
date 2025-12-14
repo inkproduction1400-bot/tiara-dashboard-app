@@ -82,8 +82,8 @@ export function IconPicker({
           className={`flex flex-col items-center justify-center rounded-lg border p-2 text-sm transition
             ${
               value === k
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/40 text-blue-600'
-                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
+                ? 'border-blue-500 bg-blue-50  text-blue-600'
+                : 'border-zinc-300 hover:border-zinc-400 '
             }`}
           aria-pressed={value === k}
         >

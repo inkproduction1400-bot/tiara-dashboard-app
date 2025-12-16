@@ -1404,11 +1404,12 @@ function ShopDetailModal({
                   <SubTitle>連絡確認</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysContactConfirm}
-                        onChange={(e) => setTodaysContactConfirm(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysContactConfirm} onChange={(e) => setTodaysContactConfirm(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="未">未</option>
+                          <option value="済">済</option>
+                          <option value="要折返し">要折返し</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>
@@ -1417,11 +1418,13 @@ function ShopDetailModal({
                   <SubTitle>飲酒</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysDrink}
-                        onChange={(e) => setTodaysDrink(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysDrink} onChange={(e) => setTodaysDrink(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="NG">NG</option>
+                          <option value="弱い">弱い</option>
+                          <option value="普通">普通</option>
+                          <option value="強い">強い</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>
@@ -1430,11 +1433,15 @@ function ShopDetailModal({
                   <SubTitle>身長</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysHeight}
-                        onChange={(e) => setTodaysHeight(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysHeight} onChange={(e) => setTodaysHeight(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="〜150">〜150</option>
+                          <option value="151〜155">151〜155</option>
+                          <option value="156〜160">156〜160</option>
+                          <option value="161〜165">161〜165</option>
+                          <option value="166〜170">166〜170</option>
+                          <option value="171〜">171〜</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>
@@ -1445,11 +1452,13 @@ function ShopDetailModal({
                   <SubTitle>体型</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysBodyType}
-                        onChange={(e) => setTodaysBodyType(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysBodyType} onChange={(e) => setTodaysBodyType(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="細身">細身</option>
+                          <option value="普通">普通</option>
+                          <option value="グラマー">グラマー</option>
+                          <option value="ぽっちゃり">ぽっちゃり</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>
@@ -1458,11 +1467,12 @@ function ShopDetailModal({
                   <SubTitle>ヘアーセット</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysHairSet}
-                        onChange={(e) => setTodaysHairSet(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysHairSet} onChange={(e) => setTodaysHairSet(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="要">要</option>
+                          <option value="不要">不要</option>
+                          <option value="どちらでも">どちらでも</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>
@@ -1471,11 +1481,14 @@ function ShopDetailModal({
                   <SubTitle>時給</SubTitle>
                   <div className="mt-2">
                     <Field>
-                      <Input
-                        value={todaysWage}
-                        onChange={(e) => setTodaysWage(e.target.value)}
-                        placeholder="プルダウン（UIのみ）"
-                      />
+                      <Select value={todaysWage} onChange={(e) => setTodaysWage(e.target.value)}>
+                          <option value="">選択してください</option>
+                          <option value="〜2500">〜2500</option>
+                          <option value="2600〜3000">2600〜3000</option>
+                          <option value="3100〜3500">3100〜3500</option>
+                          <option value="3600〜4000">3600〜4000</option>
+                          <option value="4100〜">4100〜</option>
+                        </Select>
                     </Field>
                   </div>
                 </div>

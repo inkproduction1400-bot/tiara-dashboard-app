@@ -950,10 +950,22 @@ function ShopDetailModal({
       return;
     }
 
+    const today = new Date();
+    const dailyOrderDate = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
     const payload = {
       name: name.trim(),
       addressLine: addressLine.trim(),
       phone: phone.trim(),
+
+      // B（当日特別オーダー）
+      dailyOrderDate,
+      contactConfirm: todaysContactConfirm,
+      drink: todaysDrink,
+      height: todaysHeight,
+      bodyType: todaysBodyType,
+      hairSet: todaysHairSet,
+      wage: todaysWage,
     } as Parameters<typeof updateShop>[1];
 
     if (trimmedNumber) payload.shopNumber = trimmedNumber;

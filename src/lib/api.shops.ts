@@ -85,6 +85,28 @@ export type ShopDetail = ShopListItem & {
   reqKeywords?: string[] | null;
   /** 備考欄など（必要に応じて API 側の note カラム等に対応） */
   note?: string | null;
+
+  // ---- 追加：登録情報①・当日特別オーダーなど（page.tsx で参照しているキー群）----
+  postalCode?: string | null;
+  height?: string | null;
+  bodyType?: string | null;
+  caution?: string | null;
+  contactMethod?: string | null; // "line" | "sms" | "tel" | "" を想定（API側は string の想定）
+  hairSet?: string | null; // ★ 登録情報①の hairSet（当日とは別）
+  ownerStaff?: string | null;
+  phoneChecked?: boolean | null;
+
+  // 当日特別オーダー（GET で返している場合のために optional で持つ）
+  dailyOrderDate?: string | null;
+  dailyOrder?: {
+    date?: string | null;
+    contactConfirm?: string | null;
+    drink?: string | null;
+    height?: string | null;
+    bodyType?: string | null;
+    hairSet?: string | null; // ★ 当日特別オーダー側 hairSet（衝突回避）
+    wage?: string | null;
+  } | null;
 };
 
 /**
@@ -139,10 +161,24 @@ export async function getShop(id: string): Promise<ShopDetail> {
   return apiFetch<ShopDetail>(`/shops/${id}`, withUser());
 }
 
+// =======================
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
-// モーダル内の編集項目（店舗番号 / 店名 / カナ / 住所 / ビル名 / 時給ラベル / 電話 / ジャンル / ランク / 身分証 / reqKeywords など）を
-// ベストエフォートで網羅できるようにしておく
+// =======================
+
+// ★ 当日特別オーダー（衝突回避のため dailyOrder にネストで送る）
+export type ShopDailyOrderPayload = Partial<{
+  date: string; // "YYYY-MM-DD"
+  contactConfirm: string;
+  drink: string;
+  height: string;
+  bodyType: string;
+  hairSet: string; // ★ 当日特別オーダー側 hairSet
+  wage: string;
+}>;
+
+// ★ 保存対象：登録情報①（page.tsx で payload に積んだキー名へ完全追従）
 export type UpdateShopPayload = Partial<{
+  // --- 店舗基本 ---
   name: string;
   nameKana: string;
   shopNumber: string;
@@ -151,21 +187,35 @@ export type UpdateShopPayload = Partial<{
   addressLine: string;
   buildingName: string;
   phone: string;
+
   genre: ShopGenre | null;
   rank: ShopRank | null;
   drinkPreference: ShopDrinkPreference | null;
   idDocumentRequirement: ShopIdRequirement | null;
   preferredAgeRange: ShopPreferredAgeRange | null;
   wageLabel: string | null;
+
   reqKeywords: string[];
   note: string | null;
-  dailyOrderDate: string;
-  contactConfirm: string;
-  drink: string;
+
+  // --- 登録情報①（保存対象） ---
+  postalCode: string; // page.tsx では空でも送る想定のため string
   height: string;
   bodyType: string;
-  hairSet: string;
-  wage: string;
+  caution: string;
+  contactMethod: string; // "line" | "sms" | "tel" | "" を想定（API側は string）
+  hairSet: string; // ★ 登録情報①の hairSet（当日とは別）
+  ownerStaff: string;
+  phoneChecked: boolean;
+
+  // --- 当日特別オーダー（保存対象） ---
+  // 互換のため dailyOrderDate も残す（API側が参照している可能性があるため）
+  dailyOrderDate: string; // "YYYY-MM-DD"
+  dailyOrder: ShopDailyOrderPayload;
+
+  // ※ 旧フラットキー（contactConfirm/drink/height/bodyType/hairSet/wage）は廃止
+  //    ただし API がまだ旧キーを受けている場合は、ここに残すのではなく
+  //    page.tsx 側で「両方送る」にする方が安全（型汚染を避ける）
 }>;
 
 /**

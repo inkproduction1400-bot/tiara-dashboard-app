@@ -159,6 +159,13 @@ export type UpdateShopPayload = Partial<{
   wageLabel: string | null;
   reqKeywords: string[];
   note: string | null;
+  dailyOrderDate: string;
+  contactConfirm: string;
+  drink: string;
+  height: string;
+  bodyType: string;
+  hairSet: string;
+  wage: string;
 }>;
 
 /**

@@ -1,7 +1,7 @@
 // src/app/(dashboard)/shops/page.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   listShops,
@@ -694,6 +694,15 @@ export default function ShopsPage() {
                 item.id === updated.id ? { ...item, ...updated } : item,
               ),
             );
+
+            // ★ 追加：モーダル内の base / detail も更新して「再表示ズレ」を防ぐ
+            setSelectedShop((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+            setShopDetail((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+
             handleCloseModal();
           }}
         />
@@ -818,6 +827,11 @@ function ShopDetailModal({
   // 詳細レスポンスがあればそちらを優先、なければ一覧からの base を使う
   const shop: ShopDetail | ShopListItem = detail || base;
 
+  // ★ 追加：detail が後から来ても state が初期化されない問題対策
+  // - base.id が変わったら「未反映」状態に戻す
+  // - detail が来た時に1回だけフォーム state に反映する
+  const lastAppliedShopIdRef = useRef<string | null>(null);
+
   // ---- 必須 1〜8項目＋追加項目の state ----
   const [shopNumber, setShopNumber] = useState<string>(shop?.shopNumber ?? ""); // ①店舗番号
   const [name, setName] = useState<string>(shop?.name ?? ""); // ②店名
@@ -895,6 +909,44 @@ function ShopDetailModal({
   ];
 
   const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
+
+  // ★ 追加：base が切り替わったら「未反映」状態に戻す
+  useEffect(() => {
+    lastAppliedShopIdRef.current = null;
+  }, [base.id]);
+
+  // ★ 追加：detail が後から来ても state に反映されない問題を解消
+  useEffect(() => {
+    if (!detail) return;
+
+    // 既にこの店舗IDの detail を反映済みなら何もしない
+    if (lastAppliedShopIdRef.current === detail.id) return;
+
+    // detail の内容でフォームを上書き（初回だけ）
+    setShopNumber(detail.shopNumber ?? "");
+    setName(detail.name ?? "");
+    setKana((detail as any).nameKana ?? (detail as any).kana ?? "");
+    setRank(((detail as any).rank as ShopRank | null) ?? "");
+    setAddressLine((detail as any).addressLine ?? "");
+    setBuildingName((detail as any).buildingName ?? "");
+    setHourlyRate((detail as any).wageLabel ?? "");
+    setPhone((detail as any).phone ?? "");
+    setGenre(((detail as any).genre as ShopGenre | null) ?? "");
+    setDrinkPreference(((detail as any).drinkPreference as ShopDrinkPreference | null) ?? "");
+    setIdDocument((detail as any).idDocumentRequirement ?? "");
+    setOwnerStaff((detail as any).ownerStaff ?? "");
+
+    // 「当日特別オーダー」系：detail 側に同名があれば反映（無ければ空のまま）
+    setTodaysContactConfirm((detail as any).contactConfirm ?? "");
+    setTodaysDrink((detail as any).drink ?? "");
+    setTodaysHeight((detail as any).height ?? "");
+    setTodaysBodyType((detail as any).bodyType ?? "");
+    setTodaysHairSet((detail as any).hairSet ?? "");
+    setTodaysWage((detail as any).wage ?? "");
+
+    // 反映済みマーク
+    lastAppliedShopIdRef.current = detail.id;
+  }, [detail]);
 
   // ---- 専属 / NG 初期ロード（表示用）----
   useEffect(() => {

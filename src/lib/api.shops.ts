@@ -66,7 +66,7 @@ export type ShopListItem = {
 
   createdAt: string;
 
-  // コントローラの select に含めていないケースもあるので optional に変更
+  // コントローラの select に含めていないケースもあるので optional
   updatedAt?: string;
 };
 
@@ -83,29 +83,34 @@ export type ShopListResponse = {
 export type ShopDetail = ShopListItem & {
   /** 求人用キーワード（店舗条件・特徴など） */
   reqKeywords?: string[] | null;
+
   /** 備考欄など（必要に応じて API 側の note カラム等に対応） */
   note?: string | null;
 
-  // ---- 追加：登録情報①・当日特別オーダーなど（page.tsx で参照しているキー群）----
+  // ---- 登録情報① など（UI で参照しているキー群）----
   postalCode?: string | null;
   height?: string | null;
   bodyType?: string | null;
   caution?: string | null;
-  contactMethod?: string | null; // "line" | "sms" | "tel" | "" を想定（API側は string の想定）
+  contactMethod?: string | null; // "line" | "sms" | "tel" | "" を想定（API側は string）
   hairSet?: string | null; // ★ 登録情報①の hairSet（当日とは別）
   ownerStaff?: string | null;
   phoneChecked?: boolean | null;
 
-  // 当日特別オーダー（GET で返している場合のために optional で持つ）
-  dailyOrderDate?: string | null;
+  // 当日特別オーダー（Controller が GET/PATCH で返す想定）
+  // - API 側は snake/camel を吸収して返すが、型はユルく持つ
   dailyOrder?: {
-    date?: string | null;
+    date?: string | null; // Date or string が混在し得るが UI は基本 YYYY-MM-DD を想定
     contactConfirm?: string | null;
     drink?: string | null;
     height?: string | null;
     bodyType?: string | null;
     hairSet?: string | null; // ★ 当日特別オーダー側 hairSet（衝突回避）
     wage?: string | null;
+    note?: string | null;
+    updatedBy?: string | null;
+    updatedAt?: string | null;
+    createdAt?: string | null;
   } | null;
 };
 
@@ -165,63 +170,95 @@ export async function getShop(id: string): Promise<ShopDetail> {
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
 // =======================
 
-// ★ 当日特別オーダー（衝突回避のため dailyOrder にネストで送る）
+/**
+ * ★ 当日特別オーダー（shop_daily_orders）
+ * - API DTO は dailyOrder（ネスト）を正式対応
+ * - かつ互換としてフラット（dailyOrderDate など）も受理する
+ */
 export type ShopDailyOrderPayload = Partial<{
   date: string; // "YYYY-MM-DD"
-  contactConfirm: string;
-  drink: string;
-  height: string;
-  bodyType: string;
-  hairSet: string; // ★ 当日特別オーダー側 hairSet
-  wage: string;
+  contactConfirm: string | null;
+  drink: string | null;
+  height: string | null;
+  bodyType: string | null;
+  hairSet: string | null; // ★ 当日特別オーダー側 hairSet（衝突回避）
+  wage: string | null;
+  note: string | null;
+  updatedBy: string | null;
 }>;
 
-// ★ 保存対象：登録情報①（page.tsx で payload に積んだキー名へ完全追従）
+/**
+ * ★ UpdateShopPayload（今回の API UpdateShopDto キー名に完全追従）
+ *
+ * 【A: 店舗基本情報（shops）】
+ * - name/nameKana/prefecture/city/addressLine/buildingName/phone/postalCode/contactMethod/hairSet/wageLabel/caution/ownerStaff
+ * - genre/rank/drinkPreference/idDocumentRequirement/preferredAgeRange
+ * - shopNumber（互換で shop_number も送れるように型として持つ）
+ * - reqKeywords（全入替）
+ *
+ * 【B: 当日特別オーダー（shop_daily_orders）】
+ * - 推奨: dailyOrder ネスト
+ * - 互換: dailyOrderDate + (contactConfirm/drink/height/bodyType/wage/note/updatedBy/hairSet) のフラット
+ *
+ * ※ hairSet は「shops 基本情報」と「dailyOrder」の両方に存在する。
+ *    衝突回避のため dailyOrder 側は dailyOrder.hairSet を推奨。
+ */
 export type UpdateShopPayload = Partial<{
-  // --- 店舗基本 ---
+  // ------- A: 基本情報（shops） -------
   name: string;
-  nameKana: string;
-  shopNumber: string;
-  prefecture: string;
-  city: string;
-  addressLine: string;
-  buildingName: string;
-  phone: string;
+  nameKana: string | null;
+
+  prefecture: string | null;
+  city: string | null;
+  addressLine: string | null;
+  buildingName: string | null;
+  phone: string | null;
+
+  postalCode: string | null;
+  contactMethod: string | null;
+
+  hairSet: string | null; // ★ 店舗基本情報側
+  wageLabel: string | null;
+  caution: string | null;
+  ownerStaff: string | null;
 
   genre: ShopGenre | null;
   rank: ShopRank | null;
   drinkPreference: ShopDrinkPreference | null;
   idDocumentRequirement: ShopIdRequirement | null;
   preferredAgeRange: ShopPreferredAgeRange | null;
-  wageLabel: string | null;
 
-  reqKeywords: string[];
+  // 店舗番号（互換）
+  shopNumber: string | null;
+  shop_number: string | null;
+
+  // 要件キーワード（全入替）
+  reqKeywords: string[] | null;
+
+  // 備考（※ API 側 shops.note を実装している場合のみ有効）
   note: string | null;
 
-  // --- 登録情報①（保存対象） ---
-  postalCode: string; // page.tsx では空でも送る想定のため string
-  height: string;
-  bodyType: string;
-  caution: string;
-  contactMethod: string; // "line" | "sms" | "tel" | "" を想定（API側は string）
-  hairSet: string; // ★ 登録情報①の hairSet（当日とは別）
-  ownerStaff: string;
-  phoneChecked: boolean;
+  // ------- B: 当日特別オーダー（ネスト推奨） -------
+  dailyOrder: ShopDailyOrderPayload | null;
 
-  // --- 当日特別オーダー（保存対象） ---
-  // 互換のため dailyOrderDate も残す（API側が参照している可能性があるため）
-  dailyOrderDate: string; // "YYYY-MM-DD"
-  dailyOrder: ShopDailyOrderPayload;
+  // ------- B: 当日特別オーダー（フラット互換） -------
+  dailyOrderDate: string | null; // "YYYY-MM-DD"
+  contactConfirm: string | null;
+  drink: string | null;
+  height: string | null;
+  bodyType: string | null;
+  wage: string | null;
 
-  // ※ 旧フラットキー（contactConfirm/drink/height/bodyType/hairSet/wage）は廃止
-  //    ただし API がまだ旧キーを受けている場合は、ここに残すのではなく
-  //    page.tsx 側で「両方送る」にする方が安全（型汚染を避ける）
+  // dailyOrder 側 note/updatedBy とフラット互換
+  updatedBy: string | null;
+
+  // 将来用（boolean で来るケース）
+  phoneChecked: boolean | null;
 }>;
 
 /**
  * 店舗更新
- * - 戻り値は ShopDetail として扱えるようにしておく
- *   （保存後に一覧の 1 行を更新する際にも利用しやすい）
+ * - 戻り値は ShopDetail（Controller が dailyOrder も同梱して返す想定）
  */
 export async function updateShop(
   id: string,
@@ -242,8 +279,7 @@ export async function updateShop(
 export async function importShopsExcel(file: File) {
   // apiFetch は JSON 前提なのでここは fetch を直接使う
   const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ??
-    "https://tiara-api.vercel.app/api/v1"
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
   ).replace(/\/+$/, "");
 
   const form = new FormData();

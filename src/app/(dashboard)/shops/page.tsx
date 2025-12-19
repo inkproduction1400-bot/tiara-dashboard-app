@@ -155,6 +155,16 @@ function hasNominated(item: ShopListItem): boolean {
   return false;
 }
 
+// ==========================================================
+// JST 今日（YYYY-MM-DD）ユーティリティ（UTCズレ防止）
+// - toISOString() は UTC なので、そのまま slice すると日付ズレする可能性あり
+// - JST(UTC+9) を基準に "YYYY-MM-DD" を作る
+// ==========================================================
+function formatDateYYYYMMDD_JST(date = new Date()): string {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
 export default function ShopsPage() {
   const [items, setItems] = useState<ShopListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -693,7 +703,7 @@ export default function ShopsPage() {
           loading={shopDetailLoading}
           error={shopDetailError}
           onClose={handleCloseModal}
-          onSaved={(updated) => {
+          onSaved={async (updated) => {
             // 一覧の items を即時反映
             setItems((prev) =>
               prev.map((item) =>
@@ -710,6 +720,9 @@ export default function ShopsPage() {
             );
 
             handleCloseModal();
+
+            // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
+            await reload();
           }}
         />
       )}
@@ -1092,8 +1105,8 @@ function ShopDetailModal({
     (payload as any).hairSet = hairSet || "";
 
     // ===== 当日特別オーダー：ネストで送る（hairSet衝突回避）=====
-    const today = new Date();
-    const dailyOrderDate = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    // ✅ JST 기준で “今日” を作る（UTCズレ防止）
+    const dailyOrderDate = formatDateYYYYMMDD_JST(new Date()); // "YYYY-MM-DD"
 
     (payload as any).dailyOrderDate = dailyOrderDate;
 
@@ -1111,7 +1124,10 @@ function ShopDetailModal({
     try {
       // 1) update
       await updateShop(base.id, payload);
+
       // 2) 保存直後に再取得して「再表示ズレ」を潰す
+      //    ※ API 側が PATCH レスポンスで dailyOrder 同梱しているので
+      //       本来は updateShop の戻り値でも反映可能だが、確実性優先で refetch
       const refetched = await getShop(base.id);
       await onSaved(refetched);
     } catch (e: any) {

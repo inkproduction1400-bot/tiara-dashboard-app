@@ -1,7 +1,12 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, type MouseEvent } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  type MouseEvent,
+} from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
 import {
@@ -880,41 +885,12 @@ function CastDetailModal({
   const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
 
 
-  
-
-  useEffect(() => {
-    if (ngModalOpen || exclusiveModalOpen || favoriteModalOpen) {
-      void ensureShopsMasterLoaded();
-    }
-  }, [ngModalOpen, exclusiveModalOpen, favoriteModalOpen]);
-
-// ===== 店舗マスタ（NG/専属/指名モーダルで共通）=====
+  // ===== 店舗マスタ（NG/専属/指名モーダルで共通）=====
   const [shopsMaster, setShopsMaster] = useState<ShopLite[]>([]);
   const [shopsMasterLoaded, setShopsMasterLoaded] = useState(false);
   const [shopsMasterLoading, setShopsMasterLoading] = useState(false);
 
-  
-  const ensureShopsMasterLoaded = async () => {
-    if (shopsMasterLoaded || shopsMasterLoading) return;
-    setShopsMasterLoading(true);
-    try {
-      const res = await listShops({ limit: 10000 });
-      const items = (res as any)?.items ?? [];
-      const lite: ShopLite[] = items.map((x: any) => ({
-        id: x.id,
-        name: x.name,
-        genre: x.genre ?? null,
-      }));
-      setShopsMaster(lite);
-      setShopsMasterLoaded(true);
-    } catch (e) {
-      console.error("[casts/page] failed to load shops master", e);
-    } finally {
-      setShopsMasterLoading(false);
-    }
-  };
-
-useEffect(() => {
+  useEffect(() => {
     if (shopsMasterLoaded || shopsMasterLoading) return;
 
     // 3モーダルで共通利用するため、初回に 1 回だけ 10,000 件まで取得して保持
@@ -2199,42 +2175,54 @@ useEffect(() => {
       {/* NG店舗選択モーダル */}
       {ngModalOpen && form && (
         <NgShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setNgModalOpen(false)}
-  initialSelectedIds={form.ngShopIds}
-  onSubmit={(selectedIds) => {
-    const names = selectedIds.map((id) => shopsMaster.find((x) => x.id === id)?.name ?? "");
-    setForm((prev) => (prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: names } : prev));
-  }}
-/>
+          onClose={() =
+          shops={shopsMaster}
+          onClose={() => setNgModalOpen(false)}
+          selectedIds={form.ngShopIds}
+          onChange={(ids, names) => {
+            setForm((prev) =>
+              prev ? { ...prev, ngShopIds: ids, ngShopNames: names } : prev,
+            );
+          }}
+        />
       )}
 
       {/* 専属指名店舗選択モーダル */}
       {exclusiveModalOpen && form && (
         <ExclusiveShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setExclusiveModalOpen(false)}
-  initialSelectedId={form.exclusiveShopId ?? null}
-  onSubmit={(selectedId) => {
-    const name = selectedId ? (shopsMaster.find((x) => x.id === selectedId)?.name ?? "") : "";
-    setForm((prev) => (
-      prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name } : prev
-    ));
-  }}
-/>
+          onClose={() =
+          shops={shopsMaster}
+          onClose={() => setExclusiveModalOpen(false)}
+          selectedId={form.exclusiveShopId}
+          onChange={(id, name) => {
+            setForm((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    exclusiveShopId: id,
+                    exclusiveShopName: name,
+                  }
+                : prev,
+            );
+          }}
+        />
       )}
 
       {/* 指名店舗（旧お気に入り）選択モーダル */}
       {favoriteModalOpen && form && (
         <FavoriteShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setFavoriteModalOpen(false)}
-  initialSelectedIds={form.favoriteShopIds}
-  onSubmit={(selectedIds) => {
-    const names = selectedIds.map((id) => shopsMaster.find((x) => x.id === id)?.name ?? "");
-    setForm((prev) => (prev ? { ...prev, favoriteShopIds: selectedIds, favoriteShopNames: names } : prev));
-  }}
-/>
+          onClose={() =
+          shops={shopsMaster}
+          onClose={() => setFavoriteModalOpen(false)}
+          selectedIds={form.favoriteShopIds}
+          onChange={(ids, names) => {
+            setForm((prev) =>
+              prev
+                ? { ...prev, favoriteShopIds: ids, favoriteShopNames: names }
+                : prev,
+            );
+          }}
+        />
       )}
     </>
   );

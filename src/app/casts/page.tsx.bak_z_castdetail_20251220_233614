@@ -1361,7 +1361,7 @@ function CastDetailModal({
   return (
     <>
       {/* viewport 基準で中央固定（スクショ版） */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center px-3 py-6">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center px-3 py-6">
         {/* オーバーレイ */}
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 

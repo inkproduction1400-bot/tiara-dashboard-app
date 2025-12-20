@@ -1393,6 +1393,7 @@ export default function Page() {
 
       {/* NG登録モーダル */}
       {ngModalOpen && selectedCast && (
+        /* NG登録モーダル：詳細モーダルの上に重ねる（サブモーダル階層） */
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeNgModal} />
           <div className="relative z-10 w-full max-w-4xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">

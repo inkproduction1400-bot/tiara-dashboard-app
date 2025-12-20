@@ -1160,7 +1160,7 @@ export default function Page() {
 
       {/* 店舗選択モーダル */}
       {shopModalOpen && (
-        <div className="固定 inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShopModalOpen(false)}

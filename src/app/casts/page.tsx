@@ -1361,7 +1361,7 @@ function CastDetailModal({
   return (
     <>
       {/* viewport 基準で中央固定（スクショ版） */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center px-3 py-6">
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6">
         {/* オーバーレイ */}
         <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
@@ -2071,7 +2071,7 @@ function DeleteCastModal({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
         <h4 className="text-sm font-semibold text-ink mb-2">
@@ -2155,7 +2155,7 @@ function ShiftEditModal({
   const monthLabel = `${year}年 ${month + 1}月`;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-3">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-[94vw] max-w-4xl max-h-[82vh] bg-white rounded-2xl border border-gray-300 shadow-2xl p-4 flex flex-col">
         <div className="flex items-center justify-between mb-3">

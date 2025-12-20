@@ -2470,9 +2470,8 @@ function NgShopSelectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="tiara-modal relative z-10 w-full max-w-4xl max-h-[82vh] overflow-hidden flex flex-col">
+    <div className="tiara-modal-backdrop">
+      <div className="tiara-modal">
         <div className="tiara-modal__head">
           <div>
             <h4 className="text-sm font-semibold">NG店舗の選択</h4>
@@ -2483,7 +2482,7 @@ function NgShopSelectModal({
           </button>
         </div>
 
-        <div className="tiara-table-wrap mt-3 flex-1 overflow-auto">
+        <div className="tiara-table-wrap mt-3">
           <table className="tiara-table">
             <thead>
               <tr>
@@ -2559,9 +2558,8 @@ function ExclusiveShopSelectModal({
   }, [initialSelectedId]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="tiara-modal relative z-10 w-full max-w-4xl max-h-[82vh] overflow-hidden flex flex-col">
+    <div className="tiara-modal-backdrop">
+      <div className="tiara-modal">
         <div className="tiara-modal__head">
           <div>
             <h4 className="text-sm font-semibold">専属指名店舗の選択</h4>
@@ -2574,7 +2572,7 @@ function ExclusiveShopSelectModal({
           </button>
         </div>
 
-        <div className="tiara-table-wrap mt-3 flex-1 overflow-auto">
+        <div className="tiara-table-wrap mt-3">
           <table className="tiara-table">
             <thead>
               <tr>
@@ -2657,9 +2655,8 @@ function FavoriteShopSelectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center px-3 py-6">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="tiara-modal relative z-10 w-full max-w-4xl max-h-[82vh] overflow-hidden flex flex-col">
+    <div className="tiara-modal-backdrop">
+      <div className="tiara-modal">
         <div className="tiara-modal__head">
           <div>
             <h4 className="text-sm font-semibold">指名店舗の選択</h4>
@@ -2672,7 +2669,7 @@ function FavoriteShopSelectModal({
           </button>
         </div>
 
-        <div className="tiara-table-wrap mt-3 flex-1 overflow-auto">
+        <div className="tiara-table-wrap mt-3">
           <table className="tiara-table">
             <thead>
               <tr>

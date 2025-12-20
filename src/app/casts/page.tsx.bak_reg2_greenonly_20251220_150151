@@ -1648,68 +1648,173 @@ function CastDetailModal({
 
                                 {/* 右：登録情報② */}
                 <div className="bg-[#6aa84f] p-4">
-                  {/* header row */}
-                  <div className="flex items-start gap-4">
-                    <div className="bg-[#2b78e4] text-white text-xs font-semibold px-3 py-1.5 border border-black/60">
+                  {/* 上部：タイトル＋応募経路チェック */}
+                  <div className="flex items-center gap-4">
+                    <div className="inline-flex items-center justify-center h-7 px-3 bg-[#2b78e4] text-white text-xs font-semibold border border-black/40">
                       登録情報②
                     </div>
 
-                    {/* チェック（スクショ寄せ：右側に並べる） */}
-                    <div className="grid grid-cols-4 gap-x-6 gap-y-2 pt-1 text-xs text-white">
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>Google検索</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>Yahoo検索</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>SNS</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>instagram</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>TikTok</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>紹介</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4" /><span>口コミ</span></label>
+                    {/* チェック群（スクショ通り横並び） */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white">
+                      {(
+                        [
+                          "Google検索",
+                          "Yahoo検索",
+                          "SNS",
+                          "instagram",
+                          "TikTok",
+                          "紹介",
+                          "口コミ",
+                        ] as const
+                      ).map((label) => {
+                        const current = (form?.howFound ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+                        const checked = current.includes(label);
+                        return (
+                          <label key={label} className="inline-flex items-center gap-1 select-none">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4"
+                              checked={checked}
+                              onChange={(e) => {
+                                const base = (form?.howFound ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+                                const next = e.target.checked
+                                  ? Array.from(new Set([...base, label]))
+                                  : base.filter((x) => x !== label);
+                                setForm((p) => (p ? { ...p, howFound: next.join(", ") } : p));
+                              }}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* fields */}
-                  <div className="mt-4 space-y-3">
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
-                      <div className="text-xs text-white font-semibold">紹介者</div>
+                  {/* 本体：左ラベル + 右入力（スクショの2カラム） */}
+                  <div className="mt-3 grid grid-cols-[220px_minmax(0,1fr)] gap-x-6">
+                    {/* 左：ラベル列（スクショはこの列が縦に並ぶ） */}
+                    <div className="space-y-3 text-xs text-white leading-tight pt-1">
+                      <div>どのように応募しましたか？</div>
+                      <div>検索したワードを教えてください</div>
+                      <div>他派遣会社への登録</div>
+                      <div>不満だった点を教えてください</div>
+                      <div>本気度の登録を教えてください</div>
+                      <div>TBマナーの講習が必要ですか？</div>
+                      <div className="mt-2">その他（備考）</div>
+
+                      <div className="mt-6">希望勤務地</div>
+                      <div>希望時間帯</div>
+                      <div>希望エリア</div>
+                      <div>希望出勤日数</div>
+                    </div>
+
+                    {/* 右：入力列 */}
+                    <div className="space-y-3">
+                      {/* どのように応募しましたか？（上のチェックに連動：howFound） */}
                       <input
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.referrerName ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, referrerName: e.target.value } : p))}
+                        value={form?.howFound ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, howFound: e.target.value } : p))}
+                        placeholder=""
                       />
-                    </div>
 
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
-                      <div className="text-xs text-white font-semibold">送迎必要？</div>
+                      {/* 検索ワード（motivation を流用：現状の型内にあるため） */}
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.motivation ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, motivation: e.target.value } : p))}
+                        placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
+                      />
+
+                      {/* 他派遣会社への登録（otherAgencies をプルダウン化） */}
                       <select
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.needPickup ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, needPickup: e.target.value as any } : p))}
+                        value={form?.otherAgencies ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, otherAgencies: e.target.value } : p))}
                       >
                         <option value=""></option>
-                        <option value="要">必要</option>
+                        <option value="ある">ある</option>
+                        <option value="少しある">少しある</option>
+                        <option value="なし">なし</option>
+                      </select>
+
+                      {/* 不満だった点（compareOtherAgencies を自由入力として流用） */}
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.compareOtherAgencies ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, compareOtherAgencies: e.target.value } : p))}
+                        placeholder="自由入力"
+                      />
+
+                      {/* 本気度（reasonChoose をプルダウンとして流用） */}
+                      <select
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.reasonChoose ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, reasonChoose: e.target.value } : p))}
+                      >
+                        <option value=""></option>
+                        <option value="ある">ある</option>
+                        <option value="少しある">少しある</option>
+                        <option value="なし">なし</option>
+                      </select>
+
+                      {/* TBマナー（shopSelectionPoints を必要/不要として流用） */}
+                      <select
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.shopSelectionPoints ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, shopSelectionPoints: e.target.value } : p))}
+                      >
+                        <option value=""></option>
+                        <option value="必要">必要</option>
                         <option value="不要">不要</option>
                       </select>
-                    </div>
 
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
-                      <div className="text-xs text-white font-semibold">出勤希望</div>
+                      {/* その他（備考） */}
+                      <textarea
+                        className="w-full h-[140px] bg-white border border-black/40 px-2 py-2 text-sm resize-none"
+                        value={form?.otherNotes ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, otherNotes: e.target.value } : p))}
+                        placeholder="自由入力"
+                      />
+
+                      {/* 下段：希望系（スクショは4行の入力だけ） */}
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.preferredArea ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, preferredArea: e.target.value } : p))}
+                      />
+
+                      {/* 希望時間帯：from/to を見た目1行にまとめる */}
+                      <div className="flex items-center">
+                        <input
+                          className="w-1/2 h-8 bg-white border border-black/40 px-2 text-sm"
+                          value={form?.preferredTimeFrom ?? ""}
+                          onChange={(e) => setForm((p) => (p ? { ...p, preferredTimeFrom: e.target.value } : p))}
+                        />
+                        <div className="h-8 px-2 flex items-center bg-white border-t border-b border-black/40 text-xs">
+                          〜
+                        </div>
+                        <input
+                          className="w-1/2 h-8 bg-white border border-black/40 px-2 text-sm"
+                          value={form?.preferredTimeTo ?? ""}
+                          onChange={(e) => setForm((p) => (p ? { ...p, preferredTimeTo: e.target.value } : p))}
+                        />
+                      </div>
+
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form?.preferredArea ?? ""}
+                        onChange={(e) => setForm((p) => (p ? { ...p, preferredArea: e.target.value } : p))}
+                      />
+
                       <input
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                         value={form?.preferredDays ?? ""}
                         onChange={(e) => setForm((p) => (p ? { ...p, preferredDays: e.target.value } : p))}
                       />
                     </div>
-
-                    <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
-                      <div className="text-xs text-white font-semibold">勤務希望</div>
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.preferredArea ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, preferredArea: e.target.value } : p))}
-                      />
-                    </div>
                   </div>
-</div>
-              </div>
+                </div>              </div>
             </div>
 
             {/* 下段：スタッフ入力項目（オレンジ） */}

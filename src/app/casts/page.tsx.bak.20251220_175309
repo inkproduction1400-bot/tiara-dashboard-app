@@ -1895,7 +1895,7 @@ function RegisterInfo2({
       ? currentHowFound.filter((x) => x !== label)
       : [...currentHowFound, label];
 
-    setForm((p: any) => (p ? { ...p, howFound: next.join(" / ") } : p));
+    setForm((p) => (p ? { ...p, howFound: next.join(" / ") } : p));
   };
 
   return (
@@ -1938,7 +1938,7 @@ function RegisterInfo2({
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.referrerName ?? ""}
-            onChange={(e) => setForm((p: any) => (p ? { ...p, referrerName: e.target.value } : p))}
+            onChange={(e) => setForm((p) => (p ? { ...p, referrerName: e.target.value } : p))}
             placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
           />
         </div>
@@ -2032,7 +2032,7 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredArea ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))}
+              onChange={(e) => setForm((p) => (p ? { ...p, preferredArea: e.target.value } : p))}
             />
           </div>
 
@@ -2041,7 +2041,7 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))}
+              onChange={(e) => setForm((p) => (p ? { ...p, preferredDays: e.target.value } : p))}
             />
           </div>
         </div>

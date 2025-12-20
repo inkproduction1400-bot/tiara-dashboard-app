@@ -1,7 +1,7 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, type MouseEvent, useCallback, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, useEffect, type MouseEvent, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
 import {
@@ -1863,16 +1863,16 @@ function RegisterInfo2({
   setForm,
 }: {
   form: any;
-  setForm: Dispatch<SetStateAction<any>>;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
 }) {
   // スクショ項目のうち、保存先（既存フォームキー）が未定なものはローカル保持（UI完全再現を優先）
-  const [otherAgency, setOtherAgency] = useState<string>("");
-  const [dissatisfied, setDissatisfied] = useState<string>("");
-  const [serviceExp, setServiceExp] = useState<string>("");
-  const [tbManner, setTbManner] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
-  const [preferredWorkplace, setPreferredWorkplace] = useState<string>("");
-  const [preferredTime, setPreferredTime] = useState<string>("");
+  const [otherAgency, setOtherAgency] = React.useState<string>("");
+  const [dissatisfied, setDissatisfied] = React.useState<string>("");
+  const [serviceExp, setServiceExp] = React.useState<string>("");
+  const [tbManner, setTbManner] = React.useState<string>("");
+  const [notes, setNotes] = React.useState<string>("");
+  const [preferredWorkplace, setPreferredWorkplace] = React.useState<string>("");
+  const [preferredTime, setPreferredTime] = React.useState<string>("");
 
   const HOW_FOUND_OPTIONS = [
     "Google検索",
@@ -1895,7 +1895,7 @@ function RegisterInfo2({
       ? currentHowFound.filter((x) => x !== label)
       : [...currentHowFound, label];
 
-    setForm((p: any) => (p ? { ...p, howFound: next.join(" / ") } : p));
+    setForm((p) => (p ? { ...p, howFound: next.join(" / ") } : p));
   };
 
   return (
@@ -1938,7 +1938,7 @@ function RegisterInfo2({
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.referrerName ?? ""}
-            onChange={(e) => setForm((p: any) => (p ? { ...p, referrerName: e.target.value } : p))}
+            onChange={(e) => setForm((p) => (p ? { ...p, referrerName: e.target.value } : p))}
             placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
           />
         </div>
@@ -2032,7 +2032,7 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredArea ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))}
+              onChange={(e) => setForm((p) => (p ? { ...p, preferredArea: e.target.value } : p))}
             />
           </div>
 
@@ -2041,7 +2041,7 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))}
+              onChange={(e) => setForm((p) => (p ? { ...p, preferredDays: e.target.value } : p))}
             />
           </div>
         </div>

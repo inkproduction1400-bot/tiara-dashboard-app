@@ -1,7 +1,7 @@
 // src/app/casts/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, type MouseEvent, useCallback, type Dispatch, type SetStateAction } from "react";
+import { useMemo, useState, useEffect, type MouseEvent, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
 import {
@@ -1863,18 +1863,9 @@ function RegisterInfo2({
   setForm,
 }: {
   form: any;
-  setForm: Dispatch<SetStateAction<any>>;
+  setForm: React.Dispatch<React.SetStateAction<any>>;
 }) {
-  // スクショ項目のうち、保存先（既存フォームキー）が未定なものはローカル保持（UI完全再現を優先）
-  const [otherAgency, setOtherAgency] = useState<string>("");
-  const [dissatisfied, setDissatisfied] = useState<string>("");
-  const [serviceExp, setServiceExp] = useState<string>("");
-  const [tbManner, setTbManner] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
-  const [preferredWorkplace, setPreferredWorkplace] = useState<string>("");
-  const [preferredTime, setPreferredTime] = useState<string>("");
-
-  const HOW_FOUND_OPTIONS = [
+  const OPTIONS = [
     "Google検索",
     "Yahoo検索",
     "SNS",
@@ -1884,38 +1875,35 @@ function RegisterInfo2({
     "口コミ",
   ] as const;
 
-  const currentHowFound: string[] = (form?.howFound ?? "")
+  const current: string[] = String(form?.howFound ?? "")
     .split("/")
-    .map((s: string) => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 
-  const toggleHowFound = (label: string) => {
-    const checked = currentHowFound.includes(label);
-    const next = checked
-      ? currentHowFound.filter((x) => x !== label)
-      : [...currentHowFound, label];
-
+  const toggle = (label: string) => {
+    const checked = current.includes(label);
+    const next = checked ? current.filter((x) => x !== label) : [...current, label];
     setForm((p: any) => (p ? { ...p, howFound: next.join(" / ") } : p));
   };
 
   return (
     <div className="bg-[#6aa84f] p-4">
-      {/* header row（スクショ：左にラベル、右にチェック群） */}
+      {/* header row */}
       <div className="flex items-start gap-4">
         <div className="bg-[#2b78e4] text-white text-xs font-semibold px-3 py-1.5 border border-black/60">
           登録情報②
         </div>
 
         <div className="grid grid-cols-4 gap-x-6 gap-y-2 pt-1 text-xs text-white">
-          {HOW_FOUND_OPTIONS.map((label) => {
-            const checked = currentHowFound.includes(label);
+          {OPTIONS.map((label) => {
+            const checked = current.includes(label);
             return (
               <label key={label} className="flex items-center gap-2 select-none">
                 <input
                   type="checkbox"
                   className="h-4 w-4"
                   checked={checked}
-                  onChange={() => toggleHowFound(label)}
+                  onChange={() => toggle(label)}
                 />
                 <span>{label}</span>
               </label>
@@ -1924,131 +1912,52 @@ function RegisterInfo2({
         </div>
       </div>
 
-      {/* fields（スクショの並び順・種別を再現） */}
-      <div className="mt-4 space-y-2">
-        {/* どのように応募しましたか？（スクショではチェック群が該当。右は空欄） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">どのように応募しましたか？</div>
-          <div />
-        </div>
-
-        {/* 検索したワード（自由入力） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">検索したワードを教えてください</div>
+      {/* fields（既存フォームキーのみ使用） */}
+      <div className="mt-4 space-y-3">
+        <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-white font-semibold">紹介者</div>
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.referrerName ?? ""}
             onChange={(e) => setForm((p: any) => (p ? { ...p, referrerName: e.target.value } : p))}
-            placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
           />
         </div>
 
-        {/* 他派遣会社への登録（プルダウン） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">他派遣会社への登録</div>
+        <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-white font-semibold">送迎必要？</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={otherAgency}
-            onChange={(e) => setOtherAgency(e.target.value)}
+            value={form?.needPickup ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, needPickup: e.target.value } : p))}
           >
             <option value=""></option>
-            <option value="あり">あり</option>
-            <option value="なし">なし</option>
-            <option value="不明">不明</option>
-          </select>
-        </div>
-
-        {/* 不満だった点（自由入力） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">不満だった点を教えてください</div>
-          <input
-            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={dissatisfied}
-            onChange={(e) => setDissatisfied(e.target.value)}
-          />
-        </div>
-
-        {/* 求める接客経験（プルダウン：ある/少しある/なし） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">求める接客の経験を教えてください</div>
-          <select
-            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={serviceExp}
-            onChange={(e) => setServiceExp(e.target.value)}
-          >
-            <option value=""></option>
-            <option value="ある">ある</option>
-            <option value="少しある">少しある</option>
-            <option value="なし">なし</option>
-          </select>
-        </div>
-
-        {/* TBマナー講習（プルダウン：必要/不要） */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">TBマナーの講習が必要ですか？</div>
-          <select
-            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={tbManner}
-            onChange={(e) => setTbManner(e.target.value)}
-          >
-            <option value=""></option>
-            <option value="必要">必要</option>
+            <option value="要">必要</option>
             <option value="不要">不要</option>
           </select>
         </div>
 
-        {/* その他（備考）テキストエリア */}
-        <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-3 items-start pt-1">
-          <div className="text-xs text-white font-semibold pt-2">その他（備考）</div>
-          <textarea
-            className="w-full h-40 bg-white border border-black/40 px-2 py-2 text-sm resize-none"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+        <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-white font-semibold">出勤希望</div>
+          <input
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.preferredDays ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))}
           />
         </div>
 
-        {/* 下段4項目（スクショ通りの並び） */}
-        <div className="mt-3 space-y-2">
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望勤務地</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={preferredWorkplace}
-              onChange={(e) => setPreferredWorkplace(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望時間帯</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={preferredTime}
-              onChange={(e) => setPreferredTime(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望エリア</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={form?.preferredArea ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))}
-            />
-          </div>
-
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望出勤日数</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={form?.preferredDays ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))}
-            />
-          </div>
+        <div className="grid grid-cols-[120px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-white font-semibold">勤務希望</div>
+          <input
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.preferredArea ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))}
+          />
         </div>
       </div>
     </div>
   );
 }
+
 
 /** 削除確認モーダル */
 function DeleteCastModal({

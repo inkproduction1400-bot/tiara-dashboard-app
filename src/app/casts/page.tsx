@@ -874,987 +874,242 @@ function CastDetailModal({
   onUpdated,
   staffOptions,
 }: CastDetailModalProps) {
-  const [shiftModalOpen, setShiftModalOpen] = useState(false);
-  const [ngModalOpen, setNgModalOpen] = useState(false);
-  const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
-  const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
-// ===== 店舗マスタ（NG/専属/指名モーダルで共通）=====
-  const [shopsMaster, setShopsMaster] = useState<ShopLite[]>([]);
-  const [shopsMasterLoaded, setShopsMasterLoaded] = useState(false);
-  const [shopsMasterLoading, setShopsMasterLoading] = useState(false);
-  const ensureShopsMasterLoaded = useCallback(async () => {
-    if (shopsMasterLoaded || shopsMasterLoading) return;
-    setShopsMasterLoading(true);
-    try {
-      const res = await listShops({ limit: 10000 });
-      const items = (res as any)?.items ?? [];
-      const lite: ShopLite[] = items.map((x: any) => ({
-        id: x.id,
-        name: x.name,
-        genre: x.genre ?? null,
-      }));
-      setShopsMaster(lite);
-      setShopsMasterLoaded(true);
-    } catch (e) {
-      console.error("[casts/page] failed to load shops master", e);
-    } finally {
-      setShopsMasterLoading(false);
-    }
-  }, [shopsMasterLoaded, shopsMasterLoading]);
-
-
-
-  
-
-  useEffect(() => {
-    if (ngModalOpen || exclusiveModalOpen || favoriteModalOpen) {
-      void ensureShopsMasterLoaded();
-    }
-  }, [ngModalOpen, exclusiveModalOpen, favoriteModalOpen, ensureShopsMasterLoaded]);
-
-  useEffect(() => {
-    if (shopsMasterLoaded || shopsMasterLoading) return;
-
-    // 3モーダルで共通利用するため、初回に 1 回だけ 10,000 件まで取得して保持
-    setShopsMasterLoading(true);
-    (async () => {
-      try {
-        const res = await listShops({ limit: 10000 });
-        const items = (res?.items ?? []) as any[];
-        const lite: ShopLite[] = items.map((x) => ({
-          id: String(x.id),
-          name: String(x.name ?? ""),
-          genre: x.genre ?? null,
-        }));
-        setShopsMaster(lite);
-        setShopsMasterLoaded(true);
-      } catch (e) {
-        console.error("[CastDetailModal] failed to load shops master", e);
-        setShopsMaster([]);
-        setShopsMasterLoaded(true); // 失敗でも無限リトライしない
-      } finally {
-        setShopsMasterLoading(false);
-      }
-    })();
-  }, [shopsMasterLoaded, shopsMasterLoading]);
-
-  const [form, setForm] = useState<CastDetailForm | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveDone, setSaveDone] = useState(false);
-
-  // detail 取得完了時にフォーム初期化
-  useEffect(() => {
-    if (!detail) {
-      setForm(null);
-      setSaveDone(false);
-      setSaveError(null);
-      return;
-    }
-
-    // ジャンル
-    const rawGenres = (detail.background as any)?.genres;
-    const genres: CastGenre[] = Array.isArray(rawGenres)
-      ? (rawGenres as any[]).filter((g: any): g is CastGenre =>
-          CAST_GENRE_OPTIONS.includes(g as CastGenre),
-        )
-      : [];
-
-    // NG店舗（API: detail.ngShops）
-    const existingNgShops: any[] = Array.isArray((detail as any).ngShops)
-      ? ((detail as any).ngShops as any[])
-      : [];
-    const ngShopIds: string[] = existingNgShops
-      .map((s) => String(s.id ?? s.shopId ?? ""))
-      .filter(Boolean);
-    const ngShopNames: string[] = existingNgShops
-      .map((s) => (s.name ?? s.shopName ?? "") as string)
-      .filter((n) => n && n.trim());
-
-    // 専属指名（単一）
-    const rawExclusive = (detail as any).exclusiveShop ?? null;
-    const exclusiveShopId: string | null =
-      (detail as any).exclusiveShopId ??
-      (rawExclusive
-        ? String(rawExclusive.id ?? rawExclusive.shopId ?? "")
-        : null);
-    const exclusiveShopName: string | null =
-      rawExclusive && (rawExclusive.name ?? rawExclusive.shopName)
-        ? String(rawExclusive.name ?? rawExclusive.shopName)
-        : null;
-
-    // 指名（複数）: nominatedShops を優先し、なければ legacy favoriteShops
-    const nominatedFromApi: any[] = Array.isArray(
-      (detail as any).nominatedShops,
-    )
-      ? ((detail as any).nominatedShops as any[])
-      : Array.isArray((detail as any).favoriteShops)
-      ? ((detail as any).favoriteShops as any[])
-      : [];
-    const favoriteShopIds: string[] = nominatedFromApi
-      .map((s) => String(s.id ?? s.shopId ?? ""))
-      .filter(Boolean);
-    const favoriteShopNames: string[] = nominatedFromApi
-      .map((s) => (s.name ?? s.shopName ?? "") as string)
-      .filter((n) => n && n.trim());
-
-    setForm({
-      displayName: detail.displayName ?? cast.name,
-      birthdate: detail.birthdate ?? "",
-      address: detail.address ?? "",
-      phone: detail.phone ?? "",
-      email: detail.email ?? "",
-      tiaraHourly: (() => {
-        const v = detail.preferences?.desiredHourly ?? null;
-        if (
-          v != null &&
-          v >= TIARA_HOURLY_OPTIONS[0] &&
-          v <= TIARA_HOURLY_OPTIONS[TIARA_HOURLY_OPTIONS.length - 1]
-        ) {
-          return String(v);
-        }
-        return "";
-      })(),
-      rank:
-        ((detail.background as any)?.rank as CastDetailForm["rank"]) ?? "",
-      ownerStaffName:
-        (detail.background as any)?.ownerStaffName ??
-        (cast.ownerStaffName && cast.ownerStaffName !== "-"
-          ? cast.ownerStaffName
-          : ""),
-      salaryNote: (detail.background as any)?.salaryNote ?? "",
-      preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
-      preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
-      preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
-      preferredArea: detail.preferences?.preferredArea ?? "",
-      heightCm:
-        detail.attributes?.heightCm != null
-          ? String(detail.attributes.heightCm)
-          : "",
-      clothingSize: detail.attributes?.clothingSize ?? "",
-      shoeSizeCm:
-        detail.attributes?.shoeSizeCm != null
-          ? String(detail.attributes.shoeSizeCm)
-          : "",
-      // ★ SQLそのまま表示されたくない3項目は sanitize
-      howFound: sanitizeBackgroundField(detail.background?.howFound),
-      motivation: sanitizeBackgroundField(detail.background?.motivation),
-      otherAgencies: sanitizeBackgroundField(detail.background?.otherAgencies),
-      reasonChoose: detail.background?.reasonChoose ?? "",
-      shopSelectionPoints: detail.background?.shopSelectionPoints ?? "",
-
-      // 追加フィールド
-      furigana:
-        (detail as any).furigana ??
-        (detail as any).displayNameKana ??
-        detail.displayName ??
-        cast.name,
-
-      tattoo:
-        detail.attributes?.tattoo == null
-          ? ""
-          : detail.attributes.tattoo
-          ? "有"
-          : "無",
-      needPickup:
-        detail.attributes?.needPickup == null
-          ? ""
-          : detail.attributes.needPickup
-          ? "要"
-          : "不要",
-      drinkLevel:
-        detail.attributes?.drinkLevel === "ng"
-          ? "NG"
-          : detail.attributes?.drinkLevel === "weak"
-          ? "弱い"
-          : detail.attributes?.drinkLevel === "strong"
-          ? "強い"
-          : detail.attributes?.drinkLevel === "normal"
-          ? "普通"
-          : (detail as any).drinkOk == null
-          ? ""
-          : (detail as any).drinkOk
-          ? "普通"
-          : "NG",
-      hasExperience:
-        detail.hasExperience == null
-          ? ""
-          : detail.hasExperience
-          ? "あり"
-          : "なし",
-      workHistory: detail.note ?? "",
-
-      referrerName: (detail.background as any)?.referrerName ?? "",
-      compareOtherAgencies:
-        (detail.background as any)?.compareOtherAgencies ?? "",
-      otherAgencyName: (detail.background as any)?.otherAgencyName ?? "",
-      otherNotes: (detail.background as any)?.otherNotes ?? "",
-      thirtyKComment: (detail.background as any)?.thirtyKComment ?? "",
-
-      idDocType:
-        ((detail.background as any)?.idDocType as CastDetailForm["idDocType"]) ??
-        "",
-      residencyProof:
-        ((detail.background as any)?.residencyProof as
-          CastDetailForm["residencyProof"]) ?? "",
-      oathStatus:
-        ((detail.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ??
-        "",
-      idMemo: (detail.background as any)?.idMemo ?? "",
-
-      genres,
-      ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
-      ngShopIds,
-      ngShopNames,
-      favoriteShopMemo:
-        (detail.background as any)?.nominatedShopMemo ??
-        (detail.background as any)?.favoriteShopMemo ??
-        "",
-      favoriteShopIds,
-      favoriteShopNames,
-      exclusiveShopMemo: (detail.background as any)?.exclusiveShopMemo ?? "",
-      exclusiveShopId,
-      exclusiveShopName,
-    });
-    setSaveDone(false);
-    setSaveError(null);
-  }, [detail, cast.name, cast.ownerStaffName]);
-
-  // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-
-  const todayLabel = `${today.getMonth() + 1}/${today.getDate()}`;
-  const tomorrowLabel = `${tomorrow.getMonth() + 1}/${tomorrow.getDate()}`;
-
-  const todaySlot: ShiftSlot = "free";
-  const tomorrowSlot: ShiftSlot = "21:30";
-
-  const formatSlot = (slot: ShiftSlot) => {
-    if (!slot) return "—";
-    if (slot === "free") return "FREE";
-    return slot;
-  };
-
-  const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
-  const managementNumber = detail?.managementNumber ?? cast.managementNumber;
-  const legacyStaffId =
-    detail?.legacyStaffId ?? cast.legacyStaffId ?? null;
-
-  const birthdateStr =
-    form?.birthdate || detail?.birthdate || null;
-  const computedAge = calcAgeFromBirthdate(birthdateStr);
-  const birth =
-    birthdateStr != null && birthdateStr !== ""
-      ? computedAge != null
-        ? `${birthdateStr}（${computedAge}歳）`
-        : birthdateStr
-      : "—";
-
-  const address = form?.address || "—";
-  const phone = form?.phone || "—";
-  const email = form?.email || "—";
-
-  const handleSave = async () => {
-    if (!detail || !form) return;
-    setSaving(true);
-    setSaveError(null);
-    setSaveDone(false);
-    try {
-      // 数値系のパース
-      const hourlyRaw = form.tiaraHourly.replace(/[^\d]/g, "");
-      const desiredHourly =
-        hourlyRaw.trim().length > 0 ? Number(hourlyRaw) || null : null;
-
-      const heightRaw = form.heightCm.replace(/[^\d]/g, "");
-      const heightCm =
-        heightRaw.trim().length > 0 ? Number(heightRaw) || null : null;
-
-      const shoeRaw = form.shoeSizeCm.replace(/[^\d]/g, "");
-      const shoeSizeCm =
-        shoeRaw.trim().length > 0 ? Number(shoeRaw) || null : null;
-
-      // 出勤希望日を配列へ
-      const preferredDays =
-        form.preferredDays
-          .split(/[\/、,\s]+/)
-          .map((x) => x.trim())
-          .filter(Boolean) || [];
-
-      // 就業可否系
-      const tattooFlag =
-        form.tattoo === ""
-          ? null
-          : form.tattoo === "有"
-          ? true
-          : false;
-      const needPickupFlag =
-        form.needPickup === ""
-          ? null
-          : form.needPickup === "要"
-          ? true
-          : false;
-      const drinkLevelInternal =
-        form.drinkLevel === "NG"
-          ? "ng"
-          : form.drinkLevel === "弱い"
-          ? "weak"
-          : form.drinkLevel === "強い"
-          ? "strong"
-          : form.drinkLevel === "普通"
-          ? "normal"
-          : null;
-      const hasExperienceFlag =
-        form.hasExperience === ""
-          ? null
-          : form.hasExperience === "あり"
-          ? true
-          : false;
-
-      const background: any = {
-        howFound: form.howFound || null,
-        motivation: form.motivation || null,
-        otherAgencies: form.otherAgencies || null,
-        reasonChoose: form.reasonChoose || null,
-        shopSelectionPoints: form.shopSelectionPoints || null,
-        // 追加分
-        referrerName: form.referrerName || null,
-        compareOtherAgencies: form.compareOtherAgencies || null,
-        otherAgencyName: form.otherAgencyName || null,
-        otherNotes: form.otherNotes || null,
-        thirtyKComment: form.thirtyKComment || null,
-        salaryNote: form.salaryNote || null,
-        idDocType: form.idDocType || null,
-        residencyProof: form.residencyProof || null,
-        oathStatus: form.oathStatus || null,
-        idMemo: form.idMemo || null,
-        genres: form.genres?.length ? form.genres : null,
-        ngShopMemo: form.ngShopMemo || null,
-        favoriteShopMemo: form.favoriteShopMemo || null, // 旧仕様との互換
-        exclusiveShopMemo: form.exclusiveShopMemo || null,
-        nominatedShopMemo: form.favoriteShopMemo || null,
-        rank: form.rank || null,
-        ownerStaffName: form.ownerStaffName || null,
-      };
-
-      // ★ NG / 専属 / 指名の ID 配列を仕様に合わせて構築
-      const ngShopIds = form.ngShopIds ?? [];
-      const exclusiveShopIds =
-        form.exclusiveShopId ? [form.exclusiveShopId] : [];
-      const nominatedShopIds = form.favoriteShopIds ?? [];
-
-      const payload: Parameters<typeof updateCast>[1] = {
-        displayName: form.displayName || null,
-        furigana: form.furigana || null,
-        birthdate: form.birthdate || null,
-        address: form.address || null,
-        phone: form.phone || null,
-        email: form.email || null,
-        // 勤務歴は暫定的に note に保存
-        note: form.workHistory || detail.note || null,
-        attributes: {
-          heightCm,
-          clothingSize: form.clothingSize || null,
-          shoeSizeCm,
-          tattoo: tattooFlag,
-          needPickup: needPickupFlag,
-          drinkLevel: drinkLevelInternal,
-        },
-        preferences: {
-          desiredHourly,
-          desiredMonthly: detail.preferences?.desiredMonthly ?? null,
-          preferredDays,
-          preferredTimeFrom: form.preferredTimeFrom || null,
-          preferredTimeTo: form.preferredTimeTo || null,
-          preferredArea: form.preferredArea || null,
-          // NG メモは background 側で統一管理。ngShopNotes は送信しない。
-          notes: detail.preferences?.notes ?? null,
-        },
-        background,
-        hasExperience: hasExperienceFlag,
-        // ★ NG店舗ID（モーダルで更新）
-        ngShopIds,
-        // ★ 専属指名・指名店舗
-        exclusiveShopIds,
-        nominatedShopIds,
-      };
-
-      const updated = await updateCast(cast.id, payload);
-
-      // ★ フロント側で NG店舗情報・専属指名・指名情報とメモをパッチしてから親に渡す
-      const updatedAny = updated as any;
-      const patchedUpdated: CastDetail = {
-        ...(updatedAny as CastDetail),
-        background: {
-          ...(updatedAny.background ?? {}),
-          // フォームで編集した値を優先
-          ngShopMemo:
-            form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
-          favoriteShopMemo:
-            form.favoriteShopMemo ||
-            updatedAny.background?.favoriteShopMemo ||
-            null,
-          exclusiveShopMemo:
-            form.exclusiveShopMemo ||
-            updatedAny.background?.exclusiveShopMemo ||
-            null,
-          nominatedShopMemo:
-            form.favoriteShopMemo ||
-            updatedAny.background?.nominatedShopMemo ||
-            null,
-          salaryNote:
-            form.salaryNote || updatedAny.background?.salaryNote || null,
-          genres: form.genres?.length
-            ? form.genres
-            : updatedAny.background?.genres ?? null,
-          rank: form.rank || updatedAny.background?.rank || null,
-          ownerStaffName:
-            form.ownerStaffName ||
-            updatedAny.background?.ownerStaffName ||
-            null,
-        },
-        ngShops:
-          form.ngShopIds.length > 0
-            ? form.ngShopIds.map((id, idx) => ({
-                id,
-                name: form.ngShopNames[idx] ?? "",
-              }))
-            : (updatedAny.ngShops ?? []),
-        exclusiveShopId:
-          form.exclusiveShopId ??
-          updatedAny.exclusiveShopId ??
-          null,
-        exclusiveShop:
-          form.exclusiveShopId
-            ? {
-                id: form.exclusiveShopId,
-                name: form.exclusiveShopName ?? "",
-              }
-            : updatedAny.exclusiveShop ?? null,
-        nominatedShops:
-          form.favoriteShopIds.length > 0
-            ? form.favoriteShopIds.map((id, idx) => ({
-                id,
-                name: form.favoriteShopNames[idx] ?? "",
-              }))
-            : (updatedAny.nominatedShops ?? updatedAny.favoriteShops ?? []),
-        favoriteShops:
-          form.favoriteShopIds.length > 0
-            ? form.favoriteShopIds.map((id, idx) => ({
-                id,
-                name: form.favoriteShopNames[idx] ?? "",
-              }))
-            : (updatedAny.favoriteShops ?? []),
-      };
-
-      onUpdated(patchedUpdated);
-      setSaveDone(true);
-    } catch (e: any) {
-      console.error(e);
-      setSaveError(e?.message ?? "保存に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  };
+  // 目標スクショ②の見た目を優先（未接続の項目はローカル保持でもOK）
+  const [staffForm, setStaffForm] = useState<any>({});
+  const [pickup, setPickup] = useState<string>(""); // 送迎先（自動入力想定）
+  const [pickupExtra, setPickupExtra] = useState<string>(""); // 送迎先追加（アプリ反映想定）
+  const [tattoo, setTattoo] = useState<string>(""); // 自動反映想定
+  const [mood, setMood] = useState<number>(2); // 雰囲気（スライダーのつまみ位置）
 
   return (
-    <>
-      {/* viewport 基準で中央固定（スクショ版） */}
-      <div className="fixed inset-0 z-[100] flex items-center justify-center px-3 py-6">
-        {/* オーバーレイ */}
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+    <div className="rounded-md overflow-hidden">
+      {/* ヘッダ：青ラベル */}
+      <div className="p-3 pb-2 bg-[#f2b100]">
+        <div className="inline-block bg-[#1155cc] text-white text-xs font-semibold px-3 py-1.5 border border-black/70">
+          スタッフ入力項目
+        </div>
+      </div>
 
-        {/* 本体 */}
-        <div className="relative z-10 w-full max-w-7xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
-          {/* ヘッダー（現行のまま） */}
-          <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-3">
-              <h3 className="text-sm font-semibold">キャスト詳細（{displayName}）</h3>
-              <span className="text-[10px] text-muted">
-                管理番号: {managementNumber} / 旧スタッフID:{" "}
-                {legacyStaffId ?? "-"} / キャストID: {cast.castCode}
-              </span>
-              {detailLoading && (
-                <span className="text-[10px] text-emerald-600">詳細読み込み中…</span>
-              )}
-              {!detailLoading && detailError && (
-                <span className="text-[10px] text-red-500">{detailError}</span>
-              )}
-              {!detailLoading && saveDone && !saveError && (
-                <span className="text-[10px] text-emerald-600">保存しました</span>
-              )}
-              {saveError && (
-                <span className="text-[10px] text-red-500">保存エラー: {saveError}</span>
-              )}
+      {/* 本体：2カラム + 中央縦ライン */}
+      <div className="bg-[#f2b100] px-3 pb-3">
+        <div className="grid grid-cols-[1fr_2px_1fr] gap-6 items-start">
+          {/* 左カラム */}
+          <div className="space-y-3">
+            {/* ティアラ査定給 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                ティアラ査定給
+              </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={String(staffForm?.desiredHourly ?? "")}
+                onChange={(e) =>
+                  setStaffForm((p: any) => (p ? { ...p, desiredHourly: e.target.value } : p))
+                }
+                placeholder="数値入力"
+                inputMode="numeric"
+              />
             </div>
 
-            <div className="flex items-center gap-2">
-              <button className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
-                チャットで連絡
+            {/* 送迎先 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                送迎先
+              </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={pickup}
+                onChange={(e) => setPickup(e.target.value)}
+                placeholder="自動入力"
+              />
+            </div>
+
+            {/* 送迎先追加 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                送迎先追加
+              </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={pickupExtra}
+                onChange={(e) => setPickupExtra(e.target.value)}
+                placeholder="アプリから反映"
+              />
+            </div>
+
+            {/* 担当 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                担当
+              </div>
+              <select
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={String(staffForm?.staffId ?? "")}
+                onChange={(e) =>
+                  setStaffForm((p: any) => (p ? { ...p, staffId: e.target.value } : p))
+                }
+              >
+                <option value="">プルダウン</option>
+              </select>
+            </div>
+
+            {/* 体系 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                体系
+              </div>
+              <select
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={String(staffForm?.bodyType ?? "")}
+                onChange={(e) =>
+                  setStaffForm((p: any) => (p ? { ...p, bodyType: e.target.value } : p))
+                }
+              >
+                <option value="">プルダウン</option>
+              </select>
+            </div>
+
+            {/* 身長 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                身長
+              </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={String(staffForm?.heightCm ?? "")}
+                onChange={(e) =>
+                  setStaffForm((p: any) => (p ? { ...p, heightCm: e.target.value } : p))
+                }
+                placeholder="自動反映"
+                inputMode="numeric"
+              />
+            </div>
+
+            {/* 左下：青ボタン群 */}
+            <div className="pt-1 flex items-center gap-3">
+              <button
+                type="button"
+                className="bg-[#1155cc] text-white text-xs font-semibold px-4 py-2 rounded border border-black/70"
+              >
+                顔写真
               </button>
               <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed"
-                onClick={handleSave}
-                disabled={!detail || !form || saving}
+                type="button"
+                className="bg-[#1155cc] text-white text-xs font-semibold px-4 py-2 rounded border border-black/70"
               >
-                {saving ? "保存中…" : "登録"}
+                本籍地記載書類
               </button>
               <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white"
-                onClick={onClose}
+                type="button"
+                className="bg-[#1155cc] text-white text-xs font-semibold w-9 h-9 rounded border border-black/70 flex items-center justify-center"
+                aria-label="追加"
               >
-                終了
+                +
               </button>
             </div>
           </div>
 
-          {/* 本文（スクショの緑＋オレンジ） */}
-          <div className="flex-1 overflow-auto">
-            {/* 上段：登録情報①/②（グリーン） */}
-            <div className="border-b border-black/30">
-              <div className="grid grid-cols-1 xl:grid-cols-2">
-                {/* 左：登録情報① */}
-                <div className="bg-[#6aa84f] p-4 border-r border-black/40">
-                  <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
-                    登録情報①
-                  </div>
+          {/* 中央縦ライン */}
+          <div className="h-full w-[2px] bg-black/70" />
 
-                  <div className="mt-4 grid grid-cols-[170px_minmax(0,1fr)] gap-4">
-                    {/* 写真枠 */}
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-full aspect-[3/4] bg-[#3d6ab3] border border-black/40 flex items-center justify-center text-white text-sm">
-                        写真
-                      </div>
-                    </div>
+          {/* 右カラム */}
+          <div className="space-y-3">
+            {/* ランク */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                ランク
+              </div>
+              <select
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={String(staffForm?.rank ?? "")}
+                onChange={(e) =>
+                  setStaffForm((p: any) => (p ? { ...p, rank: e.target.value } : p))
+                }
+              >
+                <option value="">プルダウン</option>
+              </select>
+            </div>
 
-                    {/* フォーム */}
-                    <div className="space-y-2">
-                      {/* ふりがな */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">ふりがな</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.furigana ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, furigana: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* 氏名 */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">氏名</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.displayName ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, displayName: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* 生年月日 */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">生年月日</div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                            value={form?.birthdate ?? ""}
-                            onChange={(e) => setForm((p) => (p ? { ...p, birthdate: e.target.value } : p))}
-                            placeholder={birth === "—" ? "" : birth}
-                          />
-                          <button
-                            type="button"
-                            className="h-8 px-2 text-xs bg-white border border-black/40"
-                            onClick={() => {
-                              // ここは既存の「自動計算」要件があれば後で実装（現状はUIのみ）
-                            }}
-                          >
-                            自動計算
-                          </button>
-                          <div className="text-xs text-white font-semibold">歳</div>
-                        </div>
-                      </div>
-
-                      {/* 現住所 */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">現住所</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.address ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, address: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* TEL */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">TEL</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.phone ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, phone: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* アドレス */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">アドレス</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.email ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, email: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* ジャンル */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-start gap-2">
-                        <div className="text-xs text-white font-semibold pt-1">ジャンル</div>
-                        <div className="flex flex-wrap gap-2">
-                          {CAST_GENRE_OPTIONS.map((g) => {
-                            const active = form?.genres?.includes(g) ?? false;
-                            return (
-                              <button
-                                key={g}
-                                type="button"
-                                onClick={() =>
-                                  setForm((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          genres: prev.genres.includes(g)
-                                            ? prev.genres.filter((x) => x !== g)
-                                            : [...prev.genres, g],
-                                        }
-                                      : prev,
-                                  )
-                                }
-                                className={`h-8 px-3 text-xs border border-black/40 ${
-                                  active ? "bg-[#2b78e4] text-white" : "bg-white text-black"
-                                }`}
-                              >
-                                {g}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* 希望時給（スクショ位置に合わせる：既存は salaryNote / tiaraHourly があるのでメモ入力に寄せる） */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">希望時給</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.salaryNote ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, salaryNote: e.target.value } : p))}
-                          placeholder="フォームで自由入力を反映"
-                        />
-                      </div>
-
-                      {/* キャストからの店舗NG */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">キャストからの店舗NG</div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                            value={form?.ngShopMemo ?? ""}
-                            onChange={(e) => setForm((p) => (p ? { ...p, ngShopMemo: e.target.value } : p))}
-                          />
-                          <button
-                            type="button"
-                            className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                            onClick={() => setNgModalOpen(true)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* シフト情報（既存のまま中身を利用） */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">シフト情報</div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-8 bg-white border border-black/40 px-2 text-xs flex items-center">
-                            本日 {todayLabel}: {formatSlot(todaySlot)} / 翌日 {tomorrowLabel}: {formatSlot(tomorrowSlot)}
-                          </div>
-                          <button
-                            type="button"
-                            className="h-8 px-3 text-xs bg-white border border-black/40"
-                            onClick={() => setShiftModalOpen(true)}
-                          >
-                            編集
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 身長 */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">身長</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.heightCm ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, heightCm: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* 服のサイズ */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">服のサイズ</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.clothingSize ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, clothingSize: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* 靴のサイズ */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">靴のサイズ</div>
-                        <input
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.shoeSizeCm ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, shoeSizeCm: e.target.value } : p))}
-                        />
-                      </div>
-
-                      {/* タトゥー */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">タトゥー</div>
-                        <select
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.tattoo ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, tattoo: e.target.value as any } : p))}
-                        >
-                          <option value=""></option>
-                          <option value="有">有</option>
-                          <option value="無">無</option>
-                        </select>
-                      </div>
-
-                      {/* 飲酒 */}
-                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">飲酒</div>
-                        <select
-                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form?.drinkLevel ?? ""}
-                          onChange={(e) => setForm((p) => (p ? { ...p, drinkLevel: e.target.value as any } : p))}
-                        >
-                          <option value=""></option>
-                          <option value="NG">NG</option>
-                          <option value="弱い">弱い</option>
-                          <option value="普通">普通</option>
-                          <option value="強い">強い</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                                {/* 右：登録情報② */}
-                <div className="bg-[#6aa84f] p-4">
-                  <RegisterInfo2 form={form} setForm={setForm} />
-                </div>
+            {/* 店舗からのNG（入力＋追加） */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                店舗からのNG
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  className="h-8 w-[240px] bg-white border border-black/70 px-2 text-xs"
+                  placeholder="店舗検索入力"
+                />
+                <button
+                  type="button"
+                  className="bg-[#1155cc] text-white text-xs font-semibold px-3 py-2 rounded border border-black/70"
+                >
+                  +追加
+                </button>
               </div>
             </div>
 
-            {/* 下段：スタッフ入力項目（オレンジ） */}
-            <div className="bg-[#f1b500] p-4">
-              <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
-                スタッフ入力項目
+            {/* 専属指名 */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                専属指名
               </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                placeholder="店舗検索入力"
+              />
+            </div>
 
-              <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* 左列 */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">ティアラ査定給</div>
-                    <select
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      value={form?.tiaraHourly ?? ""}
-                      onChange={(e) => setForm((p) => (p ? { ...p, tiaraHourly: e.target.value } : p))}
-                    >
-                      <option value=""></option>
-                      {TIARA_HOURLY_OPTIONS.map((n) => (
-                        <option key={n} value={String(n)}>
-                          ¥{n.toLocaleString()}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">担当</div>
-                    <select
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      value={form?.ownerStaffName ?? ""}
-                      onChange={(e) => setForm((p) => (p ? { ...p, ownerStaffName: e.target.value } : p))}
-                    >
-                      <option value=""></option>
-                      {staffOptions.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">ランク</div>
-                    <select
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      value={form?.rank ?? ""}
-                      onChange={(e) => setForm((p) => (p ? { ...p, rank: e.target.value as any } : p))}
-                    >
-                      <option value=""></option>
-                      {CAST_RANK_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* 右列（店舗系＋スライダーっぽい枠） */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">店舗からのNG</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.ngShopMemo ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, ngShopMemo: e.target.value } : p))}
-                        placeholder="店舗検索入力"
-                      />
-                      <button
-                        type="button"
-                        className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                        onClick={() => setNgModalOpen(true)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">専属指名</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.exclusiveShopMemo ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, exclusiveShopMemo: e.target.value } : p))}
-                        placeholder="店舗検索入力"
-                      />
-                      <button
-                        type="button"
-                        className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                        onClick={() => setExclusiveModalOpen(true)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">指名（複数）</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.favoriteShopMemo ?? ""}
-                        onChange={(e) => setForm((p) => (p ? { ...p, favoriteShopMemo: e.target.value } : p))}
-                        placeholder="店舗検索入力"
-                      />
-                      <button
-                        type="button"
-                        className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                        onClick={() => setFavoriteModalOpen(true)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 雰囲気（スクショのスライダー風：保存先が無いので otherNotes に寄せない。必要なら後でDB追加） */}
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">雰囲気</div>
-                    <div className="h-8 bg-white border border-black/40 px-2 flex items-center text-xs text-muted">
-                      （スライダーUIは次の差分で実装）
-                    </div>
-                  </div>
-                </div>
+            {/* タトゥー */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                タトゥー
               </div>
+              <input
+                className="h-8 w-[160px] bg-white border border-black/70 px-2 text-xs"
+                value={tattoo}
+                onChange={(e) => setTattoo(e.target.value)}
+                placeholder="自動反映"
+              />
+            </div>
 
-              {/* 下端ボタン列（スクショ） */}
-              <div className="mt-6 flex items-center justify-center gap-6">
-                <button type="button" className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40">
-                  チャット連絡
-                </button>
-                <button
-                  type="button"
-                  className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40"
-                  onClick={handleSave}
-                  disabled={!detail || !form || saving}
-                >
-                  {saving ? "登録中…" : "登録"}
-                </button>
-                <button type="button" className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40" onClick={onClose}>
-                  終了
-                </button>
-                <button type="button" className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40">
-                  一時保存
-                </button>
+            {/* 雰囲気（スライダー） */}
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-3">
+              <div className="bg-[#6aa84f] text-white text-xs font-semibold px-3 py-2 border border-black/70">
+                雰囲気
+              </div>
+              <div className="w-[240px]">
+                <input
+                  type="range"
+                  min={0}
+                  max={4}
+                  step={1}
+                  value={mood}
+                  onChange={(e) => setMood(Number(e.target.value))}
+                  className="w-full"
+                />
               </div>
             </div>
           </div>
         </div>
+
+        {/* 下部ボタン（緑） */}
+        <div className="pt-4 flex items-center justify-center gap-6">
+          <button type="button" className="bg-[#6aa84f] text-white text-xs font-semibold px-10 py-2 border border-black/70">
+            チャット連絡
+          </button>
+          <button type="button" className="bg-[#6aa84f] text-white text-xs font-semibold px-10 py-2 border border-black/70">
+            登録
+          </button>
+          <button type="button" className="bg-[#6aa84f] text-white text-xs font-semibold px-10 py-2 border border-black/70">
+            終了
+          </button>
+          <button type="button" className="bg-[#6aa84f] text-white text-xs font-semibold px-10 py-2 border border-black/70">
+            一時保存
+          </button>
+        </div>
       </div>
-
-
-{/* シフト編集モーダル */}
-      {shiftModalOpen && (
-        <ShiftEditModal
-          onClose={() => setShiftModalOpen(false)}
-          castName={displayName}
-        />
-      )}
-
-      {/* NG店舗選択モーダル */}
-      {ngModalOpen && form && (
-        <NgShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setNgModalOpen(false)}
-  initialSelectedIds={form.ngShopIds}
-  onSubmit={(selectedIds) => {
-    const names = selectedIds.map((id) => shopsMaster.find((x) => x.id === id)?.name ?? "");
-    setForm((prev) => (prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: names } : prev));
-  }}
-/>
-      )}
-
-      {/* 専属指名店舗選択モーダル */}
-      {exclusiveModalOpen && form && (
-        <ExclusiveShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setExclusiveModalOpen(false)}
-  initialSelectedId={form.exclusiveShopId ?? null}
-  onSubmit={(selectedId) => {
-    const name = selectedId ? (shopsMaster.find((x) => x.id === selectedId)?.name ?? "") : "";
-    setForm((prev) => (
-      prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name } : prev
-    ));
-  }}
-/>
-      )}
-
-      {/* 指名店舗（旧お気に入り）選択モーダル */}
-      {favoriteModalOpen && form && (
-        <FavoriteShopSelectModal
-  shops={shopsMaster}
-  onClose={() => setFavoriteModalOpen(false)}
-  initialSelectedIds={form.favoriteShopIds}
-  onSubmit={(selectedIds) => {
-    const names = selectedIds.map((id) => shopsMaster.find((x) => x.id === id)?.name ?? "");
-    setForm((prev) => (prev ? { ...prev, favoriteShopIds: selectedIds, favoriteShopNames: names } : prev));
-  }}
-/>
-      )}
-    </>
+    </div>
   );
 }
 

@@ -9,6 +9,7 @@ import {
   useCallback,
   type Dispatch,
   type SetStateAction,
+  type ReactNode,
 } from "react";
 import AppShell from "@/components/AppShell";
 import { createPortal } from "react-dom";
@@ -20,7 +21,7 @@ import {
   type CastDetail,
   type CastListItem,
 } from "@/lib/api.casts";
-import { listShops, type ShopListItem } from "@/lib/api.shops";
+import { listShops } from "@/lib/api.shops";
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -67,7 +68,7 @@ const BODY_TYPE_OPTIONS = ["細身", "普通", "グラマー", "ぽっちゃり"
 type BodyType = (typeof BODY_TYPE_OPTIONS)[number];
 
 /** モーダルを document.body 直下に出すためのポータル */
-function ModalPortal({ children }: { children: React.ReactNode }) {
+function ModalPortal({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -986,7 +987,7 @@ function CastDetailModal({
       (detail as any)?.attributes?.bodyType ??
       (detail as any)?.bodyType ??
       "";
-    const bodyType: CastDetailForm["bodyType"] = BODY_TYPE_OPTIONS.includes(bodyTypeRaw)
+    const bodyType: CastDetailForm["bodyType"] = BODY_TYPE_OPTIONS.includes(bodyTypeRaw as any)
       ? (bodyTypeRaw as BodyType)
       : "";
     const atmosphereRaw =
@@ -1026,7 +1027,8 @@ function CastDetailModal({
       preferredArea: detail.preferences?.preferredArea ?? "",
       heightCm: detail.attributes?.heightCm != null ? String(detail.attributes.heightCm) : "",
       clothingSize: detail.attributes?.clothingSize ?? "",
-      shoeSizeCm: detail.attributes?.shoeSizeCm != null ? String(detail.attributes.shoeSizeCm) : "",
+      shoeSizeCm:
+        detail.attributes?.shoeSizeCm != null ? String(detail.attributes.shoeSizeCm) : "",
       // ★ SQLそのまま表示されたくない3項目は sanitize
       howFound: sanitizeBackgroundField(detail.background?.howFound),
       motivation: sanitizeBackgroundField(detail.background?.motivation),
@@ -1044,7 +1046,11 @@ function CastDetailModal({
       tattoo:
         detail.attributes?.tattoo == null ? "" : detail.attributes.tattoo ? "有" : "無",
       needPickup:
-        detail.attributes?.needPickup == null ? "" : detail.attributes.needPickup ? "要" : "不要",
+        detail.attributes?.needPickup == null
+          ? ""
+          : detail.attributes.needPickup
+          ? "要"
+          : "不要",
       drinkLevel:
         detail.attributes?.drinkLevel === "ng"
           ? "NG"
@@ -1059,8 +1065,7 @@ function CastDetailModal({
           : (detail as any).drinkOk
           ? "普通"
           : "NG",
-      hasExperience:
-        detail.hasExperience == null ? "" : detail.hasExperience ? "あり" : "なし",
+      hasExperience: detail.hasExperience == null ? "" : detail.hasExperience ? "あり" : "なし",
       workHistory: detail.note ?? "",
 
       referrerName: (detail.background as any)?.referrerName ?? "",
@@ -1072,8 +1077,7 @@ function CastDetailModal({
       idDocType: ((detail.background as any)?.idDocType as CastDetailForm["idDocType"]) ?? "",
       residencyProof:
         ((detail.background as any)?.residencyProof as CastDetailForm["residencyProof"]) ?? "",
-      oathStatus:
-        ((detail.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ?? "",
+      oathStatus: ((detail.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ?? "",
       idMemo: (detail.background as any)?.idMemo ?? "",
 
       genres,
@@ -1154,8 +1158,7 @@ function CastDetailModal({
           .filter(Boolean) || [];
 
       // 就業可否系
-      const tattooFlag =
-        form.tattoo === "" ? null : form.tattoo === "有" ? true : false;
+      const tattooFlag = form.tattoo === "" ? null : form.tattoo === "有" ? true : false;
       const needPickupFlag =
         form.needPickup === "" ? null : form.needPickup === "要" ? true : false;
       const drinkLevelInternal =
@@ -1190,7 +1193,7 @@ function CastDetailModal({
         idMemo: form.idMemo || null,
         genres: form.genres?.length ? form.genres : null,
         ngShopMemo: form.ngShopMemo || null,
-        favoriteShopMemo: form.favoriteShopMemo || null, // 旧仕様との互換
+        favoriteShopMemo: form.favoriteShopMemo || null,
         exclusiveShopMemo: form.exclusiveShopMemo || null,
         nominatedShopMemo: form.favoriteShopMemo || null,
         rank: form.rank || null,
@@ -1252,8 +1255,7 @@ function CastDetailModal({
           ...(updatedAny.background ?? {}),
           // フォームで編集した値を優先
           ngShopMemo: form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
-          favoriteShopMemo:
-            form.favoriteShopMemo || updatedAny.background?.favoriteShopMemo || null,
+          favoriteShopMemo: form.favoriteShopMemo || updatedAny.background?.favoriteShopMemo || null,
           exclusiveShopMemo:
             form.exclusiveShopMemo || updatedAny.background?.exclusiveShopMemo || null,
           nominatedShopMemo:
@@ -1646,7 +1648,9 @@ function CastDetailModal({
                     <select
                       className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                       value={form?.tiaraHourly ?? ""}
-                      onChange={(e) => setForm((p) => (p ? { ...p, tiaraHourly: e.target.value } : p))}
+                      onChange={(e) =>
+                        setForm((p) => (p ? { ...p, tiaraHourly: e.target.value } : p))
+                      }
                     >
                       <option value=""></option>
                       {TIARA_HOURLY_OPTIONS.map((n) => (
@@ -1677,7 +1681,9 @@ function CastDetailModal({
                       className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                       value={form?.pickupDestinationExtra ?? ""}
                       onChange={(e) =>
-                        setForm((p) => (p ? { ...p, pickupDestinationExtra: e.target.value } : p))
+                        setForm((p) =>
+                          p ? { ...p, pickupDestinationExtra: e.target.value } : p,
+                        )
                       }
                       placeholder="アプリから反映"
                     />
@@ -1767,7 +1773,9 @@ function CastDetailModal({
                     <select
                       className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                       value={form?.rank ?? ""}
-                      onChange={(e) => setForm((p) => (p ? { ...p, rank: e.target.value as any } : p))}
+                      onChange={(e) =>
+                        setForm((p) => (p ? { ...p, rank: e.target.value as any } : p))
+                      }
                     >
                       <option value=""></option>
                       {CAST_RANK_OPTIONS.map((r) => (
@@ -1876,7 +1884,10 @@ function CastDetailModal({
 
               {/* 下端ボタン列（スクショ） */}
               <div className="mt-6 flex items-center justify-center gap-6">
-                <button type="button" className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40">
+                <button
+                  type="button"
+                  className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40"
+                >
                   チャット連絡
                 </button>
                 <button
@@ -1894,7 +1905,10 @@ function CastDetailModal({
                 >
                   終了
                 </button>
-                <button type="button" className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40">
+                <button
+                  type="button"
+                  className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40"
+                >
                   一時保存
                 </button>
               </div>
@@ -1904,7 +1918,9 @@ function CastDetailModal({
       </div>
 
       {/* シフト編集モーダル */}
-      {shiftModalOpen && <ShiftEditModal onClose={() => setShiftModalOpen(false)} castName={displayName} />}
+      {shiftModalOpen && (
+        <ShiftEditModal onClose={() => setShiftModalOpen(false)} castName={displayName} />
+      )}
 
       {/* NG店舗選択モーダル */}
       {ngModalOpen && form && (
@@ -1916,7 +1932,9 @@ function CastDetailModal({
             const names = selectedIds.map(
               (id) => shopsMaster.find((x) => x.id === id)?.name ?? "",
             );
-            setForm((prev) => (prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: names } : prev));
+            setForm((prev) =>
+              prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: names } : prev,
+            );
           }}
         />
       )}
@@ -1928,8 +1946,12 @@ function CastDetailModal({
           onClose={() => setExclusiveModalOpen(false)}
           initialSelectedId={form.exclusiveShopId ?? null}
           onSubmit={(selectedId) => {
-            const name = selectedId ? shopsMaster.find((x) => x.id === selectedId)?.name ?? "" : "";
-            setForm((prev) => (prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name } : prev));
+            const name = selectedId
+              ? shopsMaster.find((x) => x.id === selectedId)?.name ?? ""
+              : "";
+            setForm((prev) =>
+              prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name } : prev,
+            );
           }}
         />
       )}
@@ -2029,7 +2051,9 @@ function RegisterInfo2({
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.referrerName ?? ""}
-            onChange={(e) => setForm((p: any) => (p ? { ...p, referrerName: e.target.value } : p))}
+            onChange={(e) =>
+              setForm((p: any) => (p ? { ...p, referrerName: e.target.value } : p))
+            }
             placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
           />
         </div>
@@ -2123,7 +2147,9 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredArea ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))}
+              onChange={(e) =>
+                setForm((p: any) => (p ? { ...p, preferredArea: e.target.value } : p))
+              }
             />
           </div>
 
@@ -2132,7 +2158,9 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))}
+              onChange={(e) =>
+                setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))
+              }
             />
           </div>
         </div>
@@ -2256,11 +2284,17 @@ function ShiftEditModal({
         {/* 月切り替え */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <button className="px-2 py-1 rounded-md border border-gray-300 text-[11px]" onClick={prevMonth}>
+            <button
+              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
+              onClick={prevMonth}
+            >
               ← 前月
             </button>
             <span className="text-[13px] font-semibold">{monthLabel}</span>
-            <button className="px-2 py-1 rounded-md border border-gray-300 text-[11px]" onClick={nextMonth}>
+            <button
+              className="px-2 py-1 rounded-md border border-gray-300 text-[11px]"
+              onClick={nextMonth}
+            >
               次月 →
             </button>
           </div>
@@ -2296,10 +2330,16 @@ function ShiftEditModal({
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className={`text-[10px] ${isToday ? "text-emerald-600 font-semibold" : ""}`}>
+                          <span
+                            className={`text-[10px] ${
+                              isToday ? "text-emerald-600 font-semibold" : ""
+                            }`}
+                          >
                             {dayNum}
                           </span>
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-100 border border-gray-300">-</span>
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-100 border border-gray-300">
+                            -
+                          </span>
                         </div>
                         <div className="text-[10px] text-muted">シフト: 未設定</div>
                       </td>
@@ -2312,7 +2352,9 @@ function ShiftEditModal({
         </div>
 
         <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
-          <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">変更を破棄</button>
+          <button className="px-3 py-1 rounded-lg border border-gray-300 bg-gray-50">
+            変更を破棄
+          </button>
           <button className="px-3 py-1 rounded-lg border border-emerald-400/60 bg-emerald-500/80 text-white">
             保存して閉じる
           </button>
@@ -2535,7 +2577,9 @@ function FavoriteShopSelectModal({
         <div className="tiara-modal__head">
           <div>
             <h4 className="text-sm font-semibold">指名店舗の選択</h4>
-            <p className="text-xs text-muted mt-1">指名（複数店舗可）。優先的に入りたい店舗を複数選択してください。</p>
+            <p className="text-xs text-muted mt-1">
+              指名（複数店舗可）。優先的に入りたい店舗を複数選択してください。
+            </p>
           </div>
           <button className="tiara-btn tiara-btn--ghost h-9" onClick={onClose}>
             閉じる

@@ -823,15 +823,11 @@ type CastDetailForm = {
 
   idMemo: string; // 身分証関連の備考
 
-  // ジャンル・NG店舗・専属指名・指名
+  // ジャンル・NG店舗・専属指名（指名（複数）は削除）
   genres: CastGenre[];
   ngShopMemo: string;
   ngShopIds: string[];
   ngShopNames: string[];
-  // UI上は「指名（複数店舗可）」として使用
-  favoriteShopMemo: string;
-  favoriteShopIds: string[];
-  favoriteShopNames: string[];
   // 専属指名（1店舗）
   exclusiveShopMemo: string;
   exclusiveShopId: string | null;
@@ -859,9 +855,8 @@ function CastDetailModal({
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
   const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
-  const [favoriteModalOpen, setFavoriteModalOpen] = useState(false);
 
-  // ===== 店舗マスタ（NG/専属/指名モーダルで共通）=====
+  // ===== 店舗マスタ（NG/専属モーダルで共通）=====
   const [shopsMaster, setShopsMaster] = useState<ShopLite[]>([]);
   const [shopsMasterLoaded, setShopsMasterLoaded] = useState(false);
   const [shopsMasterLoading, setShopsMasterLoading] = useState(false);
@@ -887,15 +882,15 @@ function CastDetailModal({
   }, [shopsMasterLoaded, shopsMasterLoading]);
 
   useEffect(() => {
-    if (ngModalOpen || exclusiveModalOpen || favoriteModalOpen) {
+    if (ngModalOpen || exclusiveModalOpen) {
       void ensureShopsMasterLoaded();
     }
-  }, [ngModalOpen, exclusiveModalOpen, favoriteModalOpen, ensureShopsMasterLoaded]);
+  }, [ngModalOpen, exclusiveModalOpen, ensureShopsMasterLoaded]);
 
   useEffect(() => {
     if (shopsMasterLoaded || shopsMasterLoading) return;
 
-    // 3モーダルで共通利用するため、初回に 1 回だけ 10,000 件まで取得して保持
+    // 2モーダルで共通利用するため、初回に 1 回だけ 10,000 件まで取得して保持
     setShopsMasterLoading(true);
     (async () => {
       try {
@@ -960,19 +955,6 @@ function CastDetailModal({
       rawExclusive && (rawExclusive.name ?? rawExclusive.shopName)
         ? String(rawExclusive.name ?? rawExclusive.shopName)
         : null;
-
-    // 指名（複数）: nominatedShops を優先し、なければ legacy favoriteShops
-    const nominatedFromApi: any[] = Array.isArray((detail as any).nominatedShops)
-      ? ((detail as any).nominatedShops as any[])
-      : Array.isArray((detail as any).favoriteShops)
-      ? ((detail as any).favoriteShops as any[])
-      : [];
-    const favoriteShopIds: string[] = nominatedFromApi
-      .map((s) => String(s.id ?? s.shopId ?? ""))
-      .filter(Boolean);
-    const favoriteShopNames: string[] = nominatedFromApi
-      .map((s) => (s.name ?? s.shopName ?? "") as string)
-      .filter((n) => n && n.trim());
 
     // ===== スクショ追加項目（存在すれば detail から拾う / なければ UI 初期値）=====
     const pickupDestination =
@@ -1084,12 +1066,6 @@ function CastDetailModal({
       ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
       ngShopIds,
       ngShopNames,
-      favoriteShopMemo:
-        (detail.background as any)?.nominatedShopMemo ??
-        (detail.background as any)?.favoriteShopMemo ??
-        "",
-      favoriteShopIds,
-      favoriteShopNames,
       exclusiveShopMemo: (detail.background as any)?.exclusiveShopMemo ?? "",
       exclusiveShopId,
       exclusiveShopName,
@@ -1193,9 +1169,7 @@ function CastDetailModal({
         idMemo: form.idMemo || null,
         genres: form.genres?.length ? form.genres : null,
         ngShopMemo: form.ngShopMemo || null,
-        favoriteShopMemo: form.favoriteShopMemo || null,
         exclusiveShopMemo: form.exclusiveShopMemo || null,
-        nominatedShopMemo: form.favoriteShopMemo || null,
         rank: form.rank || null,
         ownerStaffName: form.ownerStaffName || null,
 
@@ -1203,10 +1177,9 @@ function CastDetailModal({
         atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : null,
       };
 
-      // ★ NG / 専属 / 指名の ID 配列を仕様に合わせて構築
+      // ★ NG / 専属 の ID 配列を仕様に合わせて構築（指名（複数）は削除）
       const ngShopIds = form.ngShopIds ?? [];
       const exclusiveShopIds = form.exclusiveShopId ? [form.exclusiveShopId] : [];
-      const nominatedShopIds = form.favoriteShopIds ?? [];
 
       const payload: Parameters<typeof updateCast>[1] = {
         displayName: form.displayName || null,
@@ -1240,14 +1213,13 @@ function CastDetailModal({
         hasExperience: hasExperienceFlag,
         // ★ NG店舗ID（モーダルで更新）
         ngShopIds,
-        // ★ 専属指名・指名店舗
+        // ★ 専属指名
         exclusiveShopIds,
-        nominatedShopIds,
       };
 
       const updated = await updateCast(cast.id, payload);
 
-      // ★ フロント側で NG店舗情報・専属指名・指名情報とメモをパッチしてから親に渡す
+      // ★ フロント側で NG店舗情報・専属指名情報とメモをパッチしてから親に渡す
       const updatedAny = updated as any;
       const patchedUpdated: CastDetail = {
         ...(updatedAny as CastDetail),
@@ -1255,11 +1227,8 @@ function CastDetailModal({
           ...(updatedAny.background ?? {}),
           // フォームで編集した値を優先
           ngShopMemo: form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
-          favoriteShopMemo: form.favoriteShopMemo || updatedAny.background?.favoriteShopMemo || null,
           exclusiveShopMemo:
             form.exclusiveShopMemo || updatedAny.background?.exclusiveShopMemo || null,
-          nominatedShopMemo:
-            form.favoriteShopMemo || updatedAny.background?.nominatedShopMemo || null,
           salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
           genres: form.genres?.length ? form.genres : updatedAny.background?.genres ?? null,
           rank: form.rank || updatedAny.background?.rank || null,
@@ -1283,20 +1252,6 @@ function CastDetailModal({
               name: form.exclusiveShopName ?? "",
             }
           : updatedAny.exclusiveShop ?? null,
-        nominatedShops:
-          form.favoriteShopIds.length > 0
-            ? form.favoriteShopIds.map((id, idx) => ({
-                id,
-                name: form.favoriteShopNames[idx] ?? "",
-              }))
-            : (updatedAny.nominatedShops ?? updatedAny.favoriteShops ?? []),
-        favoriteShops:
-          form.favoriteShopIds.length > 0
-            ? form.favoriteShopIds.map((id, idx) => ({
-                id,
-                name: form.favoriteShopNames[idx] ?? "",
-              }))
-            : (updatedAny.favoriteShops ?? []),
       };
 
       onUpdated(patchedUpdated);
@@ -1499,7 +1454,7 @@ function CastDetailModal({
                         </div>
                       </div>
 
-                      {/* 希望時給（スクショ位置に合わせる：既存は salaryNote / tiaraHourly があるのでメモ入力に寄せる） */}
+                      {/* 希望時給 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                         <div className="text-xs text-white font-semibold">希望時給</div>
                         <input
@@ -1535,7 +1490,7 @@ function CastDetailModal({
                         </div>
                       </div>
 
-                      {/* シフト情報（既存のまま中身を利用） */}
+                      {/* シフト情報 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                         <div className="text-xs text-white font-semibold">シフト情報</div>
                         <div className="flex items-center gap-2">
@@ -1640,7 +1595,7 @@ function CastDetailModal({
               </div>
 
               <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {/* 左列（スクショ：ティアラ査定給 / 送迎先 / 送迎先追加 / 担当 / 体型 / 身長 ＋ 添付ボタン） */}
+                {/* 左列 */}
                 <div className="space-y-3">
                   {/* ティアラ査定給 */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
@@ -1661,7 +1616,7 @@ function CastDetailModal({
                     </select>
                   </div>
 
-                  {/* 送迎先（スクショ：自動入力） */}
+                  {/* 送迎先（自動入力） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">送迎先</div>
                     <input
@@ -1674,7 +1629,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  {/* 送迎先追加（スクショ：アプリから反映） */}
+                  {/* 送迎先追加（アプリから反映） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">送迎先追加</div>
                     <input
@@ -1708,7 +1663,7 @@ function CastDetailModal({
                     </select>
                   </div>
 
-                  {/* 体型（スクショ：体系） */}
+                  {/* 体型 */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">体型</div>
                     <select
@@ -1727,7 +1682,7 @@ function CastDetailModal({
                     </select>
                   </div>
 
-                  {/* 身長（スクショ：自動反映） */}
+                  {/* 身長（自動反映） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">身長</div>
                     <input
@@ -1740,7 +1695,7 @@ function CastDetailModal({
                     />
                   </div>
 
-                  {/* 添付系ボタン（スクショ：顔写真＋ / 本籍地記載書類） */}
+                  {/* 添付系ボタン */}
                   <div className="flex items-center gap-3 pt-1">
                     <button
                       type="button"
@@ -1765,9 +1720,9 @@ function CastDetailModal({
                   </div>
                 </div>
 
-                {/* 右列（スクショ：ランク / 店舗からNG / 専属指名 / タトゥー / 雰囲気スライダー ＋ 既存の指名(複数)は残す） */}
+                {/* 右列（指名（複数）は削除済み） */}
                 <div className="space-y-3">
-                  {/* ランク（スクショ） */}
+                  {/* ランク */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">ランク</div>
                     <select
@@ -1786,7 +1741,7 @@ function CastDetailModal({
                     </select>
                   </div>
 
-                  {/* 店舗からのNG（スクショ：＋追加） */}
+                  {/* 店舗からのNG（＋追加） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">店舗からのNG</div>
                     <div className="flex items-center gap-2">
@@ -1830,7 +1785,7 @@ function CastDetailModal({
                     </div>
                   </div>
 
-                  {/* タトゥー（スクショ：自動反映） */}
+                  {/* タトゥー（自動反映） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">タトゥー</div>
                     <div className="h-8 bg-white border border-black/40 px-2 flex items-center text-sm">
@@ -1838,45 +1793,16 @@ function CastDetailModal({
                     </div>
                   </div>
 
-                  {/* 雰囲気（スクショ：スライダー） */}
+                  {/* 雰囲気（スライダー：目盛りあり / 中央基準 / ノブ小） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">雰囲気</div>
                     <div className="h-8 bg-white border border-black/40 px-2 flex items-center">
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={1}
-                        className="w-full"
+                      <AtmosphereSlider
                         value={form?.atmosphere ?? 50}
-                        onChange={(e) =>
-                          setForm((p) =>
-                            p ? { ...p, atmosphere: Number(e.target.value) || 0 } : p,
-                          )
+                        onChange={(v) =>
+                          setForm((p) => (p ? { ...p, atmosphere: v } : p))
                         }
                       />
-                    </div>
-                  </div>
-
-                  {/* 既存：指名（複数） ※スクショ外でも要件として残しているため削除しない */}
-                  <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                    <div className="text-xs font-semibold text-ink">指名（複数）</div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.favoriteShopMemo ?? ""}
-                        onChange={(e) =>
-                          setForm((p) => (p ? { ...p, favoriteShopMemo: e.target.value } : p))
-                        }
-                        placeholder="店舗検索入力"
-                      />
-                      <button
-                        type="button"
-                        className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                        onClick={() => setFavoriteModalOpen(true)}
-                      >
-                        +
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -1956,23 +1882,139 @@ function CastDetailModal({
         />
       )}
 
-      {/* 指名店舗（旧お気に入り）選択モーダル */}
-      {favoriteModalOpen && form && (
-        <FavoriteShopSelectModal
-          shops={shopsMaster}
-          onClose={() => setFavoriteModalOpen(false)}
-          initialSelectedIds={form.favoriteShopIds}
-          onSubmit={(selectedIds) => {
-            const names = selectedIds.map(
-              (id) => shopsMaster.find((x) => x.id === id)?.name ?? "",
-            );
-            setForm((prev) =>
-              prev ? { ...prev, favoriteShopIds: selectedIds, favoriteShopNames: names } : prev,
-            );
-          }}
-        />
-      )}
+      {/* 雰囲気スライダー用CSS（目盛り・ノブ小・中央基準） */}
+      <style jsx global>{`
+        .tiara-atmo {
+          width: 100%;
+          position: relative;
+          height: 18px; /* スクショの細さ寄せ */
+        }
+        .tiara-atmo__track {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 2px;
+          background: rgba(0, 0, 0, 0.65);
+        }
+        .tiara-atmo__ticks {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 12px;
+          pointer-events: none;
+        }
+        .tiara-atmo__tick {
+          position: absolute;
+          top: 0;
+          width: 1px;
+          height: 10px;
+          background: rgba(0, 0, 0, 0.65);
+          transform: translateX(-0.5px);
+        }
+        .tiara-atmo__tick--center {
+          width: 2px;
+          height: 12px;
+          background: rgba(0, 0, 0, 0.9);
+          transform: translateX(-1px);
+        }
+        .tiara-atmo__input {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 100%;
+          height: 18px;
+          background: transparent;
+          -webkit-appearance: none;
+          appearance: none;
+          outline: none;
+        }
+        .tiara-atmo__input::-webkit-slider-runnable-track {
+          height: 2px;
+          background: transparent; /* 下に描いたtrackを使う */
+        }
+        .tiara-atmo__input::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 10px; /* ノブ小さく */
+          height: 10px;
+          border-radius: 9999px;
+          background: #2b78e4; /* スクショの青系に寄せる */
+          border: 1px solid rgba(0, 0, 0, 0.75);
+          margin-top: -4px; /* track(2px)中心に合わせる */
+        }
+        .tiara-atmo__input::-moz-range-track {
+          height: 2px;
+          background: transparent;
+        }
+        .tiara-atmo__input::-moz-range-thumb {
+          width: 10px;
+          height: 10px;
+          border-radius: 9999px;
+          background: #2b78e4;
+          border: 1px solid rgba(0, 0, 0, 0.75);
+        }
+        .tiara-atmo__input::-ms-track {
+          height: 2px;
+          background: transparent;
+          border-color: transparent;
+          color: transparent;
+        }
+        .tiara-atmo__input::-ms-thumb {
+          width: 10px;
+          height: 10px;
+          border-radius: 9999px;
+          background: #2b78e4;
+          border: 1px solid rgba(0, 0, 0, 0.75);
+        }
+      `}</style>
     </>
+  );
+}
+
+/**
+ * 雰囲気スライダー（目盛りあり / 中央基準 / ノブ小）
+ * - スクショの意図（中央基準）に合わせ、中央目盛りだけ太く表示
+ */
+function AtmosphereSlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const v = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 50;
+
+  // 目盛り：スクショの雰囲気に合わせ、等間隔 + 中央強調
+  const ticks = [0, 25, 50, 75, 100];
+
+  return (
+    <div className="tiara-atmo" aria-label="雰囲気">
+      <div className="tiara-atmo__track" />
+      <div className="tiara-atmo__ticks" aria-hidden="true">
+        {ticks.map((t) => (
+          <span
+            key={t}
+            className={`tiara-atmo__tick ${t === 50 ? "tiara-atmo__tick--center" : ""}`}
+            style={{ left: `${t}%` }}
+          />
+        ))}
+      </div>
+      <input
+        className="tiara-atmo__input"
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={v}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+      />
+    </div>
   );
 }
 
@@ -2188,9 +2230,7 @@ function DeleteCastModal({
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
       <div className="relative z-10 w-full max-w-md bg-white rounded-2xl border border-gray-300 shadow-2xl p-4">
         <h4 className="text-sm font-semibold text-ink mb-2">キャスト削除の確認</h4>
-        <p className="text-xs text-red-500 mb-2">
-          このキャストを削除すると、元に戻せません。
-        </p>
+        <p className="text-xs text-red-500 mb-2">このキャストを削除すると、元に戻せません。</p>
         <p className="text-xs text-ink/90 mb-3">
           管理番号: <span className="font-mono">{target.managementNumber}</span>
           <br />
@@ -2364,8 +2404,7 @@ function ShiftEditModal({
   );
 }
 
-/** NG店舗選択モーダル */
-/** 共通: 店舗マスタ（NG/専属/指名モーダルで共有） */
+/** 共通: 店舗マスタ（NG/専属モーダルで共有） */
 type ShopLite = { id: string; name: string; genre?: string | null };
 
 /** NG店舗選択モーダル */
@@ -2529,98 +2568,6 @@ function ExclusiveShopSelectModal({
 
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs text-muted">・選択なしで登録すると専属指名は解除されます。</p>
-          <div className="flex gap-2">
-            <button className="tiara-btn tiara-btn--ghost h-10" onClick={onClose}>
-              キャンセル
-            </button>
-            <button
-              className="tiara-btn h-10"
-              onClick={() => {
-                onSubmit(selected);
-                onClose();
-              }}
-            >
-              登録
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 指名店舗（複数）選択モーダル（旧お気に入り） */
-function FavoriteShopSelectModal({
-  onClose,
-  initialSelectedIds,
-  onSubmit,
-  shops,
-}: {
-  onClose: () => void;
-  initialSelectedIds: string[];
-  onSubmit: (selectedIds: string[]) => void;
-  shops: ShopLite[];
-}) {
-  const [selected, setSelected] = useState<string[]>(initialSelectedIds ?? []);
-
-  useEffect(() => {
-    setSelected(initialSelectedIds ?? []);
-  }, [initialSelectedIds]);
-
-  const toggle = (id: string) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  return (
-    <div className="tiara-modal-backdrop">
-      <div className="tiara-modal">
-        <div className="tiara-modal__head">
-          <div>
-            <h4 className="text-sm font-semibold">指名店舗の選択</h4>
-            <p className="text-xs text-muted mt-1">
-              指名（複数店舗可）。優先的に入りたい店舗を複数選択してください。
-            </p>
-          </div>
-          <button className="tiara-btn tiara-btn--ghost h-9" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
-
-        <div className="tiara-table-wrap mt-3">
-          <table className="tiara-table">
-            <thead>
-              <tr>
-                <th className="w-10 px-2 py-2 text-left">指名</th>
-                <th className="px-2 py-2 text-left">店舗名</th>
-                <th className="w-28 px-2 py-2 text-left">ジャンル</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shops.map((shop) => {
-                const on = selected.includes(shop.id);
-                return (
-                  <tr key={shop.id} className="hover:bg-black/5">
-                    <td className="px-2 py-2">
-                      <input type="checkbox" checked={on} onChange={() => toggle(shop.id)} />
-                    </td>
-                    <td className="px-2 py-2">{shop.name}</td>
-                    <td className="px-2 py-2 text-xs text-muted">{shop.genre ?? ""}</td>
-                  </tr>
-                );
-              })}
-              {shops.length === 0 && (
-                <tr>
-                  <td className="px-2 py-6 text-center text-sm text-muted" colSpan={3}>
-                    店舗がありません
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-muted">・上記一覧から指名店舗を選択して「登録」ボタンで保存します。</p>
           <div className="flex gap-2">
             <button className="tiara-btn tiara-btn--ghost h-10" onClick={onClose}>
               キャンセル

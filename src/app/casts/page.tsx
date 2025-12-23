@@ -846,6 +846,11 @@ type CastDetailForm = {
   pickupDestinationExtra: string; // 送迎先追加（スクショ：アプリから反映）
   bodyType: BodyType | ""; // 体型（スクショ：プルダウン）
   atmosphere: number; // 雰囲気（スクショ：スライダー）
+  dissatisfaction: string; // 不満だった点
+  customerExperience: string; // 求める接客経験
+  tbManner: string; // TBマナー講習
+  desiredLocation: string; // 希望勤務地
+  desiredTimeBand: string; // 希望時間帯
 };
 
 /**
@@ -1074,6 +1079,11 @@ function CastDetailModal({
       compareOtherAgencies: (detailAny.background as any)?.compareOtherAgencies ?? "",
       otherAgencyName: (detailAny.background as any)?.otherAgencyName ?? "",
       otherNotes: (detailAny.background as any)?.otherNotes ?? "",
+      dissatisfaction: (detailAny.background as any)?.dissatisfaction ?? "",
+      customerExperience: (detailAny.background as any)?.customerExperience ?? "",
+      tbManner: (detailAny.background as any)?.tbManner ?? "",
+      desiredLocation: (detailAny.background as any)?.desiredLocation ?? "",
+      desiredTimeBand: (detailAny.background as any)?.desiredTimeBand ?? "",
       thirtyKComment: (detailAny.background as any)?.thirtyKComment ?? "",
 
       idDocType: ((detailAny.background as any)?.idDocType as CastDetailForm["idDocType"]) ?? "",
@@ -1171,24 +1181,29 @@ function CastDetailModal({
         form.hasExperience === "" ? null : form.hasExperience === "あり" ? true : false;
 
       const background: any = {
-        howFound: form.howFound || null,
-        motivation: form.motivation || null,
-        otherAgencies: form.otherAgencies || null,
-        reasonChoose: form.reasonChoose || null,
-        shopSelectionPoints: form.shopSelectionPoints || null,
+        howFound: form.howFound ?? null,
+        motivation: form.motivation ?? null,
+        otherAgencies: form.otherAgencies ?? null,
+        reasonChoose: form.reasonChoose ?? null,
+        shopSelectionPoints: form.shopSelectionPoints ?? null,
         // 追加分
-        referrerName: form.referrerName || null,
-        compareOtherAgencies: form.compareOtherAgencies || null,
-        otherAgencyName: form.otherAgencyName || null,
-        otherNotes: form.otherNotes || null,
-        thirtyKComment: form.thirtyKComment || null,
-        salaryNote: form.salaryNote || null,
-        idDocType: form.idDocType || null,
-        residencyProof: form.residencyProof || null,
-        oathStatus: form.oathStatus || null,
-        idMemo: form.idMemo || null,
+        referrerName: form.referrerName ?? null,
+        compareOtherAgencies: form.compareOtherAgencies ?? null,
+        otherAgencyName: form.otherAgencyName ?? null,
+        otherNotes: form.otherNotes ?? null,
+        dissatisfaction: form.dissatisfaction ?? null,
+        customerExperience: form.customerExperience ?? null,
+        tbManner: form.tbManner ?? null,
+        desiredLocation: form.desiredLocation ?? null,
+        desiredTimeBand: form.desiredTimeBand ?? null,
+        thirtyKComment: form.thirtyKComment ?? null,
+        salaryNote: form.salaryNote ?? null,
+        idDocType: form.idDocType ?? null,
+        residencyProof: form.residencyProof ?? null,
+        oathStatus: form.oathStatus ?? null,
+        idMemo: form.idMemo ?? null,
         genres: form.genres?.length ? form.genres : null,
-        ngShopMemo: form.ngShopMemo || null,
+        ngShopMemo: form.ngShopMemo ?? null,
         // ★ 4項目（rank/owner/exclusiveMemo/atmosphere）は root に寄せるため、background に入れない
       };
 
@@ -1260,9 +1275,9 @@ function CastDetailModal({
         background: {
           ...(updatedAny.background ?? {}),
           // フォームで編集した値を優先
-          ngShopMemo: form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
-          salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
-          genres: form.genres?.length ? form.genres : updatedAny.background?.genres ?? null,
+          ngShopMemo: form.ngShopMemo ?? updatedAny.background?.ngShopMemo ?? null,
+          salaryNote: form.salaryNote ?? updatedAny.background?.salaryNote ?? null,
+          genres: form.genres?.length ? form.genres : (updatedAny as any).background?.genres ?? null,
           // ★ 4項目も background に合成しておく（画面が background 参照でも崩れないように）
           rank: form.rank || updatedAny.tiaraRank || (updatedAny as any).background?.rank || null,
           ownerStaffName:
@@ -2212,8 +2227,8 @@ function RegisterInfo2({
           <div className="text-xs text-white font-semibold">他派遣会社への登録</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={otherAgency}
-            onChange={(e) => setOtherAgency(e.target.value)}
+            value={form?.compareOtherAgencies ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, compareOtherAgencies: e.target.value } : p))}
           >
             <option value=""></option>
             <option value="あり">あり</option>
@@ -2227,8 +2242,8 @@ function RegisterInfo2({
           <div className="text-xs text-white font-semibold">不満だった点を教えてください</div>
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={dissatisfied}
-            onChange={(e) => setDissatisfied(e.target.value)}
+            value={form?.dissatisfaction ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, dissatisfaction: e.target.value } : p))}
           />
         </div>
 
@@ -2237,8 +2252,8 @@ function RegisterInfo2({
           <div className="text-xs text-white font-semibold">求める接客の経験を教えてください</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={serviceExp}
-            onChange={(e) => setServiceExp(e.target.value)}
+            value={form?.customerExperience ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, customerExperience: e.target.value } : p))}
           >
             <option value=""></option>
             <option value="ある">ある</option>
@@ -2252,8 +2267,8 @@ function RegisterInfo2({
           <div className="text-xs text-white font-semibold">TBマナーの講習が必要ですか？</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-            value={tbManner}
-            onChange={(e) => setTbManner(e.target.value)}
+            value={form?.tbManner ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, tbManner: e.target.value } : p))}
           >
             <option value=""></option>
             <option value="必要">必要</option>
@@ -2266,8 +2281,8 @@ function RegisterInfo2({
           <div className="text-xs text-white font-semibold pt-2">その他（備考）</div>
           <textarea
             className="w-full h-40 bg-white border border-black/40 px-2 py-2 text-sm resize-none"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={form?.otherNotes ?? ""}
+            onChange={(e) => setForm((p: any) => (p ? { ...p, otherNotes: e.target.value } : p))}
           />
         </div>
 
@@ -2277,8 +2292,8 @@ function RegisterInfo2({
             <div className="text-xs text-white font-semibold">希望勤務地</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={preferredWorkplace}
-              onChange={(e) => setPreferredWorkplace(e.target.value)}
+              value={form?.desiredLocation ?? ""}
+              onChange={(e) => setForm((p: any) => (p ? { ...p, desiredLocation: e.target.value } : p))}
             />
           </div>
 
@@ -2286,8 +2301,8 @@ function RegisterInfo2({
             <div className="text-xs text-white font-semibold">希望時間帯</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={preferredTime}
-              onChange={(e) => setPreferredTime(e.target.value)}
+              value={form?.desiredTimeBand ?? ""}
+              onChange={(e) => setForm((p: any) => (p ? { ...p, desiredTimeBand: e.target.value } : p))}
             />
           </div>
 

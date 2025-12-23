@@ -172,6 +172,11 @@ export default function Page() {
           const ageFromBirth =
             calcAgeFromBirthdate(birthdate) ?? ((c as any).age ?? null);
 
+          const ownerStaffNameRaw =
+            (c as any).ownerStaffName ??
+            (c as any).background?.ownerStaffName ??
+            null;
+
           return {
             id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
             managementNumber: (c as any).managementNumber ?? "----",
@@ -186,7 +191,10 @@ export default function Page() {
             desiredHourly: (c as any).desiredHourly ?? null,
             // API からのキャストID（例: A001 など）。castCode / cast_code 両方ケア
             castCode: (c as any).castCode ?? (c as any).cast_code ?? "-",
-            ownerStaffName: "-", // 仕様確定後に API フィールドと紐付け
+            ownerStaffName:
+              typeof ownerStaffNameRaw === "string" && ownerStaffNameRaw.trim()
+                ? ownerStaffNameRaw
+                : "-",
             legacyStaffId: (c as any).legacyStaffId ?? null,
           };
         });
@@ -402,7 +410,7 @@ export default function Page() {
 
     const updatedAny = updated as any;
     const updatedOwnerStaffNameRaw =
-      updatedAny.background?.ownerStaffName ?? updatedAny.ownerStaffName ?? null;
+      updatedAny.ownerStaffName ?? updatedAny.background?.ownerStaffName ?? null;
 
     setSelected((prev) =>
       prev
@@ -927,8 +935,10 @@ function CastDetailModal({
       return;
     }
 
+    const detailAny = detail as any;
+
     // ジャンル
-    const rawGenres = (detail.background as any)?.genres;
+    const rawGenres = (detailAny.background as any)?.genres;
     const genres: CastGenre[] = Array.isArray(rawGenres)
       ? (rawGenres as any[]).filter((g: any): g is CastGenre =>
           CAST_GENRE_OPTIONS.includes(g as CastGenre),
@@ -936,8 +946,8 @@ function CastDetailModal({
       : [];
 
     // NG店舗（API: detail.ngShops）
-    const existingNgShops: any[] = Array.isArray((detail as any).ngShops)
-      ? ((detail as any).ngShops as any[])
+    const existingNgShops: any[] = Array.isArray(detailAny.ngShops)
+      ? (detailAny.ngShops as any[])
       : [];
     const ngShopIds: string[] = existingNgShops
       .map((s) => String(s.id ?? s.shopId ?? ""))
@@ -947,9 +957,9 @@ function CastDetailModal({
       .filter((n) => n && n.trim());
 
     // 専属指名（単一）
-    const rawExclusive = (detail as any).exclusiveShop ?? null;
+    const rawExclusive = detailAny.exclusiveShop ?? null;
     const exclusiveShopId: string | null =
-      (detail as any).exclusiveShopId ??
+      detailAny.exclusiveShopId ??
       (rawExclusive ? String(rawExclusive.id ?? rawExclusive.shopId ?? "") : null);
     const exclusiveShopName: string | null =
       rawExclusive && (rawExclusive.name ?? rawExclusive.shopName)
@@ -958,28 +968,48 @@ function CastDetailModal({
 
     // ===== スクショ追加項目（存在すれば detail から拾う / なければ UI 初期値）=====
     const pickupDestination =
-      (detail as any)?.attributes?.pickupDestination ??
-      (detail as any)?.pickupDestination ??
+      detailAny?.attributes?.pickupDestination ??
+      detailAny?.pickupDestination ??
       "";
     const pickupDestinationExtra =
-      (detail as any)?.attributes?.pickupDestinationExtra ??
-      (detail as any)?.pickupDestinationExtra ??
+      detailAny?.attributes?.pickupDestinationExtra ??
+      detailAny?.pickupDestinationExtra ??
       "";
     const bodyTypeRaw =
-      (detail as any)?.attributes?.bodyType ??
-      (detail as any)?.bodyType ??
+      detailAny?.attributes?.bodyType ??
+      detailAny?.bodyType ??
       "";
     const bodyType: CastDetailForm["bodyType"] = BODY_TYPE_OPTIONS.includes(bodyTypeRaw as any)
       ? (bodyTypeRaw as BodyType)
       : "";
+
+    // ★ 雰囲気 / ランク / 担当者 / 専属メモ は root 優先（API実装方針）
     const atmosphereRaw =
-      (detail as any)?.background?.atmosphere ??
-      (detail as any)?.atmosphere ??
+      detailAny?.atmosphere ??
+      detailAny?.background?.atmosphere ??
       50;
     const atmosphere =
       typeof atmosphereRaw === "number" && Number.isFinite(atmosphereRaw)
         ? Math.max(0, Math.min(100, Math.floor(atmosphereRaw)))
         : 50;
+
+    const rankRaw =
+      detailAny?.tiaraRank ??
+      detailAny?.background?.rank ??
+      "";
+    const rank: CastDetailForm["rank"] = CAST_RANK_OPTIONS.includes(rankRaw as any)
+      ? (rankRaw as CastRank)
+      : "";
+
+    const ownerStaffName =
+      detailAny?.ownerStaffName ??
+      detailAny?.background?.ownerStaffName ??
+      (cast.ownerStaffName && cast.ownerStaffName !== "-" ? cast.ownerStaffName : "");
+
+    const exclusiveShopMemo =
+      detailAny?.exclusiveShopMemo ??
+      detailAny?.background?.exclusiveShopMemo ??
+      "";
 
     setForm({
       displayName: detail.displayName ?? cast.name,
@@ -998,11 +1028,9 @@ function CastDetailModal({
         }
         return "";
       })(),
-      rank: ((detail.background as any)?.rank as CastDetailForm["rank"]) ?? "",
-      ownerStaffName:
-        (detail.background as any)?.ownerStaffName ??
-        (cast.ownerStaffName && cast.ownerStaffName !== "-" ? cast.ownerStaffName : ""),
-      salaryNote: (detail.background as any)?.salaryNote ?? "",
+      rank,
+      ownerStaffName: typeof ownerStaffName === "string" ? ownerStaffName : "",
+      salaryNote: (detailAny.background as any)?.salaryNote ?? "",
       preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
       preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
@@ -1012,16 +1040,16 @@ function CastDetailModal({
       shoeSizeCm:
         detail.attributes?.shoeSizeCm != null ? String(detail.attributes.shoeSizeCm) : "",
       // ★ SQLそのまま表示されたくない3項目は sanitize
-      howFound: sanitizeBackgroundField((detail.background as any)?.howFound),
-      motivation: sanitizeBackgroundField((detail.background as any)?.motivation),
-      otherAgencies: sanitizeBackgroundField((detail.background as any)?.otherAgencies),
-      reasonChoose: (detail.background as any)?.reasonChoose ?? "",
-      shopSelectionPoints: (detail.background as any)?.shopSelectionPoints ?? "",
+      howFound: sanitizeBackgroundField((detailAny.background as any)?.howFound),
+      motivation: sanitizeBackgroundField((detailAny.background as any)?.motivation),
+      otherAgencies: sanitizeBackgroundField((detailAny.background as any)?.otherAgencies),
+      reasonChoose: (detailAny.background as any)?.reasonChoose ?? "",
+      shopSelectionPoints: (detailAny.background as any)?.shopSelectionPoints ?? "",
 
       // 追加フィールド
       furigana:
-        (detail as any).furigana ??
-        (detail as any).displayNameKana ??
+        detailAny.furigana ??
+        detailAny.displayNameKana ??
         detail.displayName ??
         cast.name,
 
@@ -1042,31 +1070,32 @@ function CastDetailModal({
           ? "強い"
           : detail.attributes?.drinkLevel === "normal"
           ? "普通"
-          : (detail as any).drinkOk == null
+          : detailAny.drinkOk == null
           ? ""
-          : (detail as any).drinkOk
+          : detailAny.drinkOk
           ? "普通"
           : "NG",
-      hasExperience: (detail as any).hasExperience == null ? "" : (detail as any).hasExperience ? "あり" : "なし",
+      hasExperience:
+        detailAny.hasExperience == null ? "" : detailAny.hasExperience ? "あり" : "なし",
       workHistory: detail.note ?? "",
 
-      referrerName: (detail.background as any)?.referrerName ?? "",
-      compareOtherAgencies: (detail.background as any)?.compareOtherAgencies ?? "",
-      otherAgencyName: (detail.background as any)?.otherAgencyName ?? "",
-      otherNotes: (detail.background as any)?.otherNotes ?? "",
-      thirtyKComment: (detail.background as any)?.thirtyKComment ?? "",
+      referrerName: (detailAny.background as any)?.referrerName ?? "",
+      compareOtherAgencies: (detailAny.background as any)?.compareOtherAgencies ?? "",
+      otherAgencyName: (detailAny.background as any)?.otherAgencyName ?? "",
+      otherNotes: (detailAny.background as any)?.otherNotes ?? "",
+      thirtyKComment: (detailAny.background as any)?.thirtyKComment ?? "",
 
-      idDocType: ((detail.background as any)?.idDocType as CastDetailForm["idDocType"]) ?? "",
+      idDocType: ((detailAny.background as any)?.idDocType as CastDetailForm["idDocType"]) ?? "",
       residencyProof:
-        ((detail.background as any)?.residencyProof as CastDetailForm["residencyProof"]) ?? "",
-      oathStatus: ((detail.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ?? "",
-      idMemo: (detail.background as any)?.idMemo ?? "",
+        ((detailAny.background as any)?.residencyProof as CastDetailForm["residencyProof"]) ?? "",
+      oathStatus: ((detailAny.background as any)?.oathStatus as CastDetailForm["oathStatus"]) ?? "",
+      idMemo: (detailAny.background as any)?.idMemo ?? "",
 
       genres,
-      ngShopMemo: (detail.background as any)?.ngShopMemo ?? "",
+      ngShopMemo: (detailAny.background as any)?.ngShopMemo ?? "",
       ngShopIds,
       ngShopNames,
-      exclusiveShopMemo: (detail.background as any)?.exclusiveShopMemo ?? "",
+      exclusiveShopMemo,
       exclusiveShopId,
       exclusiveShopName,
 
@@ -1169,12 +1198,7 @@ function CastDetailModal({
         idMemo: form.idMemo || null,
         genres: form.genres?.length ? form.genres : null,
         ngShopMemo: form.ngShopMemo || null,
-        exclusiveShopMemo: form.exclusiveShopMemo || null,
-        rank: form.rank || null,
-        ownerStaffName: form.ownerStaffName || null,
-
-        // ★ 雰囲気（スライダー：目盛りあり / 中央基準 / ノブ小）
-        atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : null,
+        // ★ 4項目（rank/owner/exclusiveMemo/atmosphere）は root に寄せるため、background に入れない
       };
 
       // ★ NG / 専属 の ID 配列を仕様に合わせて構築（指名（複数）は削除）
@@ -1215,29 +1239,51 @@ function CastDetailModal({
         ngShopIds,
         // ★ 専属指名
         exclusiveShopIds,
-      };
+
+        // ===== 保存されない4項目：rootで送る（API側で casts に保存→background合成で返す想定）=====
+        tiaraRank: form.rank || null,
+        ownerStaffName: form.ownerStaffName || null,
+        exclusiveShopMemo: form.exclusiveShopMemo || null,
+        atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : null,
+      } as any;
 
       const updated = await updateCast(cast.id, payload);
 
       // ★ フロント側で NG店舗情報・専属指名情報とメモをパッチしてから親に渡す
       const updatedAny = updated as any;
+
       const patchedUpdated: CastDetail = {
         ...(updatedAny as CastDetail),
+
+        // root（念のためUI側の即時反映用）
+        tiaraRank: form.rank || updatedAny.tiaraRank || null,
+        ownerStaffName: form.ownerStaffName || updatedAny.ownerStaffName || null,
+        exclusiveShopMemo:
+          form.exclusiveShopMemo || updatedAny.exclusiveShopMemo || null,
+        atmosphere:
+          typeof form.atmosphere === "number"
+            ? form.atmosphere
+            : updatedAny.atmosphere ?? null,
+
+        // background（APIが合成して返す想定だが、即時反映のため上書き）
         background: {
           ...(updatedAny.background ?? {}),
           // フォームで編集した値を優先
           ngShopMemo: form.ngShopMemo || updatedAny.background?.ngShopMemo || null,
-          exclusiveShopMemo:
-            form.exclusiveShopMemo || updatedAny.background?.exclusiveShopMemo || null,
           salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
           genres: form.genres?.length ? form.genres : updatedAny.background?.genres ?? null,
+          // ★ 4項目も background に合成しておく（画面が background 参照でも崩れないように）
           rank: form.rank || updatedAny.background?.rank || null,
-          ownerStaffName: form.ownerStaffName || updatedAny.background?.ownerStaffName || null,
+          ownerStaffName:
+            form.ownerStaffName || updatedAny.background?.ownerStaffName || null,
+          exclusiveShopMemo:
+            form.exclusiveShopMemo || updatedAny.background?.exclusiveShopMemo || null,
           atmosphere:
             typeof form.atmosphere === "number"
               ? form.atmosphere
               : updatedAny.background?.atmosphere ?? null,
         } as any,
+
         ngShops:
           form.ngShopIds.length > 0
             ? form.ngShopIds.map((id, idx) => ({
@@ -1245,6 +1291,7 @@ function CastDetailModal({
                 name: form.ngShopNames[idx] ?? "",
               }))
             : (updatedAny.ngShops ?? []),
+
         exclusiveShopId: form.exclusiveShopId ?? updatedAny.exclusiveShopId ?? null,
         exclusiveShop: form.exclusiveShopId
           ? {
@@ -2636,7 +2683,7 @@ function ExclusiveShopSelectModal({
         </div>
 
         <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-muted">・選択なしで登録すると専属指名は解除されます。</p>
+          <p className="text-xs text-muted">・専属指名店舗を選択して「登録」ボタンで保存します。</p>
           <div className="flex gap-2">
             <button className="tiara-btn tiara-btn--ghost h-10" onClick={onClose}>
               キャンセル
@@ -2652,110 +2699,6 @@ function ExclusiveShopSelectModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MainInfoRow({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange?: (v: string) => void;
-  readOnly?: boolean;
-  placeholder?: string;
-}) {
-  const effectiveReadOnly = readOnly || !onChange;
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-      <div className="sm:w-32 text-[12px] text-muted shrink-0">{label}</div>
-      <div className="flex-1 min-w-0">
-        <input
-          type="text"
-          value={value ?? ""}
-          placeholder={placeholder}
-          onChange={(e) => onChange?.(e.target.value)}
-          readOnly={effectiveReadOnly}
-          className={`w-full text-[13px] px-3 py-1.5 rounded-lg border text-ink/95 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
-            effectiveReadOnly
-              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
-              : "bg-white border-gray-300"
-          }`}
-        />
-      </div>
-    </div>
-  );
-}
-
-/** ラベル＋値（1行）の小さい行パーツ（サブ情報用・編集可） */
-function InfoRow({
-  label,
-  value,
-  onChange,
-  readOnly,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange?: (v: string) => void;
-  readOnly?: boolean;
-  placeholder?: string;
-}) {
-  const effectiveReadOnly = readOnly || !onChange;
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
-      <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
-      <div className="flex-1 min-w-0">
-        <input
-          type="text"
-          value={value ?? ""}
-          placeholder={placeholder}
-          onChange={(e) => onChange?.(e.target.value)}
-          readOnly={effectiveReadOnly}
-          className={`w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60 ${
-            effectiveReadOnly
-              ? "bg-gray-100 border-gray-200 text-muted cursor-default"
-              : "bg-white border-gray-300"
-          }`}
-        />
-      </div>
-    </div>
-  );
-}
-
-/** セレクト専用の行パーツ（就業可否など） */
-function SelectRow({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 mb-1">
-      <div className="sm:w-32 text-[11px] text-muted shrink-0">{label}</div>
-      <div className="flex-1 min-w-0">
-        <select
-          className="w-full text-[11px] px-2 py-1.5 rounded-lg border text-ink/90 bg-white border-gray-300 outline-none focus:border-accent focus:ring-1 focus:ring-accent/60"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">（選択してください）</option>
-          {options.map((opt) => (
-            <option key={opt.value || opt.label} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
       </div>
     </div>
   );

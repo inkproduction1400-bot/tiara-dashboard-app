@@ -410,7 +410,7 @@ export default function Page() {
 
     const updatedAny = updated as any;
     const updatedOwnerStaffNameRaw =
-      updatedAny.ownerStaffName ?? updatedAny.background?.ownerStaffName ?? null;
+      updatedAny.ownerStaffName ?? (updatedAny as any).background?.ownerStaffName ?? null;
 
     setSelected((prev) =>
       prev
@@ -984,33 +984,24 @@ function CastDetailModal({
       : "";
 
     // ★ 雰囲気 / ランク / 担当者 / 専属メモ は root 優先（API実装方針）
-    const atmosphereRaw =
-      detailAny?.atmosphere ??
-      detailAny?.background?.atmosphere ??
-      50;
+    const atmosphereRaw = (detailAny?.atmosphere ?? detailAny?.background?.atmosphere) ?? 50;
     const atmosphere =
       typeof atmosphereRaw === "number" && Number.isFinite(atmosphereRaw)
         ? Math.max(0, Math.min(100, Math.floor(atmosphereRaw)))
         : 50;
-
-    const rankRaw =
-      detailAny?.tiaraRank ??
-      detailAny?.background?.rank ??
-      "";
+    
+    const rankRaw = (detailAny?.tiaraRank ?? detailAny?.background?.rank) ?? "";
     const rank: CastDetailForm["rank"] = CAST_RANK_OPTIONS.includes(rankRaw as any)
       ? (rankRaw as CastRank)
       : "";
-
+    
     const ownerStaffName =
-      detailAny?.ownerStaffName ??
-      detailAny?.background?.ownerStaffName ??
+      (detailAny?.ownerStaffName ?? detailAny?.background?.ownerStaffName) ??
       (cast.ownerStaffName && cast.ownerStaffName !== "-" ? cast.ownerStaffName : "");
-
+    
     const exclusiveShopMemo =
-      detailAny?.exclusiveShopMemo ??
-      detailAny?.background?.exclusiveShopMemo ??
+      (detailAny?.exclusiveShopMemo ?? (detailAny as any)?.exclusiveShopMemo ?? detailAny?.background?.exclusiveShopMemo) ??
       "";
-
     setForm({
       displayName: detail.displayName ?? cast.name,
       birthdate: detail.birthdate ?? "",
@@ -1273,15 +1264,15 @@ function CastDetailModal({
           salaryNote: form.salaryNote || updatedAny.background?.salaryNote || null,
           genres: form.genres?.length ? form.genres : updatedAny.background?.genres ?? null,
           // ★ 4項目も background に合成しておく（画面が background 参照でも崩れないように）
-          rank: form.rank || updatedAny.background?.rank || null,
+          rank: form.rank || updatedAny.tiaraRank || (updatedAny as any).background?.rank || null,
           ownerStaffName:
-            form.ownerStaffName || updatedAny.background?.ownerStaffName || null,
+            form.ownerStaffName || updatedAny.ownerStaffName || (updatedAny as any).background?.ownerStaffName || null,
           exclusiveShopMemo:
-            form.exclusiveShopMemo || updatedAny.background?.exclusiveShopMemo || null,
+            form.exclusiveShopMemo || (updatedAny as any).exclusiveShopMemo || (updatedAny as any).background?.exclusiveShopMemo || null,
           atmosphere:
             typeof form.atmosphere === "number"
               ? form.atmosphere
-              : updatedAny.background?.atmosphere ?? null,
+              : updatedAny.atmosphere ?? (updatedAny as any).background?.atmosphere ?? null,
         } as any,
 
         ngShops:

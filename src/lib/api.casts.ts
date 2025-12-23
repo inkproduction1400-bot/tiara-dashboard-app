@@ -225,6 +225,10 @@ export type CastDetail = {
   tiaraRank?: string | null;
   ownerStaffName?: string | null;
 
+  /** NEW: 専属メモ / 雰囲気 */
+  exclusiveShopMemo?: string | null;
+  atmosphere?: number | null;
+
   /** 属性・希望条件・背景 */
   attributes: CastAttributes | null;
   preferences: CastPreferences | null;
@@ -267,6 +271,10 @@ export type CastUpdatePayload = {
   /** NEW: ティアラランク / 担当者名 */
   tiaraRank?: string | null;
   ownerStaffName?: string | null;
+
+  /** NEW: 専属メモ / 雰囲気 */
+  exclusiveShopMemo?: string | null;
+  atmosphere?: number | null;
 
   /**
    * NG店舗（キャスト都合）のショップID一覧

@@ -65,6 +65,37 @@ type CastRank = (typeof CAST_RANK_OPTIONS)[number];
 
 /** 体型（スクショ「体系」ドロップダウン相当：保存先未確定なので UI 優先でローカル保持） */
 const BODY_TYPE_OPTIONS = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"] as const;
+
+
+function isBodyTypeJa(x: unknown): x is BodyTypeJa {
+  return (
+    typeof x === "string" &&
+    (BODY_TYPE_OPTIONS as readonly string[]).includes(x)
+  );
+}
+
+type BodyTypeJa = (typeof BODY_TYPE_OPTIONS)[number];
+type BodyTypeApi = "slim" | "normal" | "good" | "fat";
+
+const BODY_TYPE_JA_TO_API: Record<BodyTypeJa, BodyTypeApi | null> = {
+  細身: "slim",
+  普通: "normal",
+  グラマー: "good",
+  ぽっちゃり: "fat",
+  不明: null,
+};
+
+const BODY_TYPE_API_TO_JA: Record<BodyTypeApi, BodyTypeJa> = {
+  slim: "細身",
+  normal: "普通",
+  good: "グラマー",
+  fat: "ぽっちゃり",
+};
+
+const BODY_TYPE_API_VALUES = ["slim", "normal", "good", "fat"] as const;
+function isBodyTypeApi(x: unknown): x is BodyTypeApi {
+  return typeof x === "string" && (BODY_TYPE_API_VALUES as readonly string[]).includes(x);
+}
 type BodyType = (typeof BODY_TYPE_OPTIONS)[number];
 
 /** モーダルを document.body 直下に出すためのポータル */
@@ -984,10 +1015,17 @@ function CastDetailModal({
       detailAny?.attributes?.bodyType ??
       detailAny?.bodyType ??
       "";
-    const bodyType: CastDetailForm["bodyType"] = BODY_TYPE_OPTIONS.includes(bodyTypeRaw as any)
-      ? (bodyTypeRaw as BodyType)
-      : "";
 
+    let bodyType: CastDetailForm["bodyType"] = "";
+    if (typeof bodyTypeRaw === "string" && bodyTypeRaw.length > 0) {
+      if (BODY_TYPE_OPTIONS.includes(bodyTypeRaw as any)) {
+        bodyType = bodyTypeRaw as any; // 既に日本語
+      } else if (isBodyTypeApi(bodyTypeRaw)) {
+        bodyType = BODY_TYPE_API_TO_JA[bodyTypeRaw]; // API値→日本語
+      } else {
+        bodyType = "";
+      }
+    }
     // ★ 雰囲気 / ランク / 担当者 / 専属メモ は root 優先（API実装方針）
     const atmosphereRaw = (detailAny?.atmosphere ?? detailAny?.background?.atmosphere) ?? 50;
     const atmosphere =
@@ -1211,6 +1249,12 @@ function CastDetailModal({
       const ngShopIds = form.ngShopIds ?? [];
       const exclusiveShopIds = form.exclusiveShopId ? [form.exclusiveShopId] : [];
 
+      
+      // ★ 体型（UI日本語 → API値）
+      const bodyTypeApi =
+        isBodyTypeJa(form.bodyType)
+          ? BODY_TYPE_JA_TO_API[form.bodyType]
+          : null;
       const payload: Parameters<typeof updateCast>[1] = {
         displayName: form.displayName || null,
         furigana: form.furigana || null,
@@ -1227,7 +1271,10 @@ function CastDetailModal({
           tattoo: tattooFlag,
           needPickup: needPickupFlag,
           drinkLevel: drinkLevelInternal,
+          bodyType: bodyTypeApi,
           // ★ pickupDestination / bodyType 等は DTO 側が未知なので attributes に入れない（400回避）
+
+
         } as any,
         preferences: {
           desiredHourly,

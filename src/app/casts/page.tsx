@@ -1191,6 +1191,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveDone, setSaveDone] = useState(false);
 
+  const [isHonsekiModalOpen, setIsHonsekiModalOpen] = useState(false);
+
   // detail 取得完了時にフォーム初期化
   useEffect(() => {
     if (!detail) {
@@ -2246,7 +2248,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
                       onClick={() => {
                         // 保存先・アップロード仕様が確定したら実装
-                        alert("本籍地記載書類アップロード（未実装）");
+                        if (!detail) return;
+                        setIsHonsekiModalOpen(true);
                       }}
                     >
                       本籍地記載書類
@@ -2968,6 +2971,8 @@ function ShiftEditModal({
   const [month, setMonth] = useState(now.getMonth()); // 0-origin
 
   const days = useMemo(() => buildMonthDays(year, month), [year, month]);
+
+  const [isHonsekiOpen, setIsHonsekiOpen] = useState(false);
 
   const prevMonth = () => {
     setMonth((m) => {

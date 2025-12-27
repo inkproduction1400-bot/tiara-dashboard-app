@@ -13,7 +13,8 @@ import {
   deleteCast,
   type CastDetail,
   type CastListItem,
-  uploadCastProfilePhoto
+  uploadCastProfilePhoto,
+  deleteCastProfilePhoto
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
@@ -2283,6 +2284,60 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             >
               閉じる
             </button>
+              <button
+                type="button"
+                className="absolute -top-12 right-24 h-10 px-4 rounded-full bg-red-600 text-white text-sm"
+                onClick={async () => {
+                  const targetUrl = photoUrls[activePhotoIndex];
+                  if (!targetUrl) return;
+
+                  // CastDetail 型には id が無いが、実データには id/castId 等が載っている前提で推定して使う
+                  const resolvedCastId: string =
+                    ((detail as any)?.id as string | undefined) ||
+                    ((detail as any)?.castId as string | undefined) ||
+                    ((detail as any)?.cast_id as string | undefined) ||
+                    ((detail as any)?.userId as string | undefined) ||
+                    ((detail as any)?.user_id as string | undefined) ||
+                    // form 側（念のため）
+                    ((form as any)?.id as string | undefined) ||
+                    ((form as any)?.castId as string | undefined) ||
+                    ((form as any)?.cast_id as string | undefined) ||
+                    ((form as any)?.userId as string | undefined) ||
+                    ((form as any)?.user_id as string | undefined) ||
+                    "";
+
+                  if (!resolvedCastId) {
+                    alert("削除対象の castId を特定できませんでした。");
+                    return;
+                  }
+
+                  if (!confirm("この写真を削除しますか？（DBから削除）")) return;
+
+                  try {
+                    const res = await deleteCastProfilePhoto(resolvedCastId, targetUrl);
+
+                    // form 側の photoUrls を更新（photoUrls は form.profilePhotos 由来の想定）
+                    setForm((prev: any) => {
+                      if (!prev) return prev;
+                      return { ...prev, profilePhotos: Array.isArray(res.urls) ? res.urls : [] };
+                    });
+
+                    // index 調整
+                    const nextUrls = Array.isArray(res.urls) ? res.urls : [];
+                    if (nextUrls.length === 0) {
+                      setPhotoModalOpen(false);
+                      setActivePhotoIndex(0);
+                      return;
+                    }
+                    setActivePhotoIndex((i) => Math.min(i, nextUrls.length - 1));
+                  } catch (e: any) {
+                    alert(`削除に失敗しました: ${e?.message || e}`);
+                  }
+                }}
+              >
+                削除
+              </button>
+
 
             <div className="w-full rounded-2xl overflow-hidden bg-black">
               {/* eslint-disable-next-line @next/next/no-img-element */}

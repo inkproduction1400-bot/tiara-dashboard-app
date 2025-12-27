@@ -582,6 +582,42 @@ export async function uploadCastProfilePhoto(castId: string, file: File): Promis
 }
 
 
+export async function deleteCastProfilePhoto(
+  castId: string,
+  url: string,
+): Promise<{ urls: string[] }> {
+  const RAW_BASE = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
+  ).replace(/\/+$/, "");
+
+  const token = getToken();
+
+  const headers: HeadersInit = {};
+  if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
+
+  const uid =
+    (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
+    process.env.NEXT_PUBLIC_DEMO_USER_ID ||
+    "";
+  if (uid) (headers as any)["x-user-id"] = uid;
+
+  const u = new URL(`${RAW_BASE}/casts/${castId}/profile-photos`);
+  u.searchParams.set("url", url);
+
+  const res = await fetch(u.toString(), {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Delete failed (${res.status}): ${t}`);
+  }
+
+  return res.json() as Promise<{ urls: string[] }>;
+}
+
+
 /**
  * 今日出勤キャスト一覧取得 (/casts/today)
  * - 認証・x-user-id 付与は他 API と同じく withUser 経由

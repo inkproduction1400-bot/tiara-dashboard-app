@@ -1191,8 +1191,6 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveDone, setSaveDone] = useState(false);
 
-  const [isHonsekiModalOpen, setIsHonsekiModalOpen] = useState(false);
-
   // detail 取得完了時にフォーム初期化
   useEffect(() => {
     if (!detail) {
@@ -1410,6 +1408,15 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         ? `${birthdateStr}（${computedAge}歳）`
         : birthdateStr
       : "—";
+  const pickUploadedUrl = (res: any): string => {
+    const u = typeof res?.url === "string" ? res.url : "";
+    if (u) return u;
+    const urls = Array.isArray(res?.urls) ? res.urls : [];
+    const first = urls.length ? String(urls[0]) : "";
+    return first;
+  };
+
+
 
   const handleSave = async () => {
     if (!detail || !form) return;
@@ -1640,7 +1647,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       className="px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
                       onClick={() => setShowHonsekiDocs((v) => !v)}
                     >
-                      本籍地記載書類ボタン
+                      本籍地記載書類
                     </button>
                   </div>
 
@@ -1671,16 +1678,12 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                                   const file = e.target.files?.[0];
                                   if (!file || !(detail as any)?.userId) return;
                                   try {
-                                    const res = await uploadCastIdDocWithFace(
-                                      (detail as any).userId,
-                                      file,
-                                    );
+                                    const res = await uploadCastIdDocWithFace((detail as any).userId, file);
+                                    const url = pickUploadedUrl(res);
                                     setForm((prev) =>
-                                      prev
-                                        ? { ...prev, idDocWithFaceUrl: res.url }
-                                        : prev,
+                                      prev ? { ...prev, idDocWithFaceUrl: url } : prev,
                                     );
-                                  } finally {
+} finally {
                                     e.target.value = "";
                                   }
                                 }}
@@ -1735,18 +1738,19 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                                   if (!file || !(detail as any)?.userId) return;
                                   try {
                                     const res =
-                                      await uploadCastIdDocWithoutFace(cast.id,
+                                      await uploadCastIdDocWithoutFace((detail as any).userId,
                                         file,
                                       );
+                                    const url = pickUploadedUrl(res);
                                     setForm((prev) =>
                                       prev
                                         ? {
                                             ...prev,
-                                            idDocWithoutFaceUrl: res.url,
+                                            idDocWithoutFaceUrl: url,
                                           }
                                         : prev,
                                     );
-                                  } finally {
+} finally {
                                     e.target.value = "";
                                   }
                                 }}
@@ -1758,11 +1762,11 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                         <button
                           type="button"
                           className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
-                          disabled={!form?.idDocWithoutFaceUrl || !cast?.id}
+                          disabled={!form?.idDocWithoutFaceUrl || !(detail as any)?.userId}
                           onClick={async () => {
                             if (!cast?.id) return;
                             await deleteCastIdDoc(
-                              cast.id,
+                              (detail as any).userId,
                               "without-face",
                               form?.idDocWithoutFaceUrl || undefined,
                             );
@@ -2249,7 +2253,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       onClick={() => {
                         // 保存先・アップロード仕様が確定したら実装
                         if (!detail) return;
-                        setIsHonsekiModalOpen(true);
+                        setShowHonsekiDocs(true);
                       }}
                     >
                       本籍地記載書類
@@ -2971,9 +2975,6 @@ function ShiftEditModal({
   const [month, setMonth] = useState(now.getMonth()); // 0-origin
 
   const days = useMemo(() => buildMonthDays(year, month), [year, month]);
-
-  const [isHonsekiOpen, setIsHonsekiOpen] = useState(false);
-
   const prevMonth = () => {
     setMonth((m) => {
       if (m === 0) {

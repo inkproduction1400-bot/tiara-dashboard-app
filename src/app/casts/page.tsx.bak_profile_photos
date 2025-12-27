@@ -1077,13 +1077,12 @@ function CastDetailModal({
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const photoUrls = useMemo(() => {
-    // cast 変数を前提（このファイルは cast がスコープにある）
     const c: any = (cast as any) ?? {};
-
-    // ✅ 新DB: casts.profile_photos (text[])
-    // 旧/暫定: photos/photoUrls/photo_urls/images/image_urls (どれか)
     const raw =
+      c?.profilePhotos ??
       c?.profile_photos ??
+      c?.profilePhotoUrls ??
+      c?.profile_photo_urls ??
       c?.photos ??
       c?.photoUrls ??
       c?.photo_urls ??
@@ -1092,11 +1091,7 @@ function CastDetailModal({
       null;
 
     const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
-
-    // ✅ 旧DB/単発: profile_photo_url (text)
     const single = c?.profile_photo_url ? [c.profile_photo_url] : [];
-
-    // profile_photos が空なら single にフォールバック
     const merged = arr.length ? arr : single;
 
     return merged.filter(Boolean);

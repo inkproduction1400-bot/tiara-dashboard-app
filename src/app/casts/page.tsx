@@ -1635,7 +1635,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               )}
             </div>
 <div className="flex items-center gap-2">
-              <button className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
+              <button onClick={() => setShowHonsekiDocs((v) => !v)} className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
                 チャットで連絡
               </button>
               <button
@@ -1824,7 +1824,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           <button
                             type="button"
                             className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                            onClick={() => setNgModalOpen(true)}
+                            onClick={() => { if (!detail) return; setShowHonsekiDocs((v) => !v); }}
                           >
                             +
                           </button>
@@ -2104,11 +2104,126 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       onClick={() => {
                         // 保存先・アップロード仕様が確定したら実装
                         if (!detail) return;
-                        setShowHonsekiDocs(true);
+                        setShowHonsekiDocs((v) => !v);
                       }}
                     >
                       本籍地記載書類
                     </button>
+
+{showHonsekiDocs && (
+  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+    {/* 顔写真付き */}
+    <div className="flex flex-col items-center">
+      <div className="w-full text-left text-[11px] text-muted mb-1">
+        顔写真付き（id_with_face）
+      </div>
+
+      <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+        {form?.idDocWithFaceUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={form.idDocWithFaceUrl}
+            alt="id_with_face"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+            <div className="font-semibold">アップロード＋</div>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !(detail as any)?.userId) return;
+                try {
+                  const res = await uploadCastIdDocWithFace((detail as any).userId, file);
+                  const url = pickUploadedUrl(res);
+                  setForm((prev) => (prev ? { ...prev, idDocWithFaceUrl: url } : prev));
+                } finally {
+                  e.target.value = "";
+                }
+              }}
+            />
+          </label>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
+        disabled={!form?.idDocWithFaceUrl || !(detail as any)?.userId}
+        onClick={async () => {
+          if (!(detail as any)?.userId) return;
+          await deleteCastIdDoc((detail as any).userId, "with-face", form?.idDocWithFaceUrl || undefined);
+          setForm((prev) => (prev ? { ...prev, idDocWithFaceUrl: "" } : prev));
+        }}
+      >
+        削除
+      </button>
+    </div>
+
+    {/* 顔写真なし */}
+    <div className="flex flex-col items-center">
+      <div className="w-full text-left text-[11px] text-muted mb-1">
+        顔写真なし（id_without_face）
+      </div>
+
+      <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+        {form?.idDocWithoutFaceUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={form.idDocWithoutFaceUrl}
+            alt="id_without_face"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+            <div className="font-semibold">アップロード＋</div>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !(detail as any)?.userId) return;
+                try {
+                  const res = await uploadCastIdDocWithoutFace((detail as any).userId, file);
+                  const url = pickUploadedUrl(res);
+                  setForm((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          idDocWithoutFaceUrl: url,
+                        }
+                      : prev,
+                  );
+                } finally {
+                  e.target.value = "";
+                }
+              }}
+            />
+          </label>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
+        disabled={!form?.idDocWithoutFaceUrl || !(detail as any)?.userId}
+        onClick={async () => {
+          if (!(detail as any)?.userId) return;
+          await deleteCastIdDoc((detail as any).userId, "without-face", form?.idDocWithoutFaceUrl || undefined);
+          setForm((prev) => (prev ? { ...prev, idDocWithoutFaceUrl: "" } : prev));
+        }}
+      >
+        削除
+      </button>
+    </div>
+  </div>
+)}
+
+
                   </div>
                     {faceUploadErr && (
                       <div className="pt-1 text-xs text-red-600">

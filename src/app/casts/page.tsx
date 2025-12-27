@@ -1077,7 +1077,7 @@ function CastDetailModal({
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const photoUrls = useMemo(() => {
-    const c: any = cast ?? {};
+    const c: any = detail ?? cast ?? {};
 
     // ✅ 本番API: buildCastDetail が返す（camelCase）
     const v2 = Array.isArray(c.profilePhotos) ? c.profilePhotos : [];
@@ -1119,7 +1119,7 @@ function CastDetailModal({
       uniq.push(u);
     }
     return uniq;
-  }, [cast]);
+  }, [cast, detail]);
 
 
   // ===== 店舗マスタ（NG/専属モーダルで共通）=====

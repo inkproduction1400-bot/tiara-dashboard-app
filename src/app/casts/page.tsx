@@ -136,7 +136,7 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
           <>
             <button
               type="button"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
+              className="absolute left-3 bottom-3 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
               onClick={goPrev}
               aria-label="前の写真"
             >
@@ -145,7 +145,7 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
 
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
+              className="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
               onClick={goNext}
               aria-label="次の写真"
             >

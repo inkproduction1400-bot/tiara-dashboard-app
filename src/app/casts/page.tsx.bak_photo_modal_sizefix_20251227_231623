@@ -2274,19 +2274,19 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           onClick={() => setPhotoModalOpen(false)}
         >
           <div
-            className="relative w-full max-w-xl"
+            className="relative w-full max-w-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
-              className="absolute top-3 right-3 z-10 h-10 px-4 rounded-full bg-white/90 text-sm"
+              className="absolute -top-12 right-0 h-10 px-4 rounded-full bg-white/90 text-sm"
               onClick={() => setPhotoModalOpen(false)}
             >
               閉じる
             </button>
               <button
                 type="button"
-                className="absolute top-3 right-[5.5rem] z-10 h-10 px-4 rounded-full bg-red-600 text-white text-sm"
+                className="absolute -top-12 right-24 h-10 px-4 rounded-full bg-red-600 text-white text-sm"
                 onClick={async () => {
                   const targetUrl = photoUrls[activePhotoIndex];
                   if (!targetUrl) return;
@@ -2344,7 +2344,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               <img
                 src={photoUrls[activePhotoIndex]}
                 alt="拡大写真"
-                className="w-full h-auto object-contain max-h-[75vh]"
+                className="w-full h-auto object-contain"
               />
             </div>
           </div>

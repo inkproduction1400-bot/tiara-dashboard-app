@@ -1077,29 +1077,48 @@ function CastDetailModal({
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const photoUrls = useMemo(() => {
-    // cast 変数を前提（このファイルは cast がスコープにある）
-    const c: any = (cast as any) ?? {};
+    const c: any = cast ?? {};
 
-    // ✅ 新DB: casts.profile_photos (text[])
-    // 旧/暫定: photos/photoUrls/photo_urls/images/image_urls (どれか)
-    const raw =
-      c?.profile_photos ??
-      c?.photos ??
-      c?.photoUrls ??
-      c?.photo_urls ??
-      c?.images ??
-      c?.image_urls ??
+    // ✅ 本番API: buildCastDetail が返す（camelCase）
+    const v2 = Array.isArray(c.profilePhotos) ? c.profilePhotos : [];
+
+    // ✅ 旧/暫定: snake_case（過去DB/実装の名残）もフォールバックで吸収
+    const v1 = Array.isArray(c.profile_photos) ? c.profile_photos : [];
+
+    // ✅ さらに旧: 単発URL（camelCase / snake_case どちらも吸収）
+    const singleRaw =
+      typeof c.profilePhotoUrl === "string"
+        ? c.profilePhotoUrl
+        : typeof c.profile_photo_url === "string"
+          ? c.profile_photo_url
+          : null;
+    const single = singleRaw ? [singleRaw] : [];
+
+    // ✅ 旧/暫定: photos/photoUrls/photo_urls/images/image_urls (どれか)
+    const misc =
+      (Array.isArray(c.photoUrls) ? c.photoUrls : null) ??
+      (Array.isArray(c.profilePhotoUrls) ? c.profilePhotoUrls : null) ??
+      (Array.isArray(c.photo_urls) ? c.photo_urls : null) ??
+      (Array.isArray(c.photos) ? c.photos : null) ??
+      (Array.isArray(c.images) ? c.images : null) ??
+      (Array.isArray(c.image_urls) ? c.image_urls : null) ??
       null;
 
-    const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    // 優先順位: v2 → v1 → misc → single
+    const urls = [
+      ...v2,
+      ...v1,
+      ...((misc ?? []) as any[]),
+      ...single,
+    ].filter((u) => typeof u === "string" && u.length > 0);
 
-    // ✅ 旧DB/単発: profile_photo_url (text)
-    const single = c?.profile_photo_url ? [c.profile_photo_url] : [];
-
-    // profile_photos が空なら single にフォールバック
-    const merged = arr.length ? arr : single;
-
-    return merged.filter(Boolean);
+    // 重複排除（順序維持）
+    const uniq: string[] = [];
+    for (const u of urls) {
+      if (uniq.includes(u)) continue;
+      uniq.push(u);
+    }
+    return uniq;
   }, [cast]);
 
 

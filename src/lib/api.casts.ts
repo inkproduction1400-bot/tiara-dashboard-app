@@ -221,6 +221,12 @@ export type CastDetail = {
   note: string | null;
   profilePhotoUrl: string | null;
 
+  /** NEW: 写真URL配列（profile / 身分証） */
+  profilePhotos: string[];
+  idPhotosWithFace: string[];
+  idPhotosWithoutFace: string[];
+
+
   /** NEW: ティアラランク / 担当者名（バックエンド側で順次対応予定） */
   tiaraRank?: string | null;
   ownerStaffName?: string | null;

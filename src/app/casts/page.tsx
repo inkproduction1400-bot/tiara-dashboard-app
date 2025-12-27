@@ -14,8 +14,7 @@ import {
   type CastDetail,
   type CastListItem,
   uploadCastProfilePhoto,
-  deleteCastProfilePhoto
-} from "@/lib/api.casts";
+  deleteCastProfilePhoto, uploadCastIdDocWithFace, uploadCastIdDocWithoutFace, deleteCastIdDoc } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
 type PhotoSliderProps = {
@@ -26,7 +25,6 @@ type PhotoSliderProps = {
 
 function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
   const [active, setActive] = useState(0);
-
   // Swipe
   const touchRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const SWIPE_MIN_X = 40; // px
@@ -1033,6 +1031,9 @@ type CastDetailForm = {
   /** 本籍地の証明種別 */
   residencyProof: "" | "パスポート" | "本籍地記載住民票";
 
+  // 本籍地記載書類（2枠URL）
+  idDocWithFaceUrl: string;
+  idDocWithoutFaceUrl: string;
   /** 宣誓（身分証のない・更新時） */
   oathStatus: "" | "済" | "未";
 
@@ -1072,6 +1073,7 @@ function CastDetailModal({
   onUpdated,
   staffOptions,
 }: CastDetailModalProps) {
+  const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
   const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
@@ -1370,6 +1372,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       pickupDestinationExtra,
       bodyType,
       atmosphere,
+      idDocWithFaceUrl: ((detailAny as any)?.idDocWithFaceUrl ?? (detailAny as any)?.id_doc_with_face_url ?? ""),
+      idDocWithoutFaceUrl: ((detailAny as any)?.idDocWithoutFaceUrl ?? (detailAny as any)?.id_doc_without_face_url ?? ""),
     });
     setSaveDone(false);
     setSaveError(null);
@@ -1622,7 +1626,158 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            
+                {/* 本籍地記載書類（2枠） */}
+                <div className="bg-white rounded-xl p-2 border border-gray-200 mt-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="text-[11px] font-semibold text-ink">
+                      本籍地記載書類
+                    </div>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100"
+                      onClick={() => setShowHonsekiDocs((v) => !v)}
+                    >
+                      本籍地記載書類ボタン
+                    </button>
+                  </div>
+
+                  {showHonsekiDocs && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* 顔写真付き */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full text-left text-[11px] text-muted mb-1">
+                          顔写真付き（id_with_face）
+                        </div>
+
+                        <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+                          {form?.idDocWithFaceUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={form.idDocWithFaceUrl}
+                              alt="id_with_face"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+                              <div className="font-semibold">アップロード＋</div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file || !(detail as any)?.userId) return;
+                                  try {
+                                    const res = await uploadCastIdDocWithFace(
+                                      (detail as any).userId,
+                                      file,
+                                    );
+                                    setForm((prev) =>
+                                      prev
+                                        ? { ...prev, idDocWithFaceUrl: res.url }
+                                        : prev,
+                                    );
+                                  } finally {
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
+                          disabled={!form?.idDocWithFaceUrl || !(detail as any)?.userId}
+                          onClick={async () => {
+                            if (!(detail as any)?.userId) return;
+                            await deleteCastIdDoc(
+                              (detail as any).userId,
+                              "with-face",
+                              form?.idDocWithFaceUrl || undefined,
+                            );
+                            setForm((prev) =>
+                              prev ? { ...prev, idDocWithFaceUrl: "" } : prev,
+                            );
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+
+                      {/* 顔写真なし */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-full text-left text-[11px] text-muted mb-1">
+                          顔写真なし（id_without_face）
+                        </div>
+
+                        <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+                          {form?.idDocWithoutFaceUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={form.idDocWithoutFaceUrl}
+                              alt="id_without_face"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+                              <div className="font-semibold">アップロード＋</div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file || !(detail as any)?.userId) return;
+                                  try {
+                                    const res =
+                                      await uploadCastIdDocWithoutFace(cast.id,
+                                        file,
+                                      );
+                                    setForm((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            idDocWithoutFaceUrl: res.url,
+                                          }
+                                        : prev,
+                                    );
+                                  } finally {
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
+                          disabled={!form?.idDocWithoutFaceUrl || !cast?.id}
+                          onClick={async () => {
+                            if (!cast?.id) return;
+                            await deleteCastIdDoc(
+                              cast.id,
+                              "without-face",
+                              form?.idDocWithoutFaceUrl || undefined,
+                            );
+                            setForm((prev) =>
+                              prev
+                                ? { ...prev, idDocWithoutFaceUrl: "" }
+                                : prev,
+                            );
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+<div className="flex items-center gap-2">
               <button className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
                 チャットで連絡
               </button>

@@ -669,3 +669,37 @@ export async function deleteCast(id: string): Promise<void> {
     }),
   );
 }
+
+
+// ===== 本籍地記載書類（2枠） =====
+export async function uploadCastIdDocWithFace(castId: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+
+  return apiFetch<{ url: string }>(`/casts/${castId}/id-docs/with-face`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function uploadCastIdDocWithoutFace(castId: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+
+  return apiFetch<{ url: string }>(`/casts/${castId}/id-docs/without-face`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function deleteCastIdDoc(
+  castId: string,
+  kind: "with-face" | "without-face",
+  url?: string,
+) {
+  const qs = new URLSearchParams({ kind });
+  if (url) qs.set("url", url);
+  return apiFetch<{ ok: boolean }>(`/casts/${castId}/id-docs?${qs.toString()}`, {
+    method: "DELETE",
+  });
+}

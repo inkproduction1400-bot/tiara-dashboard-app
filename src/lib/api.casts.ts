@@ -2,6 +2,7 @@
 "use client";
 
 import { apiFetch } from "./api";
+import { getToken } from "./device";
 
 /** x-user-id を付与（localStorage 'tiara:user_id' or 環境変数） */
 function withUser(init?: RequestInit): RequestInit {
@@ -539,6 +540,47 @@ export function updateCast(
     }),
   );
 }
+
+
+/**
+ * Cast 顔写真アップロード（プロフィール写真）
+ * - multipart/form-data
+ * - 返り値は { url?: string, urls?: string[] } を許容（API実装に寄せる）
+ */
+export async function uploadCastProfilePhoto(castId: string, file: File): Promise<{ url: string; urls?: string[] }> {
+  const RAW_BASE = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
+  ).replace(/\/+$/, "");
+
+  const form = new FormData();
+  form.append("file", file);
+
+  const headers: HeadersInit = {};
+  const token = getToken();
+  const uid =
+    (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
+    process.env.NEXT_PUBLIC_DEMO_USER_ID ||
+    "";
+  if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
+  if (uid) (headers as any)["x-user-id"] = uid;
+
+  const res = await fetch(`${RAW_BASE}/casts/${castId}/profile-photos`, {
+    method: "POST",
+    body: form,
+    headers,
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Upload failed (${res.status}): ${t}`);
+  }
+
+  const json = (await res.json().catch(() => ({}))) as any;
+  const url = typeof json.url === "string" ? json.url : "";
+  const urls = Array.isArray(json.urls) ? json.urls.map(String) : undefined;
+  return { url, urls };
+}
+
 
 /**
  * 今日出勤キャスト一覧取得 (/casts/today)

@@ -13,6 +13,7 @@ import {
   deleteCast,
   type CastDetail,
   type CastListItem,
+  uploadCastProfilePhoto
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
@@ -1076,6 +1077,9 @@ function CastDetailModal({
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
+const faceFileRef = React.useRef<HTMLInputElement | null>(null);
+const [faceUploading, setFaceUploading] = useState(false);
+const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const photoUrls = useMemo(() => {
     const c: any = detail ?? cast ?? {};
 
@@ -2026,11 +2030,61 @@ function CastDetailModal({
                       className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
                       onClick={() => {
                         // 保存先・アップロード仕様が確定したら実装
-                        alert("顔写真アップロード（未実装）");
-                      }}
+                        setFaceUploadErr(null);
+                          faceFileRef.current?.click?.();
+                          }}
                     >
-                      顔写真＋
+                      {faceUploading ? "アップロード中…" : "顔写真＋"}
                     </button>
+                      <input
+                        ref={faceFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          // 同じファイル再選択できるように即クリア
+                          e.currentTarget.value = "";
+                          if (!f) return;
+                          // CastDetail 型には id が無いが、実データには id/castId 等が載っている前提で推定して使う
+                          const resolvedCastId: string =
+                            // detail 側（最優先）
+                            ((detail as any)?.id as string | undefined) ||
+                            ((detail as any)?.castId as string | undefined) ||
+                            ((detail as any)?.cast_id as string | undefined) ||
+                            ((detail as any)?.userId as string | undefined) ||
+                            ((detail as any)?.user_id as string | undefined) ||
+                            // form 側（念のため）
+                            ((form as any)?.id as string | undefined) ||
+                            ((form as any)?.castId as string | undefined) ||
+                            ((form as any)?.cast_id as string | undefined) ||
+                            ((form as any)?.userId as string | undefined) ||
+                            ((form as any)?.user_id as string | undefined) ||
+                            "";
+                          if (!resolvedCastId) return;
+                          try {
+                            setFaceUploadErr(null);
+                            setFaceUploading(true);
+                            const res = await uploadCastProfilePhoto(resolvedCastId, f);
+                            const nextUrls = Array.isArray(res.urls) ? res.urls : (res.url ? [res.url] : []);
+                            if (nextUrls.length > 0) {
+                              setForm((prev: any) => {
+                                if (!prev) return prev;
+                                const current = Array.isArray(prev.profilePhotos) ? prev.profilePhotos : [];
+                                const merged = [...current];
+                                for (const u of nextUrls) {
+                                  if (u && !merged.includes(u)) merged.push(u);
+                                }
+                                return { ...(prev as any), profilePhotos: merged } as any;
+                              });
+                            }
+                          } catch (err: any) {
+                            setFaceUploadErr(err?.message ?? "upload failed");
+                          } finally {
+                            setFaceUploading(false);
+                          }
+                        }}
+                      />
                     <button
                       type="button"
                       className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
@@ -2042,9 +2096,14 @@ function CastDetailModal({
                       本籍地記載書類
                     </button>
                   </div>
-                </div>
+                    {faceUploadErr && (
+                      <div className="pt-1 text-xs text-red-600">
+                        顔写真アップロードエラー: {faceUploadErr}
+                      </div>
+                    )}
+                  </div>
 
-                {/* 右列（指名（複数）は削除済み） */}
+                  {/* 右列（指名（複数）は削除済み） */}
                 <div className="space-y-3">
                   {/* ランク */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
@@ -2241,8 +2300,7 @@ function CastDetailModal({
         .tiara-atmo {
           width: 100%;
           position: relative;
-          height: 18px; /* スクショの細さ寄せ */
-        }
+          height: 18px; /* スクショの細さ寄せ */}
         .tiara-atmo__track {
           position: absolute;
           left: 0;
@@ -2290,8 +2348,7 @@ function CastDetailModal({
         }
         .tiara-atmo__input::-webkit-slider-runnable-track {
           height: 2px;
-          background: transparent; /* 下に描いたtrackを使う */
-        }
+          background: transparent; /* 下に描いたtrackを使う */}
         .tiara-atmo__input::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
@@ -2300,8 +2357,7 @@ function CastDetailModal({
           border-radius: 9999px;
           background: #2b78e4; /* シンプル */
           border: 1px solid rgba(0, 0, 0, 0.75);
-          margin-top: -3px; /* track(2px)中心に合わせる */
-        }
+          margin-top: -3px; /* track(2px)中心に合わせる */}
         .tiara-atmo__input::-moz-range-track {
           height: 2px;
           background: transparent;

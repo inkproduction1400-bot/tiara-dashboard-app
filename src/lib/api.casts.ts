@@ -673,23 +673,67 @@ export async function deleteCast(id: string): Promise<void> {
 
 // ===== 本籍地記載書類（2枠） =====
 export async function uploadCastIdDocWithFace(castId: string, file: File) {
+  const RAW_BASE = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
+  ).replace(/\/+$/, "");
+
   const form = new FormData();
   form.append("file", file);
 
-  return apiFetch<{ url: string }>(`/casts/${castId}/id-docs/with-face`, {
+  const headers: HeadersInit = {};
+  const token = getToken();
+  const uid =
+    (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
+    process.env.NEXT_PUBLIC_DEMO_USER_ID ||
+    "";
+
+  if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
+  if (uid) (headers as any)["x-user-id"] = uid;
+
+  const res = await fetch(`${RAW_BASE}/casts/${castId}/id-docs/with-face`, {
     method: "POST",
     body: form,
+    headers,
   });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Upload failed (${res.status}): ${t}`);
+  }
+
+  return (await res.json().catch(() => ({}))) as { url?: string; urls?: string[] };
 }
 
 export async function uploadCastIdDocWithoutFace(castId: string, file: File) {
+  const RAW_BASE = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
+  ).replace(/\/+$/, "");
+
   const form = new FormData();
   form.append("file", file);
 
-  return apiFetch<{ url: string }>(`/casts/${castId}/id-docs/without-face`, {
+  const headers: HeadersInit = {};
+  const token = getToken();
+  const uid =
+    (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
+    process.env.NEXT_PUBLIC_DEMO_USER_ID ||
+    "";
+
+  if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
+  if (uid) (headers as any)["x-user-id"] = uid;
+
+  const res = await fetch(`${RAW_BASE}/casts/${castId}/id-docs/without-face`, {
     method: "POST",
     body: form,
+    headers,
   });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Upload failed (${res.status}): ${t}`);
+  }
+
+  return (await res.json().catch(() => ({}))) as { url?: string; urls?: string[] };
 }
 
 export async function deleteCastIdDoc(
@@ -697,9 +741,34 @@ export async function deleteCastIdDoc(
   kind: "with-face" | "without-face",
   url?: string,
 ) {
-  const qs = new URLSearchParams({ kind });
-  if (url) qs.set("url", url);
-  return apiFetch<{ ok: boolean }>(`/casts/${castId}/id-docs?${qs.toString()}`, {
+  const RAW_BASE = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
+  ).replace(/\/+$/, "");
+
+  const headers: HeadersInit = {};
+  const token = getToken();
+  const uid =
+    (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
+    process.env.NEXT_PUBLIC_DEMO_USER_ID ||
+    "";
+
+  if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
+  if (uid) (headers as any)["x-user-id"] = uid;
+
+  const u = new URL(`${RAW_BASE}/casts/${castId}/id-docs`);
+  u.searchParams.set("kind", kind);
+  if (url) u.searchParams.set("url", url);
+
+  const res = await fetch(u.toString(), {
     method: "DELETE",
+    headers,
   });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Delete failed (${res.status}): ${t}`);
+  }
+
+  return (await res.json().catch(() => ({}))) as { ok?: boolean };
 }
+

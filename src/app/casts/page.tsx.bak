@@ -1,8 +1,6 @@
 // src/app/casts/page.tsx
 "use client";
 
-
-import React from "react";
 import {
   useMemo,
   useState,
@@ -24,187 +22,6 @@ import {
   type CastListItem,
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
-
-type PhotoSliderProps = {
-  urls: string[];
-  onOpen?: (index: number) => void;
-  className?: string;
-};
-
-function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
-  const [active, setActive] = useState(0);
-
-  // Swipe
-  const touchRef = React.useRef<{ x: number; y: number; at: number } | null>(null);
-  const SWIPE_MIN_X = 40; // px
-  const SWIPE_MAX_Y = 60; // px（縦ブレ許容）
-  const SWIPE_MAX_MS = 700; // ms
-
-  const goPrev = React.useCallback(() => {
-    setActive((v) => (v - 1 + urls.length) % urls.length);
-  }, [urls.length]);
-
-  const goNext = React.useCallback(() => {
-    setActive((v) => (v + 1) % urls.length);
-  }, [urls.length]);
-
-  useEffect(() => {
-    if (active >= urls.length) setActive(0);
-  }, [active, urls.length]);
-
-  if (!urls || urls.length === 0) {
-    return (
-      <div
-        className={
-          "w-full aspect-[3/4] rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-400 " +
-          (className ?? "")
-        }
-      >
-        写真なし
-      </div>
-    );
-  }
-
-  const current = urls[active];
-
-  const ArrowLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M15 18l-6-6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const ArrowRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M9 6l6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  return (
-    <div className={"w-full " + (className ?? "")}>
-      <div
-        className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 select-none"
-        onTouchStart={(e) => {
-          if (!e.touches?.[0]) return;
-          touchRef.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            at: Date.now(),
-          };
-        }}
-        onTouchMove={(e) => {
-          // 画像の横スワイプを優先させたいので、縦スクロールを阻害しない範囲で抑制
-          if (!touchRef.current || !e.touches?.[0]) return;
-          const dx = e.touches[0].clientX - touchRef.current.x;
-          const dy = e.touches[0].clientY - touchRef.current.y;
-          if (Math.abs(dx) > 10 && Math.abs(dy) < SWIPE_MAX_Y) {
-            // iOS でのゴムスクロール感を減らす
-            e.preventDefault?.();
-          }
-        }}
-        onTouchEnd={(e) => {
-          const t = touchRef.current;
-          touchRef.current = null;
-          if (!t || !e.changedTouches?.[0]) return;
-
-          const dx = e.changedTouches[0].clientX - t.x;
-          const dy = e.changedTouches[0].clientY - t.y;
-          const dt = Date.now() - t.at;
-
-          if (dt > SWIPE_MAX_MS) return;
-          if (Math.abs(dy) > SWIPE_MAX_Y) return;
-          if (Math.abs(dx) < SWIPE_MIN_X) return;
-
-          // 右へスワイプ => 前へ / 左へスワイプ => 次へ
-          if (dx > 0) goPrev();
-          else goNext();
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current}
-          alt={`写真 ${active + 1}`}
-          className="w-full h-full object-cover cursor-zoom-in"
-          onClick={() => onOpen?.(active)}
-          draggable={false}
-        />
-
-        {/* 左右アイコンボタン（2枚以上のときだけ表示） */}
-        {urls.length > 1 && (
-          <>
-            <button
-              type="button"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
-              onClick={goPrev}
-              aria-label="前の写真"
-            >
-              <ArrowLeftIcon className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
-              onClick={goNext}
-              aria-label="次の写真"
-            >
-              <ArrowRightIcon className="w-5 h-5" />
-            </button>
-
-            {/* インジケータ（●●●） */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full bg-black/35">
-              {urls.map((_, i) => (
-                <button
-                  key={"dot-" + i}
-                  type="button"
-                  className={[
-                    "w-2 h-2 rounded-full",
-                    i === active ? "bg-white" : "bg-white/50",
-                  ].join(" ")}
-                  onClick={() => setActive(i)}
-                  aria-label={`写真 ${i + 1} に切り替え`}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* サムネ（2枚以上のとき） */}
-      {urls.length > 1 && (
-        <div className="mt-3 flex items-center justify-center">
-          <div className="flex items-center gap-2 overflow-x-auto max-w-full px-1">
-            {urls.map((u, i) => (
-              <button
-                key={u + i}
-                type="button"
-                className={[
-                  "w-12 h-12 rounded-xl overflow-hidden border shrink-0",
-                  i === active ? "border-neutral-900" : "border-neutral-200",
-                ].join(" ")}
-                onClick={() => setActive(i)}
-                aria-label={`写真 ${i + 1} を表示`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt="" className="w-full h-full object-cover" draggable={false} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * 一覧用キャスト行（API からの view model）
@@ -1082,21 +899,6 @@ function CastDetailModal({
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
   const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
-  const [photoModalOpen, setPhotoModalOpen] = useState(false);
-  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-
-  const photoUrls = useMemo(() => {
-    const c: any = (cast as any) ?? {};
-    const raw =
-      c?.photos ??
-      c?.photoUrls ??
-      c?.photo_urls ??
-      c?.images ??
-      c?.image_urls ??
-      [];
-    return Array.isArray(raw) ? raw.filter(Boolean) : [];
-  }, [cast]);
-
 
   // ===== 店舗マスタ（NG/専属モーダルで共通）=====
   const [shopsMaster, setShopsMaster] = useState<ShopLite[]>([]);
@@ -1626,15 +1428,13 @@ function CastDetailModal({
 
                   <div className="mt-4 grid grid-cols-[170px_minmax(0,1fr)] gap-4">
                     {/* 写真枠 */}
-            <PhotoSlider
-              urls={photoUrls}
-              onOpen={(i) => {
-                setActivePhotoIndex(i);
-                setPhotoModalOpen(true);
-              }}
-            />
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-full aspect-[3/4] bg-[#3d6ab3] border border-black/40 flex items-center justify-center text-white text-sm">
+                        写真
+                      </div>
+                    </div>
 
-{/* フォーム */}
+                    {/* フォーム */}
                     <div className="space-y-2">
                       {/* ふりがな */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
@@ -2183,37 +1983,7 @@ function CastDetailModal({
       )}
 
       {/* 雰囲気スライダー用CSS（目盛り・ノブ小・中央基準） */}
-            {/* 写真を拡大表示 */}
-      {photoModalOpen && photoUrls[activePhotoIndex] && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setPhotoModalOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-3xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="absolute -top-12 right-0 h-10 px-4 rounded-full bg-white/90 text-sm"
-              onClick={() => setPhotoModalOpen(false)}
-            >
-              閉じる
-            </button>
-
-            <div className="w-full rounded-2xl overflow-hidden bg-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoUrls[activePhotoIndex]}
-                alt="拡大写真"
-                className="w-full h-auto object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-<style jsx global>{`
+      <style jsx global>{`
         .tiara-atmo {
           width: 100%;
           position: relative;

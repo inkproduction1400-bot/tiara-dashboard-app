@@ -1,8 +1,6 @@
 // src/app/casts/page.tsx
 "use client";
 
-
-import React from "react";
 import {
   useMemo,
   useState,

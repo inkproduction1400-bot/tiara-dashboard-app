@@ -1,8 +1,6 @@
 // src/app/casts/page.tsx
 "use client";
 
-
-import React from "react";
 import {
   useMemo,
   useState,
@@ -34,20 +32,6 @@ type PhotoSliderProps = {
 function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
   const [active, setActive] = useState(0);
 
-  // Swipe
-  const touchRef = React.useRef<{ x: number; y: number; at: number } | null>(null);
-  const SWIPE_MIN_X = 40; // px
-  const SWIPE_MAX_Y = 60; // px（縦ブレ許容）
-  const SWIPE_MAX_MS = 700; // ms
-
-  const goPrev = React.useCallback(() => {
-    setActive((v) => (v - 1 + urls.length) % urls.length);
-  }, [urls.length]);
-
-  const goNext = React.useCallback(() => {
-    setActive((v) => (v + 1) % urls.length);
-  }, [urls.length]);
-
   useEffect(() => {
     if (active >= urls.length) setActive(0);
   }, [active, urls.length]);
@@ -67,139 +51,53 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
 
   const current = urls[active];
 
-  const ArrowLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M15 18l-6-6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
-  const ArrowRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M9 6l6 6-6 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-
   return (
     <div className={"w-full " + (className ?? "")}>
-      <div
-        className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 select-none"
-        onTouchStart={(e) => {
-          if (!e.touches?.[0]) return;
-          touchRef.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            at: Date.now(),
-          };
-        }}
-        onTouchMove={(e) => {
-          // 画像の横スワイプを優先させたいので、縦スクロールを阻害しない範囲で抑制
-          if (!touchRef.current || !e.touches?.[0]) return;
-          const dx = e.touches[0].clientX - touchRef.current.x;
-          const dy = e.touches[0].clientY - touchRef.current.y;
-          if (Math.abs(dx) > 10 && Math.abs(dy) < SWIPE_MAX_Y) {
-            // iOS でのゴムスクロール感を減らす
-            e.preventDefault?.();
-          }
-        }}
-        onTouchEnd={(e) => {
-          const t = touchRef.current;
-          touchRef.current = null;
-          if (!t || !e.changedTouches?.[0]) return;
-
-          const dx = e.changedTouches[0].clientX - t.x;
-          const dy = e.changedTouches[0].clientY - t.y;
-          const dt = Date.now() - t.at;
-
-          if (dt > SWIPE_MAX_MS) return;
-          if (Math.abs(dy) > SWIPE_MAX_Y) return;
-          if (Math.abs(dx) < SWIPE_MIN_X) return;
-
-          // 右へスワイプ => 前へ / 左へスワイプ => 次へ
-          if (dx > 0) goPrev();
-          else goNext();
-        }}
-      >
+      <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={current}
           alt={`写真 ${active + 1}`}
           className="w-full h-full object-cover cursor-zoom-in"
           onClick={() => onOpen?.(active)}
-          draggable={false}
         />
-
-        {/* 左右アイコンボタン（2枚以上のときだけ表示） */}
-        {urls.length > 1 && (
-          <>
-            <button
-              type="button"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
-              onClick={goPrev}
-              aria-label="前の写真"
-            >
-              <ArrowLeftIcon className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-neutral-200 shadow-sm flex items-center justify-center"
-              onClick={goNext}
-              aria-label="次の写真"
-            >
-              <ArrowRightIcon className="w-5 h-5" />
-            </button>
-
-            {/* インジケータ（●●●） */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full bg-black/35">
-              {urls.map((_, i) => (
-                <button
-                  key={"dot-" + i}
-                  type="button"
-                  className={[
-                    "w-2 h-2 rounded-full",
-                    i === active ? "bg-white" : "bg-white/50",
-                  ].join(" ")}
-                  onClick={() => setActive(i)}
-                  aria-label={`写真 ${i + 1} に切り替え`}
-                />
-              ))}
-            </div>
-          </>
-        )}
       </div>
 
-      {/* サムネ（2枚以上のとき） */}
       {urls.length > 1 && (
-        <div className="mt-3 flex items-center justify-center">
-          <div className="flex items-center gap-2 overflow-x-auto max-w-full px-1">
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="h-9 px-3 rounded-full border border-neutral-200 bg-white text-sm"
+            onClick={() => setActive((v) => (v - 1 + urls.length) % urls.length)}
+          >
+            前へ
+          </button>
+
+          <div className="flex items-center gap-2 overflow-x-auto">
             {urls.map((u, i) => (
               <button
                 key={u + i}
                 type="button"
                 className={[
-                  "w-12 h-12 rounded-xl overflow-hidden border shrink-0",
+                  "w-12 h-12 rounded-xl overflow-hidden border",
                   i === active ? "border-neutral-900" : "border-neutral-200",
                 ].join(" ")}
                 onClick={() => setActive(i)}
                 aria-label={`写真 ${i + 1} を表示`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt="" className="w-full h-full object-cover" draggable={false} />
+                <img src={u} alt="" className="w-full h-full object-cover" />
               </button>
             ))}
           </div>
+
+          <button
+            type="button"
+            className="h-9 px-3 rounded-full border border-neutral-200 bg-white text-sm"
+            onClick={() => setActive((v) => (v + 1) % urls.length)}
+          >
+            次へ
+          </button>
         </div>
       )}
     </div>

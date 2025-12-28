@@ -1222,10 +1222,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       .map((s) => String(s.id ?? s.shopId ?? ""))
       .filter(Boolean);
     const ngShopNames: string[] = existingNgShops
-      .map((s) => (s.name ?? s.shopName ?? "") as string)
-      .filter((n) => n && n.trim());
-
-    // 専属指名（単一）
+      .map((s) => {
+        const v = (s?.name ?? s?.shopName ?? "");
+        const t = String(v).trim();
+        return t;
+      })
+      .filter(Boolean);
+// 専属指名（単一）
     const rawExclusive = detailAny.exclusiveShop ?? null;
     const exclusiveShopId: string | null =
       detailAny.exclusiveShopId ??
@@ -1861,15 +1864,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                         <div className="flex items-center gap-2">
                           <input
                             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                            value={form?.ngShopMemo ?? ""}
-                            onChange={(e) =>
-                              setForm((p) => (p ? { ...p, ngShopMemo: e.target.value } : p))
-                            }
+                            value={(form?.ngShopNames?.length ? form.ngShopNames.join(" / ") : (form?.ngShopIds?.length    ? form.ngShopIds.map((id) => shopsMaster.find((x:any) => x.id === id)?.name ?? "").filter(Boolean).join(" / ")    : ""))}
+                            readOnly
+                            disabled
                           />
                           <button
                             type="button"
                             className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                            onClick={() => setNgModalOpen(true)}
+                            onClick={() => { if (!detail) return; setNgModalOpen(true); }}
                           >
                             +
                           </button>
@@ -2416,7 +2418,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               (id) => shopsMaster.find((x) => x.id === id)?.name ?? "",
             );
             setForm((prev) =>
-              prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: names } : prev,
+              prev ? { ...prev, ngShopIds: selectedIds, ngShopNames: (
+                Array.isArray(names)
+                  ? names
+                      .map((x: any) => (typeof x === 'string' ? x : (x?.name ?? x?.shopName ?? '')))
+                      .map((x: any) => String(x).trim())
+                      .filter(Boolean)
+                  : []
+              ) } : prev,
             );
           }}
         />

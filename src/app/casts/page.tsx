@@ -426,7 +426,9 @@ export default function Page() {
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
-    const set = new Set<string>();
+    // shops/page.tsx と同じ暫定一覧（本番で ownerStaffName が空でも UI が死なないように）
+    const FALLBACK = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
+    const set = new Set<string>(FALLBACK);
     baseRows.forEach((r) => {
       if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
     });
@@ -1855,7 +1857,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           <button
                             type="button"
                             className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
-                            onClick={() => { if (!detail) return; setShowHonsekiDocs((v) => !v); }}
+                            onClick={() => setNgModalOpen(true)}
                           >
                             +
                           </button>

@@ -1372,8 +1372,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       pickupDestinationExtra,
       bodyType,
       atmosphere,
-      idDocWithFaceUrl: ((detailAny as any)?.idDocWithFaceUrl ?? (detailAny as any)?.id_doc_with_face_url ?? ""),
-      idDocWithoutFaceUrl: ((detailAny as any)?.idDocWithoutFaceUrl ?? (detailAny as any)?.id_doc_without_face_url ?? ""),
+      idDocWithFaceUrl: ((detailAny as any)?.idPhotosWithFace?.[0] ?? (detailAny as any)?.idDocWithFaceUrl ?? (detailAny as any)?.id_doc_with_face_url ?? ""),
+      idDocWithoutFaceUrl: ((detailAny as any)?.idPhotosWithoutFace?.[0] ?? (detailAny as any)?.idDocWithoutFaceUrl ?? (detailAny as any)?.id_doc_without_face_url ?? ""),
     });
     setSaveDone(false);
     setSaveError(null);
@@ -1419,6 +1419,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
 
   const handleSave = async () => {
+    const castId = ((detail as any)?.userId as string | undefined) || cast?.id || "";
+    if (!castId) return;
     if (!detail || !form) return;
     setSaving(true);
     setSaveError(null);
@@ -1540,7 +1542,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : null,
       } as any;
 
-      const updated = await updateCast(cast.id, payload);
+      const updated = await updateCast(castId, payload);
 
       // ★ フロント側で NG店舗情報・専属指名情報とメモをパッチしてから親に渡す
       const updatedAny = updated as any;

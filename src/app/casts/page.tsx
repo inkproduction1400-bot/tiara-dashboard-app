@@ -988,6 +988,7 @@ type CastDetailForm = {
   ownerStaffName: string;
   // 希望出勤日（"月/火" などを想定）
   preferredDays: string;
+  interviewDate?: string;
   preferredTimeFrom: string;
   preferredTimeTo: string;
   preferredArea: string;
@@ -1274,6 +1275,17 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     const exclusiveShopMemo =
       (detailAny?.exclusiveShopMemo ?? (detailAny as any)?.exclusiveShopMemo ?? detailAny?.background?.exclusiveShopMemo) ??
       "";
+
+    // 面談日（面接申込フォームから自動反映される想定：この画面では編集しない）
+    const rawInterview =
+      (detailAny.background as any)?.interviewDate ??
+      (detailAny.background as any)?.interviewAt ??
+      (detailAny as any)?.interviewDate ??
+      (detailAny as any)?.interviewAt ??
+      (detailAny as any)?.interview_at ??
+      null;
+    const interviewDate = rawInterview ? String(rawInterview).slice(0, 10) : "";
+
     setForm({
       displayName: detail.displayName ?? cast.name,
       birthdate: detail.birthdate ?? "",
@@ -1295,6 +1307,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       ownerStaffName: typeof ownerStaffName === "string" ? ownerStaffName : "",
       salaryNote: (detailAny.background as any)?.salaryNote ?? "",
       preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
+      interviewDate,
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
       preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
       preferredArea: detail.preferences?.preferredArea ?? "",
@@ -2741,7 +2754,7 @@ function RegisterInfo2({
       {/* header（スクショ：左に質問＋登録情報②、右にチェック群） */}
       <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-3 items-start">
         <div className="space-y-2">
-          <div className="bg-[#2b78e4] text-white text-xs font-semibold px-3 py-1.5 border border-black/60 inline-block">
+          <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
             登録情報②
           </div>
           <div className="text-xs text-white font-semibold">どのように応募しましたか？</div>
@@ -2877,7 +2890,21 @@ function RegisterInfo2({
 
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
             <div className="text-xs text-white font-semibold">希望出勤日数</div>
-            <input
+            
+            {/* 面談日（面接申込フォームから自動反映：ここでは編集しない） */}
+            <div className="mt-2">
+              <div className="text-xs text-white/90 font-semibold">面談日</div>
+              <input
+                type="date"
+                value={form?.interviewDate ?? ""}
+                disabled
+                className="mt-1 w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
+              />
+              <div className="mt-1 text-[10px] text-white/70">
+                ※面接申込フォームから自動反映（この画面では編集しません）
+              </div>
+            </div>
+<input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
               onChange={(e) =>

@@ -1665,6 +1665,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                   <div className="mt-4 grid grid-cols-[170px_minmax(0,1fr)] gap-4">
                     {/* 写真枠 */}
+
+                    <div className="space-y-2">
             <PhotoSlider
               urls={photoUrls}
               onOpen={(i) => {
@@ -1674,7 +1676,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             />
 
 
-                    <div className="mt-2 w-full rounded-xl bg-white/90 border border-black/40 px-2 py-1 text-[11px] leading-4">
+<div className="mt-2 w-full rounded-xl bg-white/90 border border-black/40 px-2 py-1 text-[11px] leading-4">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[10px] text-neutral-600">管理番号</div>
                         <div className="font-mono text-neutral-900">{managementNumber}</div>
@@ -1688,6 +1690,9 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                         <div className="font-mono text-neutral-900">{legacyStaffId ?? "-"}</div>
                       </div>
                     </div>
+
+                    </div>
+
 {/* フォーム */}
                     <div className="space-y-2">
                       {/* ふりがな */}

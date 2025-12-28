@@ -1619,10 +1619,6 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center gap-3">
               <h3 className="text-sm font-semibold">キャスト詳細（{displayName}）</h3>
-              <span className="text-[10px] text-muted">
-                管理番号: {managementNumber} / 旧スタッフID: {legacyStaffId ?? "-"} / キャストID:{" "}
-                {cast.castCode}
-              </span>
               {detailLoading && (
                 <span className="text-[10px] text-emerald-600">詳細読み込み中…</span>
               )}
@@ -1677,6 +1673,21 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               }}
             />
 
+
+                    <div className="mt-2 w-full rounded-xl bg-white/90 border border-black/40 px-2 py-1 text-[11px] leading-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">管理番号</div>
+                        <div className="font-mono text-neutral-900">{managementNumber}</div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">キャストID</div>
+                        <div className="font-mono text-neutral-900">{cast.castCode}</div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">旧スタッフID</div>
+                        <div className="font-mono text-neutral-900">{legacyStaffId ?? "-"}</div>
+                      </div>
+                    </div>
 {/* フォーム */}
                     <div className="space-y-2">
                       {/* ふりがな */}

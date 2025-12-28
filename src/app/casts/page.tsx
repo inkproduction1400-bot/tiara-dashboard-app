@@ -1050,6 +1050,7 @@ type CastDetailForm = {
   // 専属指名（1店舗）
   exclusiveShopMemo: string;
   exclusiveShopId: string | null;
+  exclusiveShopIds?: string[] | null;
   exclusiveShopName: string | null;
 
   // ===== スクショ「スタッフ入力項目」追加（保存先未確定なので UI 優先でフォーム保持）=====
@@ -1312,7 +1313,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       interviewDate,
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
       preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
-      preferredArea: detail.preferences?.preferredArea ?? "",
+      preferredArea:
+        (detailAny?.preferences as any)?.preferredArea ??
+        (detailAny?.preferences as any)?.desiredArea ??
+        (detailAny as any)?.preferredArea ??
+        (detailAny as any)?.desiredArea ??
+        detail.preferences?.preferredArea ??
+        "",
+
       heightCm: detail.attributes?.heightCm != null ? String(detail.attributes.heightCm) : "",
       clothingSize: detail.attributes?.clothingSize ?? "",
       shoeSizeCm:
@@ -1504,9 +1512,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
       // ★ NG / 専属 の ID 配列を仕様に合わせて構築（指名（複数）は削除）
       const ngShopIds = form.ngShopIds ?? [];
-      const exclusiveShopIds = form.exclusiveShopId ? [form.exclusiveShopId] : [];
+      const exclusiveShopIds =
+        Array.isArray(form.exclusiveShopIds)
+          ? form.exclusiveShopIds
+          : form.exclusiveShopId
+            ? [form.exclusiveShopId]
+            : [];
 
-      
       // ★ 体型（UI日本語 → API値）
       const bodyTypeApi =
         isBodyTypeJa(form.bodyType)
@@ -2859,6 +2871,7 @@ function RegisterInfo2({
           />
         </div>
 
+        
         {/* 下段4項目 */}
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
@@ -2866,7 +2879,9 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.desiredLocation ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, desiredLocation: e.target.value } : p))}
+              onChange={(e) =>
+                setForm((p: any) => (p ? { ...p, desiredLocation: e.target.value } : p))
+              }
             />
           </div>
 
@@ -2875,7 +2890,9 @@ function RegisterInfo2({
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.desiredTimeBand ?? ""}
-              onChange={(e) => setForm((p: any) => (p ? { ...p, desiredTimeBand: e.target.value } : p))}
+              onChange={(e) =>
+                setForm((p: any) => (p ? { ...p, desiredTimeBand: e.target.value } : p))
+              }
             />
           </div>
 
@@ -2892,27 +2909,29 @@ function RegisterInfo2({
 
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
             <div className="text-xs text-white font-semibold">希望出勤日数</div>
-            
-            {/* 面談日（面接申込フォームから自動反映：ここでは編集しない） */}
-            <div className="mt-2">
-              <div className="text-xs text-white/90 font-semibold">面談日</div>
-              <input
-                type="date"
-                value={form?.interviewDate ?? ""}
-                disabled
-                className="mt-1 w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
-              />
-              <div className="mt-1 text-[10px] text-white/70">
-                ※面接申込フォームから自動反映（この画面では編集しません）
-              </div>
-            </div>
-<input
+            <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
               onChange={(e) =>
                 setForm((p: any) => (p ? { ...p, preferredDays: e.target.value } : p))
               }
             />
+          </div>
+
+          {/* 面談日（面接申込フォームから自動反映：ここでは編集しない） */}
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-white/90 font-semibold">面談日</div>
+            <div>
+              <input
+                type="date"
+                value={form?.interviewDate ?? ""}
+                disabled
+                className="w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
+              />
+              <div className="mt-1 text-[10px] text-white/70">
+                ※面接申込フォームから自動反映（この画面では編集しません）
+              </div>
+            </div>
           </div>
         </div>
       </div>

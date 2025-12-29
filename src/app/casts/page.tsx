@@ -1611,9 +1611,9 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
         ngShops:
           form.ngShopIds.length > 0
-            ? form.ngShopIds.map((id, idx) => ({
-                id,
-                name: form.ngShopNames[idx] ?? "",
+            ? form.ngShopIds.map((shopId, idx) => ({
+                shopId,
+                shopName: form.ngShopNames?.[idx] ?? "",
               }))
             : (updatedAny.ngShops ?? []),
 

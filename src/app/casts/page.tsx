@@ -1570,6 +1570,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         ownerStaffName: form.ownerStaffName || null,
         exclusiveShopMemo: form.exclusiveShopMemo || null,
         atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : null,
+        interviewDate: form.interviewDate || null,
       } as any;
 
       const updated = await updateCast(castId, payload);
@@ -1590,6 +1591,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             ? form.atmosphere
             : updatedAny.atmosphere ?? null,
 
+        interviewDate: form.interviewDate || (updatedAny as any).interviewDate || null,
         // background（APIが合成して返す想定だが、即時反映のため上書き）
         background: {
           ...(updatedAny.background ?? {}),
@@ -2934,11 +2936,11 @@ function RegisterInfo2({
               <input
                 type="date"
                 value={form?.interviewDate ?? ""}
-                disabled
+               
                 className="w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
               />
               <div className="mt-1 text-[10px] text-white/70">
-                ※面接申込フォームから自動反映（この画面では編集しません）
+                ※基本は面接申込フォームの自動反映。必要時のみこの画面で上書きできます。
               </div>
             </div>
           </div>

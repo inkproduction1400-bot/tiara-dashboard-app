@@ -2937,6 +2937,11 @@ function RegisterInfo2({
                 type="date"
                 value={form?.interviewDate ?? ""}
                
+                onChange={(e) =>
+                  setForm((p: any) =>
+                    p ? { ...p, interviewDate: e.target.value } : p,
+                  )
+                }
                 className="w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
               />
               <div className="mt-1 text-[10px] text-white/70">

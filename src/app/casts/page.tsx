@@ -1591,7 +1591,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             ? form.atmosphere
             : updatedAny.atmosphere ?? null,
 
-        interviewDate: form.interviewDate || (updatedAny as any).interviewDate || null,
+        interviewDate: ((updatedAny as any).interviewDate ?? form.interviewDate ?? ''),
         // background（APIが合成して返す想定だが、即時反映のため上書き）
         background: {
           ...(updatedAny.background ?? {}),

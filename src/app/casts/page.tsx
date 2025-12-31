@@ -1986,11 +1986,15 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           キャストからの店舗NG
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
-                            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                            value={(form?.ngShopNames?.length ? form.ngShopNames.join(" / ") : (form?.ngShopIds?.length    ? form.ngShopIds.map((id) => shopsMaster.find((x:any) => x.id === id)?.name ?? "").filter(Boolean).join(" / ")    : ""))}
-                            readOnly
-                            disabled
+                          <TagPillsInput
+                            ids={Array.isArray(form?.ngShopIds) ? form!.ngShopIds : []}
+                            placeholder="未登録"
+                            resolveName={(id) => shopsMaster.find((x: any) => x.id === id)?.name ?? ""}
+                            onRemove={(id) => {
+                              const cur = Array.isArray(form?.ngShopIds) ? form!.ngShopIds : [];
+                              const next = cur.filter((x) => x !== id);
+                              void patchNgIdsAndMaybeSave(next);
+                            }}
                           />
                           <button
                             type="button"

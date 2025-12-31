@@ -1639,6 +1639,127 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     }
   };
 
+  // ========================
+  // Tag表示 + 即時PATCH（保存ボタン不要）
+  // ========================
+  function resolveCastIdForPatch(): string {
+    const d: any = detail as any;
+    const f: any = form as any;
+    return (
+      d?.id ||
+      d?.castId ||
+      d?.cast_id ||
+      d?.userId ||
+      d?.user_id ||
+      f?.id ||
+      f?.castId ||
+      f?.cast_id ||
+      f?.userId ||
+      f?.user_id ||
+      ""
+    );
+  }
+
+  async function patchNgIdsAndMaybeSave(nextIds: string[]) {
+    const resolved = resolveCastIdForPatch();
+    if (!resolved) {
+      alert("更新対象の castId を特定できませんでした。");
+      return;
+    }
+    // UI即時反映
+    setForm((p: any) => (p ? { ...p, ngShopIds: nextIds } : p));
+
+    try {
+      const updated = await updateCast(resolved, { ngShopIds: nextIds } as any);
+      const updatedAny: any = updated as any;
+
+      // 画面の detail 反映（最小）
+      onUpdated({
+        ...(updatedAny as any),
+        ngShops:
+          nextIds.length > 0
+            ? nextIds.map((shopId: string) => ({
+                shopId,
+                shopName: shopsMaster.find((x: any) => x.id === shopId)?.name ?? "",
+              }))
+            : (updatedAny.ngShops ?? []),
+      } as any);
+    } catch (e: any) {
+      console.error(e);
+      alert(`更新に失敗しました: ${e?.message || e}`);
+    }
+  }
+
+  async function patchExclusiveIdsAndMaybeSave(nextIds: string[]) {
+    const resolved = resolveCastIdForPatch();
+    if (!resolved) {
+      alert("更新対象の castId を特定できませんでした。");
+      return;
+    }
+    // UI即時反映
+    setForm((p: any) => (p ? { ...p, exclusiveShopIds: nextIds } : p));
+
+    try {
+      const updated = await updateCast(resolved, { exclusiveShopIds: nextIds } as any);
+      const updatedAny: any = updated as any;
+
+      onUpdated({
+        ...(updatedAny as any),
+        exclusiveShopId: nextIds?.[0] ?? null,
+        exclusiveShop:
+          nextIds?.[0]
+            ? { id: nextIds[0], name: shopsMaster.find((x: any) => x.id === nextIds[0])?.name ?? "" }
+            : null,
+      } as any);
+    } catch (e: any) {
+      console.error(e);
+      alert(`更新に失敗しました: ${e?.message || e}`);
+    }
+  }
+
+  function TagPillsInput({
+    ids,
+    placeholder,
+    resolveName,
+    onRemove,
+  }: {
+    ids: string[];
+    placeholder?: string;
+    resolveName: (id: string) => string;
+    onRemove: (id: string) => void;
+  }) {
+    const list = Array.isArray(ids) ? ids : [];
+    return (
+      <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center gap-1 overflow-x-auto">
+        {list.length === 0 ? (
+          <span className="text-gray-400">{placeholder ?? ""}</span>
+        ) : (
+          list.map((id) => {
+            const name = (resolveName(id) || "").trim();
+            if (!name) return null;
+            return (
+              <span
+                key={id}
+                className="flex items-center gap-1 px-2 h-6 rounded-full border border-black/30 bg-gray-50 whitespace-nowrap"
+              >
+                <span className="text-[11px]">{name}</span>
+                <button
+                  type="button"
+                  className="ml-0.5 w-4 h-4 rounded-full border border-black/30 bg-white text-[10px] leading-none flex items-center justify-center"
+                  onClick={() => onRemove(id)}
+                  aria-label="remove"
+                  title="削除"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       {/* viewport 基準で中央固定（スクショ版） */}
@@ -2307,24 +2428,15 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">店舗からのNG</div>
                     <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={
-                          form?.ngShopNames?.length
-                            ? form.ngShopNames.join(" / ")
-                            : form?.ngShopIds?.length
-                              ? form.ngShopIds
-                                  .map(
-                                    (id) =>
-                                      shopsMaster.find((x: any) => x.id === id)?.name ?? ""
-                                  )
-                                  .filter(Boolean)
-                                  .join(" / ")
-                              : ""
-                        }
-                        readOnly
-                        disabled
+                      <TagPillsInput
+                        ids={Array.isArray(form?.ngShopIds) ? form!.ngShopIds : []}
                         placeholder="未登録"
+                        resolveName={(id) => shopsMaster.find((x: any) => x.id === id)?.name ?? ""}
+                        onRemove={(id) => {
+                          const cur = Array.isArray(form?.ngShopIds) ? form!.ngShopIds : [];
+                          const next = cur.filter((x) => x !== id);
+                          void patchNgIdsAndMaybeSave(next);
+                        }}
                       />
                       <button
                         type="button"
@@ -2340,23 +2452,15 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">専属指名</div>
                     <div className="flex items-center gap-2">
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={
-                          Array.isArray(form?.exclusiveShopIds) &&
-                          (form!.exclusiveShopIds!.length > 0)
-                            ? form!.exclusiveShopIds!
-                                .map(
-                                  (id) =>
-                                    shopsMaster.find((x: any) => x.id === id)?.name ?? ""
-                                )
-                                .filter(Boolean)
-                                .join(" / ")
-                            : ""
-                        }
-                        readOnly
-                        disabled
+                      <TagPillsInput
+                        ids={Array.isArray(form?.exclusiveShopIds) ? (form!.exclusiveShopIds as any as string[]) : []}
                         placeholder="未登録"
+                        resolveName={(id) => shopsMaster.find((x: any) => x.id === id)?.name ?? ""}
+                        onRemove={(id) => {
+                          const cur = Array.isArray(form?.exclusiveShopIds) ? (form!.exclusiveShopIds as any as string[]) : [];
+                          const next = cur.filter((x) => x !== id);
+                          void patchExclusiveIdsAndMaybeSave(next);
+                        }}
                       />
                       <button
                         type="button"

@@ -1885,9 +1885,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                             }
                             placeholder={birth === "—" ? "" : birth}
                           />
-                          <div className="h-8 px-2 bg-white border border-black/40 flex flex-col items-center justify-center leading-none">
-                            <div className="text-[10px] text-neutral-600 font-semibold">自動計算</div>
-                            <div className="text-xs font-bold text-neutral-900">{computedAge ?? "-"}</div>
+                          <div className="h-8 px-2 bg-white border border-black/40 flex items-center justify-center">
+                            <div className="text-sm font-bold text-neutral-900 tabular-nums">{computedAge ?? "-"}</div>
                           </div>
                           <div className="text-xs text-ink font-semibold">歳</div>
                         </div>

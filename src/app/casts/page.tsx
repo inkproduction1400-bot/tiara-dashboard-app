@@ -1957,7 +1957,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                                   )
                                 }
                                 className={`h-8 px-3 text-xs border border-black/40 ${
-                                  active ? "bg-[#2b78e4] text-ink" : "bg-white text-black"
+                                  active ? "bg-[#2b78e4] text-white" : "bg-white text-black"
                                 }`}
                               >
                                 {g}
@@ -1998,7 +1998,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           />
                           <button
                             type="button"
-                            className="h-8 w-10 bg-[#2b78e4] text-ink border border-black/40"
+                            className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
                             onClick={() => { if (!detail) return; setNgModalOpen(true); }}
                           >
                             +

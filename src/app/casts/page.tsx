@@ -1791,14 +1791,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                 チャットで連絡
               </button>
               <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
                 onClick={handleSave}
                 disabled={!detail || !form || saving}
               >
                 {saving ? "保存中…" : "登録"}
               </button>
               <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white"
+                className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white bg-[#f16d6d]"
                 onClick={onClose}
               >
                 終了
@@ -2503,13 +2503,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               <div className="mt-6 flex items-center justify-center gap-6">
                 <button
                   type="button"
-                  className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40"
+                  className="px-8 h-9 bg-[#f9fafb] text-black border border-black/40"
                 >
                   チャット連絡
                 </button>
                 <button
                   type="button"
-                  className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40"
+                  className="px-10 h-9 bg-[#49c69b] text-white border border-black/40"
                   onClick={handleSave}
                   disabled={!detail || !form || saving}
                 >
@@ -2517,14 +2517,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                 </button>
                 <button
                   type="button"
-                  className="px-8 h-9 bg-[#6aa84f] text-white border border-black/40"
+                  className="px-8 h-9 bg-[#f16d6d] text-white border border-black/40"
                   onClick={onClose}
                 >
                   終了
                 </button>
                 <button
                   type="button"
-                  className="px-10 h-9 bg-[#6aa84f] text-white border border-black/40"
+                  className="px-10 h-9 bg-[#ffb000] text-white border border-black/40"
                 >
                   一時保存
                 </button>

@@ -1885,15 +1885,10 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                             }
                             placeholder={birth === "—" ? "" : birth}
                           />
-                          <button
-                            type="button"
-                            className="h-8 px-2 text-xs bg-white border border-black/40"
-                            onClick={() => {
-                              // ここは既存の「自動計算」要件があれば後で実装（現状はUIのみ）
-                            }}
-                          >
-                            自動計算
-                          </button>
+                          <div className="h-8 px-2 bg-white border border-black/40 flex flex-col items-center justify-center leading-none">
+                            <div className="text-[10px] text-neutral-600 font-semibold">自動計算</div>
+                            <div className="text-xs font-bold text-neutral-900">{computedAge ?? "-"}</div>
+                          </div>
                           <div className="text-xs text-ink font-semibold">歳</div>
                         </div>
                       </div>

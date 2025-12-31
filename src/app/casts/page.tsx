@@ -2444,7 +2444,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       />
                       <button
                         type="button"
-                        className="h-8 w-14 bg-[#2b78e4] text-white border border-black/40 text-xs"
+                        className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40 text-xs"
                         onClick={() => setNgModalOpen(true)}
                       >
                         +

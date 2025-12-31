@@ -2443,7 +2443,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                         className="h-8 w-14 bg-[#2b78e4] text-white border border-black/40 text-xs"
                         onClick={() => setNgModalOpen(true)}
                       >
-                        +追加
+                        +
                       </button>
                     </div>
                   </div>

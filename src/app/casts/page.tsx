@@ -1392,6 +1392,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       exclusiveShopMemo,
       exclusiveShopId,
       exclusiveShopName,
+      exclusiveShopIds: exclusiveShopId ? [exclusiveShopId] : [],
 
       // ===== 追加（スクショ）=====
       pickupDestination,

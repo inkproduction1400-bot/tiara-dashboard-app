@@ -1851,7 +1851,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                     <div className="space-y-2">
                       {/* ふりがな */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">ふりがな</div>
+                        <div className="text-xs text-ink font-semibold">ふりがな</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.furigana ?? ""}
@@ -1863,7 +1863,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 氏名 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">氏名</div>
+                        <div className="text-xs text-ink font-semibold">氏名</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.displayName ?? ""}
@@ -1875,7 +1875,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 生年月日 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">生年月日</div>
+                        <div className="text-xs text-ink font-semibold">生年月日</div>
                         <div className="flex items-center gap-2">
                           <input
                             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
@@ -1894,13 +1894,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           >
                             自動計算
                           </button>
-                          <div className="text-xs text-white font-semibold">歳</div>
+                          <div className="text-xs text-ink font-semibold">歳</div>
                         </div>
                       </div>
 
                       {/* 現住所 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">現住所</div>
+                        <div className="text-xs text-ink font-semibold">現住所</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.address ?? ""}
@@ -1912,7 +1912,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* TEL */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">TEL</div>
+                        <div className="text-xs text-ink font-semibold">TEL</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.phone ?? ""}
@@ -1924,7 +1924,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* アドレス */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">アドレス</div>
+                        <div className="text-xs text-ink font-semibold">アドレス</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.email ?? ""}
@@ -1936,7 +1936,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* ジャンル */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-start gap-2">
-                        <div className="text-xs text-white font-semibold pt-1">ジャンル</div>
+                        <div className="text-xs text-ink font-semibold pt-1">ジャンル</div>
                         <div className="flex flex-wrap gap-2">
                           {CAST_GENRE_OPTIONS.map((g) => {
                             const active = form?.genres?.includes(g) ?? false;
@@ -1957,7 +1957,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                                   )
                                 }
                                 className={`h-8 px-3 text-xs border border-black/40 ${
-                                  active ? "bg-[#2b78e4] text-white" : "bg-white text-black"
+                                  active ? "bg-[#2b78e4] text-ink" : "bg-white text-black"
                                 }`}
                               >
                                 {g}
@@ -1969,7 +1969,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 希望時給 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">希望時給</div>
+                        <div className="text-xs text-ink font-semibold">希望時給</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.salaryNote ?? ""}
@@ -1982,7 +1982,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* キャストからの店舗NG */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">
+                        <div className="text-xs text-ink font-semibold">
                           キャストからの店舗NG
                         </div>
                         <div className="flex items-center gap-2">
@@ -1998,7 +1998,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           />
                           <button
                             type="button"
-                            className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
+                            className="h-8 w-10 bg-[#2b78e4] text-ink border border-black/40"
                             onClick={() => { if (!detail) return; setNgModalOpen(true); }}
                           >
                             +
@@ -2008,7 +2008,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* シフト情報 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">シフト情報</div>
+                        <div className="text-xs text-ink font-semibold">シフト情報</div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-8 bg-white border border-black/40 px-2 text-xs flex items-center">
                             本日 {todayLabel}: {formatSlot(todaySlot)} / 翌日 {tomorrowLabel}:{" "}
@@ -2026,7 +2026,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 身長 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">身長</div>
+                        <div className="text-xs text-ink font-semibold">身長</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.heightCm ?? ""}
@@ -2038,7 +2038,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 服のサイズ */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">服のサイズ</div>
+                        <div className="text-xs text-ink font-semibold">服のサイズ</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.clothingSize ?? ""}
@@ -2050,7 +2050,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 靴のサイズ */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">靴のサイズ</div>
+                        <div className="text-xs text-ink font-semibold">靴のサイズ</div>
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.shoeSizeCm ?? ""}
@@ -2062,7 +2062,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* タトゥー */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">タトゥー</div>
+                        <div className="text-xs text-ink font-semibold">タトゥー</div>
                         <select
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.tattoo ?? ""}
@@ -2078,7 +2078,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                       {/* 飲酒 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                        <div className="text-xs text-white font-semibold">飲酒</div>
+                        <div className="text-xs text-ink font-semibold">飲酒</div>
                         <select
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                           value={form?.drinkLevel ?? ""}
@@ -2912,10 +2912,10 @@ function RegisterInfo2({
           <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
             登録情報②
           </div>
-          <div className="text-xs text-white font-semibold">どのように応募しましたか？</div>
+          <div className="text-xs text-ink font-semibold">どのように応募しましたか？</div>
         </div>
 
-        <div className="grid grid-cols-4 gap-x-6 gap-y-2 pt-1 text-xs text-white">
+        <div className="grid grid-cols-4 gap-x-6 gap-y-2 pt-1 text-xs text-ink">
           {HOW_FOUND_OPTIONS.map((label) => {
             const checked = currentHowFound.includes(label);
             return (
@@ -2937,7 +2937,7 @@ function RegisterInfo2({
       <div className="mt-4 space-y-2">
         {/* 検索したワード（自由入力） */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">検索したワードを教えてください</div>
+          <div className="text-xs text-ink font-semibold">検索したワードを教えてください</div>
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.referrerName ?? ""}
@@ -2950,7 +2950,7 @@ function RegisterInfo2({
 
         {/* 他派遣会社への登録（プルダウン） */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">他派遣会社への登録</div>
+          <div className="text-xs text-ink font-semibold">他派遣会社への登録</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.compareOtherAgencies ?? ""}
@@ -2965,7 +2965,7 @@ function RegisterInfo2({
 
         {/* 不満だった点（自由入力） */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">不満だった点を教えてください</div>
+          <div className="text-xs text-ink font-semibold">不満だった点を教えてください</div>
           <input
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.dissatisfaction ?? ""}
@@ -2975,7 +2975,7 @@ function RegisterInfo2({
 
         {/* 求める接客経験（プルダウン） */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">求める接客の経験を教えてください</div>
+          <div className="text-xs text-ink font-semibold">求める接客の経験を教えてください</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.customerExperience ?? ""}
@@ -2990,7 +2990,7 @@ function RegisterInfo2({
 
         {/* TBマナー講習（プルダウン） */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-          <div className="text-xs text-white font-semibold">TBマナーの講習が必要ですか？</div>
+          <div className="text-xs text-ink font-semibold">TBマナーの講習が必要ですか？</div>
           <select
             className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
             value={form?.tbManner ?? ""}
@@ -3004,7 +3004,7 @@ function RegisterInfo2({
 
         {/* その他（備考）テキストエリア */}
         <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-3 items-start pt-1">
-          <div className="text-xs text-white font-semibold pt-2">その他（備考）</div>
+          <div className="text-xs text-ink font-semibold pt-2">その他（備考）</div>
           <textarea
             className="w-full h-40 bg-white border border-black/40 px-2 py-2 text-sm resize-none"
             value={form?.otherNotes ?? ""}
@@ -3016,7 +3016,7 @@ function RegisterInfo2({
         {/* 下段4項目 */}
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望勤務地</div>
+            <div className="text-xs text-ink font-semibold">希望勤務地</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.desiredLocation ?? ""}
@@ -3027,7 +3027,7 @@ function RegisterInfo2({
           </div>
 
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望時間帯</div>
+            <div className="text-xs text-ink font-semibold">希望時間帯</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.desiredTimeBand ?? ""}
@@ -3038,7 +3038,7 @@ function RegisterInfo2({
           </div>
 
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望エリア</div>
+            <div className="text-xs text-ink font-semibold">希望エリア</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredArea ?? ""}
@@ -3049,7 +3049,7 @@ function RegisterInfo2({
           </div>
 
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white font-semibold">希望出勤日数</div>
+            <div className="text-xs text-ink font-semibold">希望出勤日数</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.preferredDays ?? ""}
@@ -3061,7 +3061,7 @@ function RegisterInfo2({
 
           {/* 面談日（面接申込フォームから自動反映：ここでは編集しない） */}
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-white/90 font-semibold">面談日</div>
+            <div className="text-xs text-ink/90 font-semibold">面談日</div>
             <div>
               <input
                 type="date"
@@ -3074,7 +3074,7 @@ function RegisterInfo2({
                 }
                 className="w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
               />
-              <div className="mt-1 text-[10px] text-white/70">
+              <div className="mt-1 text-[10px] text-ink/70">
                 ※基本は面接申込フォームの自動反映。必要時のみこの画面で上書きできます。
               </div>
             </div>

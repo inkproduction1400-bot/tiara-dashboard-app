@@ -2308,11 +2308,22 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                     <div className="flex items-center gap-2">
                       <input
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.ngShopMemo ?? ""}
-                        onChange={(e) =>
-                          setForm((p) => (p ? { ...p, ngShopMemo: e.target.value } : p))
+                        value={
+                          form?.ngShopNames?.length
+                            ? form.ngShopNames.join(" / ")
+                            : form?.ngShopIds?.length
+                              ? form.ngShopIds
+                                  .map(
+                                    (id) =>
+                                      shopsMaster.find((x: any) => x.id === id)?.name ?? ""
+                                  )
+                                  .filter(Boolean)
+                                  .join(" / ")
+                              : ""
                         }
-                        placeholder="店舗検索入力"
+                        readOnly
+                        disabled
+                        placeholder="未登録"
                       />
                       <button
                         type="button"
@@ -2330,11 +2341,21 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                     <div className="flex items-center gap-2">
                       <input
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form?.exclusiveShopMemo ?? ""}
-                        onChange={(e) =>
-                          setForm((p) => (p ? { ...p, exclusiveShopMemo: e.target.value } : p))
+                        value={
+                          Array.isArray(form?.exclusiveShopIds) &&
+                          (form!.exclusiveShopIds!.length > 0)
+                            ? form!.exclusiveShopIds!
+                                .map(
+                                  (id) =>
+                                    shopsMaster.find((x: any) => x.id === id)?.name ?? ""
+                                )
+                                .filter(Boolean)
+                                .join(" / ")
+                            : ""
                         }
-                        placeholder="店舗検索入力"
+                        readOnly
+                        disabled
+                        placeholder="未登録"
                       />
                       <button
                         type="button"
@@ -2444,7 +2465,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               ? shopsMaster.find((x) => x.id === selectedId)?.name ?? ""
               : "";
             setForm((prev) =>
-              prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name } : prev,
+              prev ? { ...prev, exclusiveShopId: selectedId, exclusiveShopName: name, exclusiveShopIds: selectedId ? [selectedId] : [] } : prev,
             );
           }}
         />

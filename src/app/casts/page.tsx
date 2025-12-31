@@ -1812,7 +1812,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             <div className="border-b border-black/30">
               <div className="grid grid-cols-1 xl:grid-cols-2">
                 {/* 左：登録情報① */}
-                <div className="bg-[#6aa84f] p-4 border-r border-black/40">
+                <div className="bg-[#efe2dd] p-4 border-r border-black/40">
                   <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
                     登録情報①
                   </div>
@@ -2098,14 +2098,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                 </div>
 
                 {/* 右：登録情報② */}
-                <div className="bg-[#6aa84f] p-4">
+                <div className="bg-[#efe2dd] p-4">
                   <RegisterInfo2 form={form} setForm={setForm} />
                 </div>
               </div>
             </div>
 
             {/* 下段：スタッフ入力項目（オレンジ） */}
-            <div className="bg-[#f1b500] p-4">
+            <div className="bg-[#a87e7e] p-4">
               <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
                 スタッフ入力項目
               </div>

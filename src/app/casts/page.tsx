@@ -2481,6 +2481,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                   {/* 雰囲気（スライダー：目盛りあり / 中央基準 / ノブ小・シンプル） */}
                   <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
                     <div className="text-xs font-semibold text-ink">雰囲気</div>
+                    <div>
                     <div className="h-8 bg-white border border-black/40 px-2 flex items-center">
                       <AtmosphereSlider
                         value={form?.atmosphere ?? 50}
@@ -2489,6 +2490,12 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                         }
                       />
                     </div>
+
+                    <div className="mt-1 flex items-center justify-between text-xs font-semibold text-ink">
+                      <span>暗い</span>
+                      <span>明るい</span>
+                    </div>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -2863,8 +2870,7 @@ function AtmosphereSlider({
   const ticks = [0, 25, 50, 75, 100];
 
   return (
-    <div className="space-y-1">
-<div className="tiara-atmo h-8" aria-label="雰囲気">
+    <div className="tiara-atmo h-8 w-full" aria-label="雰囲気">
       <div className="tiara-atmo__track" />
       <div className="tiara-atmo__ticks" aria-hidden="true">
         {ticks.map((t) => (
@@ -2884,14 +2890,7 @@ function AtmosphereSlider({
         value={v}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
       />
-    
-      </div>
-<div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-900">
-        <span>暗い</span>
-        <span>明るい</span>
-      </div>
-
-</div>
+    </div>
   );
 }
 

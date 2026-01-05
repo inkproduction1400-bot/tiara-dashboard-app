@@ -2864,7 +2864,7 @@ function AtmosphereSlider({
 
   return (
     <div className="space-y-1">
-<div className="tiara-atmo" aria-label="雰囲気">
+<div className="tiara-atmo h-8" aria-label="雰囲気">
       <div className="tiara-atmo__track" />
       <div className="tiara-atmo__ticks" aria-hidden="true">
         {ticks.map((t) => (
@@ -2886,7 +2886,7 @@ function AtmosphereSlider({
       />
     
       </div>
-<div className="mt-1 flex items-center justify-between text-xs font-semibold text-slate-900">
+<div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-900">
         <span>暗い</span>
         <span>明るい</span>
       </div>

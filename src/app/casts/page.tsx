@@ -2814,7 +2814,34 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           color: rgba(0, 0, 0, 0.75);
           border: 1px solid rgba(0, 0, 0, 0.2);
         }
-      `}</style>
+
+/* ===== tiara-atmo: ラベルがスライダーに被る対策 ===== */
+.tiara-atmo{
+  position: relative;
+  /* ラベル用の下余白を確保（被り解消） */
+  padding-bottom: 16px;
+  /* 念のため最低高さも確保 */
+  min-height: 26px;
+}
+
+/* track/ticks/input は上に寄せて表示（現状の見た目を崩さない） */
+.tiara-atmo__track,
+.tiara-atmo__ticks,
+.tiara-atmo__input{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.tiara-atmo__labels{
+  /* padding-bottom で確保した領域に表示 */
+  position: relative;
+  margin-top: 12px;
+  line-height: 1;
+}
+
+`}</style>
     </>
   );
 }

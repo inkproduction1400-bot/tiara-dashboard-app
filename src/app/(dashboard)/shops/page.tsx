@@ -993,20 +993,12 @@ function ShopDetailModal({
     // 登録情報① hairSet（保存対象）
     setHairSet(String((detail as any).hairSet ?? (detail as any).hair_set ?? ""));
 
-    // ★★★ 当日特別オーダーは detail.dailyOrder から反映 ★★★
     const dailyOrder =
       (detail as any).dailyOrder ??
       (detail as any).daily_order ??
       (detail as any).todayOrder ??
       (detail as any).today_order ??
       null;
-
-    setTodaysContactConfirm(dailyOrder?.contactConfirm ?? "");
-    setTodaysDrink(dailyOrder?.drink ?? "");
-    setTodaysHeight(dailyOrder?.height ?? "");
-    setTodaysBodyType(dailyOrder?.bodyType ?? "");
-    setTodaysHairSet(dailyOrder?.hairSet ?? "");
-    setTodaysWage(dailyOrder?.wage ?? "");
 
     // 反映済みマーク
     lastAppliedShopIdRef.current = detail.id;
@@ -1103,24 +1095,11 @@ function ShopDetailModal({
     // ★ hairSet 衝突回避：登録情報①の hairSet はトップキーに入れる
     // （当日特別オーダーは dailyOrder ネストで送る）
     (payload as any).hairSet = hairSet || "";
-
-    // ===== 当日特別オーダー：ネストで送る（hairSet衝突回避）=====
-    // ✅ JST 기준で “今日” を作る（UTCズレ防止）
     const dailyOrderDate = formatDateYYYYMMDD_JST(new Date()); // "YYYY-MM-DD"
 
     (payload as any).dailyOrderDate = dailyOrderDate;
 
     // ★★★ ここが衝突回避の本体：dailyOrder にまとめて送る ★★★
-    (payload as any).dailyOrder = {
-      date: dailyOrderDate,
-      contactConfirm: todaysContactConfirm,
-      drink: todaysDrink,
-      height: todaysHeight,
-      bodyType: todaysBodyType,
-      hairSet: todaysHairSet,
-      wage: todaysWage,
-    };
-
     try {
       // 1) update
       await updateShop(base.id, payload);

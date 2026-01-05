@@ -2856,7 +2856,12 @@ function AtmosphereSlider({
         value={v}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
       />
-    </div>
+    
+      <div className="mt-1 flex items-center justify-between text-xs font-semibold text-slate-900">
+        <span>暗い</span>
+        <span>明るい</span>
+      </div>
+</div>
   );
 }
 

@@ -2670,7 +2670,9 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         .tiara-atmo {
           width: 100%;
           position: relative;
-          height: 18px; /* スクショの細さ寄せ */}
+          height:  100%; /* 親(h-8)に追従させて中央に収める */;
+          display: flex;
+          align-items: center; /* スクショの細さ寄せ */}
         .tiara-atmo__track {
           position: absolute;
           left: 0;
@@ -2710,7 +2712,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           top: 50%;
           transform: translateY(-50%);
           width: 100%;
-          height: 18px;
+          height:  100%;
           background: transparent;
           -webkit-appearance: none;
           appearance: none;

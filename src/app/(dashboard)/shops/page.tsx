@@ -1556,110 +1556,6 @@ function ShopDetailModal({
                 </div>
               </div>
             </div>
-          </section>
-
-          {/* ===== 下段：当日特別オーダー ===== */}
-          <section className="px-4 py-4 bg-[#a87e7e] border-b-2 border-slate-900">
-            <div className="mb-3">
-              <ChipTitle>当日特別オーダー</ChipTitle>
-            </div>
-
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-12 md:col-span-6 space-y-4">
-                <div>
-                  <SubTitle>連絡確認</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysContactConfirm} onChange={(e: any) => setTodaysContactConfirm(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="未">未</option>
-                        <option value="済">済</option>
-                        <option value="要折返し">要折返し</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-
-                <div>
-                  <SubTitle>飲酒</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysDrink} onChange={(e: any) => setTodaysDrink(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="NG">NG</option>
-                        <option value="弱い">弱い</option>
-                        <option value="普通">普通</option>
-                        <option value="強い">強い</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-
-                <div>
-                  <SubTitle>身長</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysHeight} onChange={(e: any) => setTodaysHeight(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="〜150">〜150</option>
-                        <option value="151〜155">151〜155</option>
-                        <option value="156〜160">156〜160</option>
-                        <option value="161〜165">161〜165</option>
-                        <option value="166〜170">166〜170</option>
-                        <option value="171〜">171〜</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-span-12 md:col-span-6 space-y-4">
-                <div>
-                  <SubTitle>体型</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysBodyType} onChange={(e: any) => setTodaysBodyType(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="細身">細身</option>
-                        <option value="普通">普通</option>
-                        <option value="グラマー">グラマー</option>
-                        <option value="ぽっちゃり">ぽっちゃり</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-
-                <div>
-                  <SubTitle>ヘアーセット</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysHairSet} onChange={(e: any) => setTodaysHairSet(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="要">要</option>
-                        <option value="不要">不要</option>
-                        <option value="どちらでも">どちらでも</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-
-                <div>
-                  <SubTitle>時給</SubTitle>
-                  <div className="mt-2">
-                    <Field>
-                      <Select value={todaysWage} onChange={(e: any) => setTodaysWage(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="〜2500">〜2500</option>
-                        <option value="2600〜3000">2600〜3000</option>
-                        <option value="3100〜3500">3100〜3500</option>
-                        <option value="3600〜4000">3600〜4000</option>
-                        <option value="4100〜">4100〜</option>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* footer buttons */}
             <div className="mt-8 flex items-center justify-end gap-6">
@@ -1682,6 +1578,7 @@ function ShopDetailModal({
               </button>
             </div>
           </section>
+
         </div>
       </div>
     </div>

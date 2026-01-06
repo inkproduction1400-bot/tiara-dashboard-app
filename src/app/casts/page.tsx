@@ -2833,14 +2833,15 @@ Zpx;
   min-height: 26px;
 }
 
-/* track/ticks/input は上に寄せて表示（現状の見た目を崩さない） */
+/* track/ticks/input は中央に配置して白枠中央に合わせる */
 .tiara-atmo__track,
 .tiara-atmo__ticks,
 .tiara-atmo__input{
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .tiara-atmo__labels{

@@ -990,6 +990,7 @@ type CastDetailForm = {
   ownerStaffName: string;
   // 希望出勤日（"月/火" などを想定）
   preferredDays: string;
+  lastWorkDate: string;
   interviewDate?: string;
   preferredTimeFrom: string;
   preferredTimeTo: string;
@@ -1292,6 +1293,12 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       null;
     const interviewDate = rawInterview ? String(rawInterview).slice(0, 10) : "";
 
+    const rawLastWorkDate =
+      (detailAny.background as any)?.lastWorkDate ??
+      (detailAny as any)?.lastWorkDate ??
+      null;
+    const lastWorkDate = rawLastWorkDate ? String(rawLastWorkDate).slice(0, 10) : "";
+
     setForm({
       displayName: detail.displayName ?? cast.name,
       birthdate: detail.birthdate ?? "",
@@ -1313,6 +1320,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       ownerStaffName: typeof ownerStaffName === "string" ? ownerStaffName : "",
       salaryNote: (detailAny.background as any)?.salaryNote ?? "",
       preferredDays: detail.preferences?.preferredDays?.join(" / ") ?? "",
+      lastWorkDate,
       interviewDate,
       preferredTimeFrom: detail.preferences?.preferredTimeFrom ?? "",
       preferredTimeTo: detail.preferences?.preferredTimeTo ?? "",
@@ -1503,6 +1511,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         tbManner: form.tbManner ?? null,
         desiredLocation: form.desiredLocation ?? null,
         desiredTimeBand: form.desiredTimeBand ?? null,
+        lastWorkDate: form.lastWorkDate ?? null,
         thirtyKComment: form.thirtyKComment ?? null,
         salaryNote: form.salaryNote ?? null,
         idDocType: form.idDocType ?? null,
@@ -1610,6 +1619,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             typeof form.atmosphere === "number"
               ? form.atmosphere
               : updatedAny.atmosphere ?? (updatedAny as any).background?.atmosphere ?? null,
+          lastWorkDate: form.lastWorkDate ?? updatedAny.background?.lastWorkDate ?? null,
         } as any,
 
         ngShops:
@@ -2086,6 +2096,19 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           <option value="普通">普通</option>
                           <option value="強い">強い</option>
                         </select>
+                      </div>
+
+                      {/* 最終出勤日 */}
+                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                        <div className="text-xs text-ink font-semibold">最終出勤日</div>
+                        <input
+                          type="date"
+                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                          value={form?.lastWorkDate ?? ""}
+                          onChange={(e) =>
+                            setForm((p) => (p ? { ...p, lastWorkDate: e.target.value } : p))
+                          }
+                        />
                       </div>
                     </div>
                   </div>

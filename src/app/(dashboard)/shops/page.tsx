@@ -1058,12 +1058,16 @@ function ShopDetailModal({
       return;
     }
 
-    const payload: Parameters<typeof updateShop>[1] = {
-      name: name.trim(),
-      addressLine: addressLine.trim(),
-      phone: phone.trim(),
+    const toNull = (v: string) => {
+      const t = (v ?? "").trim();
+      return t ? t : null;
     };
 
+    const payload: Parameters<typeof updateShop>[1] = {
+      name: name.trim(),
+      addressLine: toNull(addressLine),
+      phone: toNull(phone),
+    };
     if (trimmedNumber) payload.shopNumber = trimmedNumber;
 
     const kanaTrimmed = kana.trim();
@@ -1079,12 +1083,10 @@ function ShopDetailModal({
 
     // ===== 登録情報①：保存対象を網羅 =====
     // postalCode / height / bodyType / caution / ownerStaff / phoneChecked / contactMethod / hairSet
-    if (postalCode.trim()) (payload as any).postalCode = postalCode.trim();
-    else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
-
-    (payload as any).height = heightUi.trim();
-    (payload as any).bodyType = bodyTypeUi.trim();
-    (payload as any).caution = cautionUi.trim();
+    (payload as any).postalCode = toNull(postalCode);
+    (payload as any).height = toNull(heightUi);
+    (payload as any).bodyType = toNull(bodyTypeUi);
+    (payload as any).caution = toNull(cautionUi);
     (payload as any).ownerStaff = ownerStaff || "";
     (payload as any).phoneChecked = Boolean(phoneChecked);
 

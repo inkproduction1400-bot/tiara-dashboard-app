@@ -162,6 +162,34 @@ const shopKanaKey = (shop: Shop): string => {
   return shop.name ?? "";
 };
 
+const resolvePhotoUrl = (item: any): string | undefined => {
+  const direct =
+    item?.profilePhotoUrl ??
+    item?.profile_photo_url ??
+    item?.photoUrl ??
+    item?.photo_url ??
+    item?.imageUrl ??
+    item?.image_url ??
+    null;
+  if (typeof direct === "string" && direct.trim()) return direct.trim();
+
+  const arrays = [
+    item?.profilePhotos,
+    item?.profile_photos,
+    item?.photoUrls,
+    item?.photo_urls,
+    item?.images,
+    item?.image_urls,
+  ];
+  for (const arr of arrays) {
+    if (Array.isArray(arr) && arr.length > 0) {
+      const first = arr.find((u: any) => typeof u === "string" && u.trim());
+      if (first) return String(first).trim();
+    }
+  }
+  return undefined;
+};
+
 const parseWageMinFromLabel = (label?: string | null): number | null => {
   if (!label) return null;
   const m = String(label).match(/(\d{4})/);
@@ -554,6 +582,13 @@ export default function Page() {
 
         if (cancelled) return;
 
+        const allPhotoMap = new Map<string, string | undefined>(
+          (allResp.items ?? []).map((item: any) => [
+            item.userId ?? item.id ?? "",
+            resolvePhotoUrl(item),
+          ]),
+        );
+
         // 本日出勤キャスト
         const todayList: Cast[] = todayResp.items.map((item) => ({
           id: item.castId,
@@ -564,7 +599,8 @@ export default function Page() {
           drinkLevel: mapDrinkLevel(
             (item as any).drinkLevel ?? (item as any).drinkOk,
           ),
-          photoUrl: "/images/sample-cast.jpg",
+          photoUrl:
+            resolvePhotoUrl(item) ?? allPhotoMap.get(item.castId) ?? undefined,
           ngShopIds: (item as any).ngShopIds ?? [],
           oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
           genres: ((item as any).genres ?? []) as CastGenre[],
@@ -586,7 +622,7 @@ export default function Page() {
             drinkLevel: mapDrinkLevel(
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
-            photoUrl: "/images/sample-cast.jpg",
+            photoUrl: resolvePhotoUrl(item) ?? undefined,
             ngShopIds: (item as any).ngShopIds ?? [],
             oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
             genres: ((item as any).genres ?? []) as CastGenre[],

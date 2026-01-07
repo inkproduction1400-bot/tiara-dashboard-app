@@ -829,6 +829,48 @@ function DisplayCountControl({ limit, total, onChange }: DisplayCountControlProp
   );
 }
 
+const ShopDetailLabel = ({ children }: { children: any }) => (
+  <div className="text-sm font-semibold text-slate-900">{children}</div>
+);
+
+const ShopDetailField = ({ children }: { children: any }) => (
+  <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
+    {children}
+  </div>
+);
+
+const ShopDetailInput = (props: InputHTMLAttributes<HTMLInputElement>) => (
+  <input
+    {...props}
+    className={
+      "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
+      (props.className ?? "")
+    }
+  />
+);
+
+const ShopDetailSelect = (props: SelectHTMLAttributes<HTMLSelectElement>) => (
+  <select
+    {...props}
+    className={
+      "w-full bg-transparent outline-none text-slate-900 " +
+      (props.className ?? "")
+    }
+  />
+);
+
+const ShopDetailChipTitle = ({ children }: { children: any }) => (
+  <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+    {children}
+  </div>
+);
+
+const ShopDetailSubTitle = ({ children }: { children: any }) => (
+  <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
+    {children}
+  </div>
+);
+
 type ShopDetailModalProps = {
   base: ShopListItem;
   detail: ShopDetail | null;
@@ -928,6 +970,69 @@ function ShopDetailModal({
   const [err, setErr] = useState<string | null>(null);
   const [shopNumberError, setShopNumberError] = useState<string | null>(null);
 
+  const lastInputRef = useRef<{ field: string; value: string } | null>(null);
+  const trackInputChange = useCallback((field: string, value: string) => {
+    lastInputRef.current = { field, value };
+    // eslint-disable-next-line no-console
+    console.log("[ShopDetailModal] input change", { field, value });
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[ShopDetailModal] mount");
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log("[ShopDetailModal] unmount");
+    };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[ShopDetailModal] base changed", base.id);
+  }, [base.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[ShopDetailModal] detail changed", detail?.id ?? "none");
+  }, [detail]);
+
+  useEffect(() => {
+    if (!lastInputRef.current) return;
+    const { field, value } = lastInputRef.current;
+    const currentValues: Record<string, string> = {
+      shopNumber,
+      name,
+      kana,
+      postalCode,
+      addressLine,
+      buildingName,
+      phone,
+      heightUi,
+      bodyTypeUi,
+      cautionUi,
+    };
+    const current = currentValues[field];
+    if (current !== value) {
+      // eslint-disable-next-line no-console
+      console.log("[ShopDetailModal] input rollback detected", {
+        field,
+        lastTyped: value,
+        current,
+      });
+    }
+  }, [
+    shopNumber,
+    name,
+    kana,
+    postalCode,
+    addressLine,
+    buildingName,
+    phone,
+    heightUi,
+    bodyTypeUi,
+    cautionUi,
+  ]);
+
   const drinkOptions: { value: ShopDrinkPreference; label: string }[] = [
     { value: "none", label: "NG" },
     { value: "weak", label: "弱い" },
@@ -1013,6 +1118,8 @@ function ShopDetailModal({
 
     // 反映済みマーク
     lastAppliedShopIdRef.current = detail.id;
+    // eslint-disable-next-line no-console
+    console.log("[ShopDetailModal] applied detail to state", detail.id);
   }, [detail]);
 
   // ---- 専属 / NG 初期ロード（表示用）----
@@ -1141,48 +1248,6 @@ function ShopDetailModal({
   };
 
   // ---- ここからレイアウト（スクショ寄せ・ライト固定） ----
-  const Label = ({ children }: { children: any }) => (
-    <div className="text-sm font-semibold text-slate-900">{children}</div>
-  );
-
-  const Field = ({ children }: { children: any }) => (
-    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
-      {children}
-    </div>
-  );
-
-  const Input = (props: any) => (
-    <input
-      {...props}
-      className={
-        "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
-        (props.className ?? "")
-      }
-    />
-  );
-
-  const Select = (props: any) => (
-    <select
-      {...props}
-      className={
-        "w-full bg-transparent outline-none text-slate-900 " +
-        (props.className ?? "")
-      }
-    />
-  );
-
-  const ChipTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
-  const SubTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       {/* overlay */}
@@ -1217,7 +1282,7 @@ function ShopDetailModal({
           {/* ===== 上段：登録情報 ===== */}
           <section className="px-4 py-4 bg-[#efe2dd] border-b-2 border-slate-900">
             <div className="flex items-start justify-between gap-3 mb-3">
-              <ChipTitle>登録情報①</ChipTitle>
+              <ShopDetailChipTitle>登録情報①</ShopDetailChipTitle>
 
               <div className="flex items-center gap-2">
                 <div className="rounded-sm border border-slate-900/70 bg-[#3f67b6] text-white px-3 py-2 text-sm font-semibold">
@@ -1238,10 +1303,10 @@ function ShopDetailModal({
 
                 <div className="mt-4 space-y-3">
                   <div>
-                    <Label>ランク</Label>
+                    <ShopDetailLabel>ランク</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select
+                      <ShopDetailField>
+                        <ShopDetailSelect 
                           value={rank}
                           onChange={(e: any) => setRank((e.target.value || "") as ShopRank | "")}
                         >
@@ -1250,17 +1315,17 @@ function ShopDetailModal({
                           <option value="A">A</option>
                           <option value="B">B</option>
                           <option value="C">C</option>
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   {/* 連絡方法（保存対象） */}
                   <div>
-                    <Label>連絡方法</Label>
+                    <ShopDetailLabel>連絡方法</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select
+                      <ShopDetailField>
+                        <ShopDetailSelect 
                           value={contactMethod}
                           onChange={(e: any) =>
                             setContactMethod((e.target.value || "") as ContactMethodFilter)
@@ -1270,25 +1335,25 @@ function ShopDetailModal({
                           <option value="line">LINE</option>
                           <option value="sms">SMS</option>
                           <option value="tel">TEL</option>
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   {/* ヘアーセット（登録情報①：保存対象 / 当日特別オーダーとは別state） */}
                   <div>
-                    <Label>ヘアーセット</Label>
+                    <ShopDetailLabel>ヘアーセット</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select
+                      <ShopDetailField>
+                        <ShopDetailSelect 
                           value={hairSet}
                           onChange={(e: any) => setHairSet(e.target.value)}
                         >
                           <option value="">プルダウン</option>
                           <option value="none">不要</option>
                           <option value="need">必要</option>
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
                 </div>
@@ -1298,18 +1363,19 @@ function ShopDetailModal({
               <div className="col-span-12 md:col-span-8">
                 <div className="grid grid-cols-12 gap-3">
                   <div className="col-span-12">
-                    <Label>店舗番号</Label>
+                    <ShopDetailLabel>店舗番号</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={shopNumber}
                           onChange={(e: any) => {
+                            trackInputChange("shopNumber", e.target.value);
                             setShopNumber(e.target.value);
                             setShopNumberError(null);
                           }}
                           placeholder="自由入力"
                         />
-                      </Field>
+                      </ShopDetailField>
                       {shopNumberError && (
                         <div className="mt-1 text-xs text-red-200 font-semibold">{shopNumberError}</div>
                       )}
@@ -1317,65 +1383,99 @@ function ShopDetailModal({
                   </div>
 
                   <div className="col-span-12">
-                    <Label>店舗名</Label>
+                    <ShopDetailLabel>店舗名</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="自由入力" />
-                      </Field>
+                      <ShopDetailField>
+                        <ShopDetailInput
+                          value={name}
+                          onChange={(e: any) => {
+                            trackInputChange("name", e.target.value);
+                            setName(e.target.value);
+                          }}
+                          placeholder="自由入力"
+                        />
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>仮名（読み方）</Label>
+                    <ShopDetailLabel>仮名（読み方）</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input value={kana} onChange={(e: any) => setKana(e.target.value)} placeholder="自由入力" />
-                      </Field>
+                      <ShopDetailField>
+                        <ShopDetailInput
+                          value={kana}
+                          onChange={(e: any) => {
+                            trackInputChange("kana", e.target.value);
+                            setKana(e.target.value);
+                          }}
+                          placeholder="自由入力"
+                        />
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>郵便番号</Label>
+                    <ShopDetailLabel>郵便番号</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={postalCode}
-                          onChange={(e: any) => setPostalCode(e.target.value)}
+                          onChange={(e: any) => {
+                            trackInputChange("postalCode", e.target.value);
+                            setPostalCode(e.target.value);
+                          }}
                           placeholder="自由入力または住所から自動反映"
                         />
-                      </Field>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>店住所</Label>
+                    <ShopDetailLabel>店住所</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={addressLine}
-                          onChange={(e: any) => setAddressLine(e.target.value)}
+                          onChange={(e: any) => {
+                            trackInputChange("addressLine", e.target.value);
+                            setAddressLine(e.target.value);
+                          }}
                           placeholder="自由入力または郵便番号から自動反映"
                         />
-                      </Field>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>ビル名</Label>
+                    <ShopDetailLabel>ビル名</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input value={buildingName} onChange={(e: any) => setBuildingName(e.target.value)} placeholder="自由入力" />
-                      </Field>
+                      <ShopDetailField>
+                        <ShopDetailInput
+                          value={buildingName}
+                          onChange={(e: any) => {
+                            trackInputChange("buildingName", e.target.value);
+                            setBuildingName(e.target.value);
+                          }}
+                          placeholder="自由入力"
+                        />
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>電話番号</Label>
+                    <ShopDetailLabel>電話番号</ShopDetailLabel>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="flex-1">
-                        <Field>
-                          <Input value={phone} onChange={(e: any) => setPhone(e.target.value)} placeholder="自動入力" />
-                        </Field>
+                        <ShopDetailField>
+                          <ShopDetailInput
+                            value={phone}
+                            onChange={(e: any) => {
+                              trackInputChange("phone", e.target.value);
+                              setPhone(e.target.value);
+                            }}
+                            placeholder="自動入力"
+                          />
+                        </ShopDetailField>
                       </div>
                       <label className="inline-flex items-center gap-2 text-white/95 text-sm font-semibold">
                         <input
@@ -1390,46 +1490,46 @@ function ShopDetailModal({
                   </div>
 
                   <div className="col-span-12">
-                    <Label>ジャンル</Label>
+                    <ShopDetailLabel>ジャンル</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select value={genre} onChange={(e: any) => setGenre((e.target.value || "") as ShopGenre | "")}>
+                      <ShopDetailField>
+                        <ShopDetailSelect  value={genre} onChange={(e: any) => setGenre((e.target.value || "") as ShopGenre | "")}>
                           <option value="">プルダウン</option>
                           <option value="club">クラブ</option>
                           <option value="cabaret">キャバクラ</option>
                           <option value="snack">スナック</option>
                           <option value="gb">GB</option>
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>時給</Label>
+                    <ShopDetailLabel>時給</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select value={hourlyRate} onChange={(e: any) => setHourlyRate(e.target.value)}>
+                      <ShopDetailField>
+                        <ShopDetailSelect  value={hourlyRate} onChange={(e: any) => setHourlyRate(e.target.value)}>
                           <option value="">プルダウン</option>
                           {wageOptions.map((opt) => (
                             <option key={opt} value={opt}>
                               {opt}
                             </option>
                           ))}
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   {/* 専属指名 / NG（スクショ右側＋追加ボタン風） */}
                   <div className="col-span-12">
-                    <Label>専属指名</Label>
+                    <ShopDetailLabel>専属指名</ShopDetailLabel>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="flex-1">
-                        <Field>
+                        <ShopDetailField>
                           <div className="text-slate-500 text-sm">
                             {fixedLoading ? "読み込み中…" : fixedCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
                           </div>
-                        </Field>
+                        </ShopDetailField>
                       </div>
                       <button
                         type="button"
@@ -1443,14 +1543,14 @@ function ShopDetailModal({
                   </div>
 
                   <div className="col-span-12">
-                    <Label>NGキャスト</Label>
+                    <ShopDetailLabel>NGキャスト</ShopDetailLabel>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="flex-1">
-                        <Field>
+                        <ShopDetailField>
                           <div className="text-slate-500 text-sm">
                             {ngLoadingState ? "読み込み中…" : ngCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
                           </div>
-                        </Field>
+                        </ShopDetailField>
                       </div>
                       <button
                         type="button"
@@ -1464,10 +1564,10 @@ function ShopDetailModal({
                   </div>
 
                   <div className="col-span-12">
-                    <Label>身分証</Label>
+                    <ShopDetailLabel>身分証</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select
+                      <ShopDetailField>
+                        <ShopDetailSelect 
                           value={idDocument}
                           onChange={(e: any) => setIdDocument((e.target.value || "") as ShopIdRequirement | "")}
                         >
@@ -1476,16 +1576,16 @@ function ShopDetailModal({
                           <option value="photo_only">顔写真</option>
                           <option value="address_only">本籍地</option>
                           <option value="both">どちらも必要</option>
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>飲酒希望</Label>
+                    <ShopDetailLabel>飲酒希望</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select
+                      <ShopDetailField>
+                        <ShopDetailSelect 
                           value={drinkPreference}
                           onChange={(e: any) =>
                             setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
@@ -1497,63 +1597,72 @@ function ShopDetailModal({
                               {opt.label}
                             </option>
                           ))}
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>身長</Label>
+                    <ShopDetailLabel>身長</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={heightUi}
-                          onChange={(e: any) => setHeightUi(e.target.value)}
+                          onChange={(e: any) => {
+                            trackInputChange("heightUi", e.target.value);
+                            setHeightUi(e.target.value);
+                          }}
                           placeholder="数値又は範囲プルダウン（保存対象）"
                         />
-                      </Field>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>体型</Label>
+                    <ShopDetailLabel>体型</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={bodyTypeUi}
-                          onChange={(e: any) => setBodyTypeUi(e.target.value)}
+                          onChange={(e: any) => {
+                            trackInputChange("bodyTypeUi", e.target.value);
+                            setBodyTypeUi(e.target.value);
+                          }}
                           placeholder="細い・普通・太いのプルダウン？（保存対象）"
                         />
-                      </Field>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>注意点</Label>
+                    <ShopDetailLabel>注意点</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Input
+                      <ShopDetailField>
+                        <ShopDetailInput
                           value={cautionUi}
-                          onChange={(e: any) => setCautionUi(e.target.value)}
+                          onChange={(e: any) => {
+                            trackInputChange("cautionUi", e.target.value);
+                            setCautionUi(e.target.value);
+                          }}
                           placeholder="自由入力（保存対象）"
                         />
-                      </Field>
+                      </ShopDetailField>
                     </div>
                   </div>
 
                   <div className="col-span-12">
-                    <Label>担当</Label>
+                    <ShopDetailLabel>担当</ShopDetailLabel>
                     <div className="mt-1">
-                      <Field>
-                        <Select value={ownerStaff} onChange={(e: any) => setOwnerStaff(e.target.value)}>
+                      <ShopDetailField>
+                        <ShopDetailSelect  value={ownerStaff} onChange={(e: any) => setOwnerStaff(e.target.value)}>
                           <option value="">プルダウン</option>
                           {staffOptions.map((n) => (
                             <option key={n} value={n}>
                               {n}
                             </option>
                           ))}
-                        </Select>
-                      </Field>
+                        </ShopDetailSelect>
+                      </ShopDetailField>
                     </div>
                   </div>
                 </div>
@@ -1564,45 +1673,45 @@ function ShopDetailModal({
           {/* ===== 下段：当日特別オーダー ===== */}
           <section className="px-4 py-4 bg-[#a87e7e] border-b-2 border-slate-900">
             <div className="mb-3">
-              <ChipTitle>当日特別オーダー</ChipTitle>
+              <ShopDetailChipTitle>当日特別オーダー</ShopDetailChipTitle>
             </div>
 
             <div className="grid grid-cols-12 gap-6">
               <div className="col-span-12 md:col-span-6 space-y-4">
                 <div>
-                  <SubTitle>連絡確認</SubTitle>
+                  <ShopDetailSubTitle>連絡確認</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysContactConfirm} onChange={(e: any) => setTodaysContactConfirm(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysContactConfirm} onChange={(e: any) => setTodaysContactConfirm(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="未">未</option>
                         <option value="済">済</option>
                         <option value="要折返し">要折返し</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
 
                 <div>
-                  <SubTitle>飲酒</SubTitle>
+                  <ShopDetailSubTitle>飲酒</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysDrink} onChange={(e: any) => setTodaysDrink(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysDrink} onChange={(e: any) => setTodaysDrink(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="NG">NG</option>
                         <option value="弱い">弱い</option>
                         <option value="普通">普通</option>
                         <option value="強い">強い</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
 
                 <div>
-                  <SubTitle>身長</SubTitle>
+                  <ShopDetailSubTitle>身長</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysHeight} onChange={(e: any) => setTodaysHeight(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysHeight} onChange={(e: any) => setTodaysHeight(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="〜150">〜150</option>
                         <option value="151〜155">151〜155</option>
@@ -1610,55 +1719,55 @@ function ShopDetailModal({
                         <option value="161〜165">161〜165</option>
                         <option value="166〜170">166〜170</option>
                         <option value="171〜">171〜</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
               </div>
 
               <div className="col-span-12 md:col-span-6 space-y-4">
                 <div>
-                  <SubTitle>体型</SubTitle>
+                  <ShopDetailSubTitle>体型</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysBodyType} onChange={(e: any) => setTodaysBodyType(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysBodyType} onChange={(e: any) => setTodaysBodyType(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="細身">細身</option>
                         <option value="普通">普通</option>
                         <option value="グラマー">グラマー</option>
                         <option value="ぽっちゃり">ぽっちゃり</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
 
                 <div>
-                  <SubTitle>ヘアーセット</SubTitle>
+                  <ShopDetailSubTitle>ヘアーセット</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysHairSet} onChange={(e: any) => setTodaysHairSet(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysHairSet} onChange={(e: any) => setTodaysHairSet(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="要">要</option>
                         <option value="不要">不要</option>
                         <option value="どちらでも">どちらでも</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
 
                 <div>
-                  <SubTitle>時給</SubTitle>
+                  <ShopDetailSubTitle>時給</ShopDetailSubTitle>
                   <div className="mt-2">
-                    <Field>
-                      <Select value={todaysWage} onChange={(e: any) => setTodaysWage(e.target.value)}>
+                    <ShopDetailField>
+                      <ShopDetailSelect  value={todaysWage} onChange={(e: any) => setTodaysWage(e.target.value)}>
                         <option value="">選択してください</option>
                         <option value="〜2500">〜2500</option>
                         <option value="2600〜3000">2600〜3000</option>
                         <option value="3100〜3500">3100〜3500</option>
                         <option value="3600〜4000">3600〜4000</option>
                         <option value="4100〜">4100〜</option>
-                      </Select>
-                    </Field>
+                      </ShopDetailSelect>
+                    </ShopDetailField>
                   </div>
                 </div>
               </div>

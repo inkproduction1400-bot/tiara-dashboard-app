@@ -22,6 +22,18 @@ type CastGenre = "club" | "cabaret" | "snack" | "gb";
 
 // 店舗ジャンル（NG登録モーダルの絞り込み用）
 type ShopGenre = "club" | "cabaret" | "snack" | "gb";
+type YesNoFilter = "" | "yes" | "no";
+type ContactMethodFilter = "" | "line" | "sms" | "tel";
+type WageFilter =
+  | ""
+  | "2500"
+  | "3000"
+  | "3500"
+  | "4500"
+  | "5000"
+  | "5500"
+  | "6000"
+  | "6500";
 
 // 年齢レンジフィルタ
 type AgeRangeFilter =
@@ -68,6 +80,13 @@ type Shop = {
   requireDrinkOk?: boolean;
   /** 店舗ジャンル（将来の拡張を想定） */
   genre?: ShopGenre | null;
+  /** 連絡方法（店舗管理の情報） */
+  contactMethod?: string | null;
+  /** 時給ラベル（店舗管理の情報） */
+  wageLabel?: string | null;
+  /** 身分証要件（店舗管理の情報） */
+  idDocumentRequirement?: string | null;
+  [key: string]: any;
 };
 
 // ===== スケジュール連携: 本日分の店舗を取得 =====
@@ -141,6 +160,102 @@ const shopNumberKey = (shop: Shop): number => {
 /** 店舗の「50音ソート用キー」（店舗名ベース） */
 const shopKanaKey = (shop: Shop): string => {
   return shop.name ?? "";
+};
+
+const parseWageMinFromLabel = (label?: string | null): number | null => {
+  if (!label) return null;
+  const m = String(label).match(/(\d{4})/);
+  if (!m) return null;
+  const v = Number(m[1]);
+  return Number.isFinite(v) ? v : null;
+};
+
+const normalizeContactMethod = (shop: Shop): ContactMethodFilter => {
+  const raw =
+    (shop.contactMethod ??
+      shop.contact_method ??
+      shop.preferredContactMethod ??
+      shop.preferred_contact_method ??
+      shop.contact ??
+      "") as string;
+  const s = String(raw).toLowerCase().trim();
+  if (!s) return "";
+  if (s.includes("line") || s.includes("ライン")) return "line";
+  if (s.includes("sms") || s.includes("ショート")) return "sms";
+  if (s.includes("tel") || s.includes("phone") || s.includes("電話")) {
+    return "tel";
+  }
+  return "";
+};
+
+const normalizeIdRequirement = (shop: Shop): string => {
+  const raw =
+    (shop.idDocumentRequirement ??
+      shop.id_document_requirement ??
+      shop.idRequirement ??
+      shop.id_requirement ??
+      "") as string;
+  const s = String(raw).toLowerCase().trim();
+  if (!s) return "";
+  if (s.includes("photo_only") || s.includes("photo")) return "photo_only";
+  if (s.includes("address_only") || s.includes("address")) return "address_only";
+  if (s.includes("both")) return "both";
+  if (s.includes("none")) return "none";
+  return s;
+};
+
+const hasExclusive = (shop: Shop): boolean => {
+  const candidates = [
+    shop.fixedCastCount,
+    shop.fixed_cast_count,
+    shop.exclusiveCount,
+    shop.exclusive_count,
+    shop.hasFixedCasts,
+    shop.has_fixed_casts,
+    shop.hasExclusive,
+    shop.has_exclusive,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "number") return c > 0;
+    if (typeof c === "boolean") return c;
+  }
+  const arrCandidates = [
+    shop.fixedCasts,
+    shop.fixed_casts,
+    shop.exclusiveCasts,
+    shop.exclusive_casts,
+  ];
+  for (const a of arrCandidates) {
+    if (Array.isArray(a)) return a.length > 0;
+  }
+  return false;
+};
+
+const hasNominated = (shop: Shop): boolean => {
+  const candidates = [
+    shop.nominatedCastCount,
+    shop.nominated_cast_count,
+    shop.nominationCount,
+    shop.nomination_count,
+    shop.hasNominatedCasts,
+    shop.has_nominated_casts,
+    shop.hasNomination,
+    shop.has_nomination,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "number") return c > 0;
+    if (typeof c === "boolean") return c;
+  }
+  const arrCandidates = [
+    shop.nominatedCasts,
+    shop.nominated_casts,
+    shop.nominations,
+    shop.nomination_ids,
+  ];
+  for (const a of arrCandidates) {
+    if (Array.isArray(a)) return a.length > 0;
+  }
+  return false;
 };
 
 /** キャストのジャンルラベル */
@@ -293,6 +408,17 @@ export default function Page() {
   const [orderShopQuery, setOrderShopQuery] = useState<string>("");
   const [orderShopOpen, setOrderShopOpen] = useState(false);
   const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
+  const [shopFilterExclusive, setShopFilterExclusive] = useState<YesNoFilter>(
+    "",
+  );
+  const [shopFilterNominated, setShopFilterNominated] = useState<YesNoFilter>(
+    "",
+  );
+  const [shopFilterWage, setShopFilterWage] = useState<WageFilter>("");
+  const [shopFilterIdReq, setShopFilterIdReq] = useState<string>("");
+  const [shopFilterGenre, setShopFilterGenre] = useState<ShopGenre | "">("");
+  const [shopFilterContact, setShopFilterContact] =
+    useState<ContactMethodFilter>("");
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
@@ -381,11 +507,18 @@ export default function Page() {
         const res = await listShops({ limit: 10_000 });
         if (cancelled) return;
         const items = (res.items ?? []).map((shop) => ({
+          ...shop,
           id: shop.id,
           code: shop.shopNumber ?? shop.id,
           name: shop.name ?? "",
           nameKana: shop.nameKana ?? shop.kana ?? null,
           genre: shop.genre ?? null,
+          contactMethod: (shop as any).contactMethod ?? null,
+          wageLabel: (shop as any).wageLabel ?? (shop as any).wage_label ?? null,
+          idDocumentRequirement:
+            (shop as any).idDocumentRequirement ??
+            (shop as any).id_document_requirement ??
+            null,
         })) as Shop[];
         setFallbackShops(items);
       } catch {
@@ -660,25 +793,74 @@ export default function Page() {
     }
   };
 
-  const filteredShops = useMemo(() => {
+  const searchedShops = useMemo(() => {
     const q = shopSearch.trim().toLowerCase();
-    if (!q) return todayShops;
-    return todayShops.filter(
+    if (!q) return effectiveShops;
+    return effectiveShops.filter(
       (s: Shop) =>
         s.code.toLowerCase().includes(q) ||
         s.name.toLowerCase().includes(q),
     );
-  }, [shopSearch, todayShops]);
+  }, [shopSearch, effectiveShops]);
+
+  const filteredShops = useMemo(() => {
+    let list = [...searchedShops];
+    if (shopFilterExclusive) {
+      list = list.filter((s) =>
+        shopFilterExclusive === "yes" ? hasExclusive(s) : !hasExclusive(s),
+      );
+    }
+    if (shopFilterNominated) {
+      list = list.filter((s) =>
+        shopFilterNominated === "yes" ? hasNominated(s) : !hasNominated(s),
+      );
+    }
+    if (shopFilterWage) {
+      const w = Number(shopFilterWage);
+      list = list.filter((s) => parseWageMinFromLabel(s.wageLabel) === w);
+    }
+    if (shopFilterIdReq) {
+      list = list.filter(
+        (s) => normalizeIdRequirement(s) === shopFilterIdReq,
+      );
+    }
+    if (shopFilterGenre) {
+      list = list.filter((s) => s.genre === shopFilterGenre);
+    }
+    if (shopFilterContact) {
+      list = list.filter((s) => normalizeContactMethod(s) === shopFilterContact);
+    }
+    return list;
+  }, [
+    searchedShops,
+    shopFilterExclusive,
+    shopFilterNominated,
+    shopFilterWage,
+    shopFilterIdReq,
+    shopFilterGenre,
+    shopFilterContact,
+  ]);
 
   const sortedTodayShops = useMemo(() => {
-    const list = [...effectiveShops];
+    const list = [...filteredShops];
     if (shopSortKey === "number") {
       list.sort((a, b) => shopNumberKey(a) - shopNumberKey(b));
     } else {
       list.sort((a, b) => shopKanaKey(a).localeCompare(shopKanaKey(b), "ja"));
     }
     return list;
-  }, [effectiveShops, shopSortKey]);
+  }, [filteredShops, shopSortKey]);
+
+  const shopWageOptions: WageFilter[] = [
+    "2500",
+    "3000",
+    "3500",
+    "4500",
+    "5000",
+    "5500",
+    "6000",
+    "6500",
+  ];
 
   const orderShopMatches = useMemo(() => {
     const t = orderShopQuery.trim().toLowerCase();
@@ -922,41 +1104,91 @@ export default function Page() {
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  defaultValue=""
+                  value={shopFilterExclusive}
+                  onChange={(e) =>
+                    setShopFilterExclusive(e.target.value as YesNoFilter)
+                  }
                 >
-                  <option value="">並び順</option>
-                  <option value="number">番号順</option>
-                  <option value="kana">50音順</option>
+                  <option value="">専属</option>
+                  <option value="yes">専属：あり</option>
+                  <option value="no">専属：なし</option>
                 </select>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  defaultValue=""
+                  value={shopFilterNominated}
+                  onChange={(e) =>
+                    setShopFilterNominated(e.target.value as YesNoFilter)
+                  }
                 >
-                  <option value="">担当者</option>
+                  <option value="">指名</option>
+                  <option value="yes">指名：あり</option>
+                  <option value="no">指名：なし</option>
                 </select>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  defaultValue=""
+                  value={shopFilterWage}
+                  onChange={(e) =>
+                    setShopFilterWage(e.target.value as WageFilter)
+                  }
                 >
-                  <option value="">条件</option>
+                  <option value="">時給</option>
+                  {shopWageOptions.map((v) => (
+                    <option key={v} value={v}>
+                      時給：{v}円
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  defaultValue=""
+                  value={shopFilterIdReq}
+                  onChange={(e) => setShopFilterIdReq(e.target.value)}
+                >
+                  <option value="">身分証</option>
+                  <option value="none">身分証：不要</option>
+                  <option value="photo_only">身分証：写真のみ</option>
+                  <option value="address_only">身分証：住所のみ</option>
+                  <option value="both">身分証：両方</option>
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  value={shopFilterGenre}
+                  onChange={(e) =>
+                    setShopFilterGenre(
+                      (e.target.value || "") as ShopGenre | "",
+                    )
+                  }
                 >
                   <option value="">ジャンル</option>
+                  <option value="club">クラブ</option>
+                  <option value="cabaret">キャバ</option>
+                  <option value="snack">スナック</option>
+                  <option value="gb">ガルバ</option>
                 </select>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  defaultValue=""
+                  value={shopFilterContact}
+                  onChange={(e) =>
+                    setShopFilterContact(e.target.value as ContactMethodFilter)
+                  }
                 >
                   <option value="">連絡方法</option>
+                  <option value="line">LINE</option>
+                  <option value="sms">SMS</option>
+                  <option value="tel">TEL</option>
                 </select>
                 <button
                   type="button"
                   className="border border-slate-300 bg-white px-3 h-8 text-xs flex-none"
+                  onClick={() => {
+                    setShopFilterExclusive("");
+                    setShopFilterNominated("");
+                    setShopFilterWage("");
+                    setShopFilterIdReq("");
+                    setShopFilterGenre("");
+                    setShopFilterContact("");
+                  }}
                 >
-                  絞り込み
+                  クリア
                 </button>
                 <div className="ml-auto text-[11px] text-muted">
                   表示中: {sortedTodayShops.length} 店舗
@@ -1223,7 +1455,10 @@ export default function Page() {
                 )}
               </div>
 
-              <div className="grid gap-3">
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
+            >
                 {!loading &&
                   filteredCasts.map((cast: Cast) => (
                     <div

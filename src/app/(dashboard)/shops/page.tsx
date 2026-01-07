@@ -1,7 +1,10 @@
 // src/app/(dashboard)/shops/page.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState,
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+} from "react";
 import Link from "next/link";
 import {
   listShops,
@@ -302,7 +305,7 @@ export default function ShopsPage() {
   }, [perPage, maxPage, offset]);
 
   // API からは「q (+ genre/orderBy)」で一覧を取得 → ページング＆一部並び替えはフロント側
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listShops({
@@ -319,14 +322,14 @@ export default function ShopsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [q, genreFilter, sortMode]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   // 店舗カードクリック → 詳細取得 → モーダル表示
-  const handleOpenShop = async (row: ShopListItem) => {
+  const handleOpenShop = useCallback(async (row: ShopListItem) => {
     setSelectedShop(row);
     setShopDetail(null);
     setShopDetailError(null);
@@ -339,59 +342,20 @@ export default function ShopsPage() {
     } finally {
       setShopDetailLoading(false);
     }
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setSelectedShop(null);
     setShopDetail(null);
     setShopDetailError(null);
     setShopDetailLoading(false);
-  };
+  }, []);
 
   const wageSteps = useMemo(() => {
     const arr: number[] = [];
     for (let v = 2500; v <= 6500; v += 500) arr.push(v);
     return arr;
   }, []);
-      const modal = useMemo(() => {
-        if (!selectedShop) return null;
-        return (
-        <ShopDetailModal
-          base={selectedShop}
-          detail={shopDetail}
-          loading={shopDetailLoading}
-          error={shopDetailError}
-          onClose={handleCloseModal}
-          onSaved={async (updated) => {
-            // 一覧の items を即時反映
-            setItems((prev) =>
-              prev.map((item) =>
-                item.id === updated.id ? { ...item, ...updated } : item,
-              ),
-            );
-
-            // ★ 追加：モーダル内の base / detail も更新して「再表示ズレ」を防ぐ
-            setSelectedShop((prev) =>
-              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
-            );
-            setShopDetail((prev) =>
-              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
-            );
-
-            handleCloseModal();
-
-            // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
-            await reload();
-          }}
-        />
-        );
-      }, [
-        selectedShop?.id,
-        shopDetail?.id,
-        shopDetailLoading,
-        shopDetailError,
-      ]);
-
 
   return (
     <div className="space-y-2">
@@ -735,7 +699,36 @@ export default function ShopsPage() {
         />
       </section>
 
-      {modal}
+      {selectedShop && (
+        <ShopDetailModal
+          base={selectedShop}
+          detail={shopDetail}
+          loading={shopDetailLoading}
+          error={shopDetailError}
+          onClose={handleCloseModal}
+          onSaved={async (updated) => {
+            // 一覧の items を即時反映
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === updated.id ? { ...item, ...updated } : item,
+              ),
+            );
+
+            // ★ 追加：モーダル内の base / detail も更新して「再表示ズレ」を防ぐ
+            setSelectedShop((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+            setShopDetail((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+
+            handleCloseModal();
+
+            // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
+            await reload();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -835,90 +828,6 @@ function DisplayCountControl({ limit, total, onChange }: DisplayCountControlProp
     </div>
   );
 }
-
-
-// ===============================
-// UI helper components (stable)
-// - MUST be top-level to keep focus in inputs
-// ===============================
-  const UiLabel = ({ children }: { children: any }) => (
-    <div className="text-sm font-semibold text-slate-900">{children}</div>
-  );
-
-  const UiField = ({ children }: { children: any }) => (
-    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
-      {children}
-    </div>
-  );
-const UiSelect = (props: any) => (
-    <select
-      {...props}
-      className={
-        "w-full bg-transparent outline-none text-slate-900 " +
-        (props.className ?? "")
-      }
-    />
-
-);
-const UiChipTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
-  const UiSubTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
-
-
-// ===============================
-// UI helper components (stable)
-// - MUST be top-level to keep focus in inputs
-// ===============================
-const Label = ({ children }: { children: any }) => (
-  <div className="text-sm font-semibold text-slate-900">{children}</div>
-);
-
-const Field = ({ children }: { children: any }) => (
-  <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
-    {children}
-  </div>
-);
-
-const Input = (props: any) => (
-  <input
-    {...props}
-    className={
-      "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
-      (props.className ?? "")
-    }
-  />
-);
-
-const Select = (props: any) => (
-  <select
-    {...props}
-    className={
-      "w-full bg-transparent outline-none text-slate-900 " +
-      (props.className ?? "")
-    }
-  />
-);
-
-const ChipTitle = ({ children }: { children: any }) => (
-  <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
-    {children}
-  </div>
-);
-
-const SubTitle = ({ children }: { children: any }) => (
-  <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-    {children}
-  </div>
-);
 
 type ShopDetailModalProps = {
   base: ShopListItem;
@@ -1087,12 +996,20 @@ function ShopDetailModal({
     // 登録情報① hairSet（保存対象）
     setHairSet(String((detail as any).hairSet ?? (detail as any).hair_set ?? ""));
 
+    // ★★★ 当日特別オーダーは detail.dailyOrder から反映 ★★★
     const dailyOrder =
       (detail as any).dailyOrder ??
       (detail as any).daily_order ??
       (detail as any).todayOrder ??
       (detail as any).today_order ??
       null;
+
+    setTodaysContactConfirm(dailyOrder?.contactConfirm ?? "");
+    setTodaysDrink(dailyOrder?.drink ?? "");
+    setTodaysHeight(dailyOrder?.height ?? "");
+    setTodaysBodyType(dailyOrder?.bodyType ?? "");
+    setTodaysHairSet(dailyOrder?.hairSet ?? "");
+    setTodaysWage(dailyOrder?.wage ?? "");
 
     // 反映済みマーク
     lastAppliedShopIdRef.current = detail.id;
@@ -1152,16 +1069,12 @@ function ShopDetailModal({
       return;
     }
 
-    const toNull = (v: string) => {
-      const t = (v ?? "").trim();
-      return t ? t : null;
-    };
-
     const payload: Parameters<typeof updateShop>[1] = {
       name: name.trim(),
-      addressLine: toNull(addressLine),
-      phone: toNull(phone),
+      addressLine: addressLine.trim(),
+      phone: phone.trim(),
     };
+
     if (trimmedNumber) payload.shopNumber = trimmedNumber;
 
     const kanaTrimmed = kana.trim();
@@ -1177,10 +1090,12 @@ function ShopDetailModal({
 
     // ===== 登録情報①：保存対象を網羅 =====
     // postalCode / height / bodyType / caution / ownerStaff / phoneChecked / contactMethod / hairSet
-    (payload as any).postalCode = toNull(postalCode);
-    (payload as any).height = toNull(heightUi);
-    (payload as any).bodyType = toNull(bodyTypeUi);
-    (payload as any).caution = toNull(cautionUi);
+    if (postalCode.trim()) (payload as any).postalCode = postalCode.trim();
+    else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
+
+    (payload as any).height = heightUi.trim();
+    (payload as any).bodyType = bodyTypeUi.trim();
+    (payload as any).caution = cautionUi.trim();
     (payload as any).ownerStaff = ownerStaff || "";
     (payload as any).phoneChecked = Boolean(phoneChecked);
 
@@ -1191,11 +1106,24 @@ function ShopDetailModal({
     // ★ hairSet 衝突回避：登録情報①の hairSet はトップキーに入れる
     // （当日特別オーダーは dailyOrder ネストで送る）
     (payload as any).hairSet = hairSet || "";
+
+    // ===== 当日特別オーダー：ネストで送る（hairSet衝突回避）=====
+    // ✅ JST 기준で “今日” を作る（UTCズレ防止）
     const dailyOrderDate = formatDateYYYYMMDD_JST(new Date()); // "YYYY-MM-DD"
 
     (payload as any).dailyOrderDate = dailyOrderDate;
 
     // ★★★ ここが衝突回避の本体：dailyOrder にまとめて送る ★★★
+    (payload as any).dailyOrder = {
+      date: dailyOrderDate,
+      contactConfirm: todaysContactConfirm,
+      drink: todaysDrink,
+      height: todaysHeight,
+      bodyType: todaysBodyType,
+      hairSet: todaysHairSet,
+      wage: todaysWage,
+    };
+
     try {
       // 1) update
       await updateShop(base.id, payload);
@@ -1211,7 +1139,50 @@ function ShopDetailModal({
       setSaving(false);
     }
   };
+
   // ---- ここからレイアウト（スクショ寄せ・ライト固定） ----
+  const Label = ({ children }: { children: any }) => (
+    <div className="text-sm font-semibold text-slate-900">{children}</div>
+  );
+
+  const Field = ({ children }: { children: any }) => (
+    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
+      {children}
+    </div>
+  );
+
+  const Input = (props: any) => (
+    <input
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
+        (props.className ?? "")
+      }
+    />
+  );
+
+  const Select = (props: any) => (
+    <select
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 " +
+        (props.className ?? "")
+      }
+    />
+  );
+
+  const ChipTitle = ({ children }: { children: any }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
+  const SubTitle = ({ children }: { children: any }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       {/* overlay */}
@@ -1588,6 +1559,110 @@ function ShopDetailModal({
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* ===== 下段：当日特別オーダー ===== */}
+          <section className="px-4 py-4 bg-[#a87e7e] border-b-2 border-slate-900">
+            <div className="mb-3">
+              <ChipTitle>当日特別オーダー</ChipTitle>
+            </div>
+
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-12 md:col-span-6 space-y-4">
+                <div>
+                  <SubTitle>連絡確認</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysContactConfirm} onChange={(e: any) => setTodaysContactConfirm(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="未">未</option>
+                        <option value="済">済</option>
+                        <option value="要折返し">要折返し</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>飲酒</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysDrink} onChange={(e: any) => setTodaysDrink(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="NG">NG</option>
+                        <option value="弱い">弱い</option>
+                        <option value="普通">普通</option>
+                        <option value="強い">強い</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>身長</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysHeight} onChange={(e: any) => setTodaysHeight(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="〜150">〜150</option>
+                        <option value="151〜155">151〜155</option>
+                        <option value="156〜160">156〜160</option>
+                        <option value="161〜165">161〜165</option>
+                        <option value="166〜170">166〜170</option>
+                        <option value="171〜">171〜</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-12 md:col-span-6 space-y-4">
+                <div>
+                  <SubTitle>体型</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysBodyType} onChange={(e: any) => setTodaysBodyType(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="細身">細身</option>
+                        <option value="普通">普通</option>
+                        <option value="グラマー">グラマー</option>
+                        <option value="ぽっちゃり">ぽっちゃり</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>ヘアーセット</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysHairSet} onChange={(e: any) => setTodaysHairSet(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="要">要</option>
+                        <option value="不要">不要</option>
+                        <option value="どちらでも">どちらでも</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+
+                <div>
+                  <SubTitle>時給</SubTitle>
+                  <div className="mt-2">
+                    <Field>
+                      <Select value={todaysWage} onChange={(e: any) => setTodaysWage(e.target.value)}>
+                        <option value="">選択してください</option>
+                        <option value="〜2500">〜2500</option>
+                        <option value="2600〜3000">2600〜3000</option>
+                        <option value="3100〜3500">3100〜3500</option>
+                        <option value="3600〜4000">3600〜4000</option>
+                        <option value="4100〜">4100〜</option>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* footer buttons */}
             <div className="mt-8 flex items-center justify-end gap-6">
@@ -1610,7 +1685,6 @@ function ShopDetailModal({
               </button>
             </div>
           </section>
-
         </div>
       </div>
     </div>

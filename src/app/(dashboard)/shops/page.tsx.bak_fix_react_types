@@ -1139,7 +1139,7 @@ function ShopDetailModal({
 
   // ---- ここからレイアウト（スクショ寄せ・ライト固定） ----
   const Label = ({ children }: { children: any }) => (
-    <div className="text-sm font-semibold text-white/95">{children}</div>
+    <div className="text-sm font-semibold text-slate-900">{children}</div>
   );
 
   const Field = ({ children }: { children: any }) => (
@@ -1175,7 +1175,7 @@ function ShopDetailModal({
   );
 
   const SubTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#78a64a] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
       {children}
     </div>
   );
@@ -1212,7 +1212,7 @@ function ShopDetailModal({
 
         <div className="flex-1 overflow-y-auto pb-8">
           {/* ===== 上段：登録情報 ===== */}
-          <section className="px-4 py-4 bg-[#78a64a] border-b-2 border-slate-900">
+          <section className="px-4 py-4 bg-[#efe2dd] border-b-2 border-slate-900">
             <div className="flex items-start justify-between gap-3 mb-3">
               <ChipTitle>登録情報①</ChipTitle>
 
@@ -1559,7 +1559,7 @@ function ShopDetailModal({
           </section>
 
           {/* ===== 下段：当日特別オーダー ===== */}
-          <section className="px-4 py-4 bg-[#f0c24f] border-b-2 border-slate-900">
+          <section className="px-4 py-4 bg-[#a87e7e] border-b-2 border-slate-900">
             <div className="mb-3">
               <ChipTitle>当日特別オーダー</ChipTitle>
             </div>

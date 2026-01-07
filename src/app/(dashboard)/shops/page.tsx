@@ -59,6 +59,34 @@ function formatShopNumber(n?: string | null) {
   return s;
 }
 
+function mapHeightToOption(value?: string | number | null): string {
+  if (value === null || value === undefined) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (raw === "〜150") return "〜150";
+  const rangeMatch = raw.match(/^(\d{2,3})〜(\d{2,3})$/);
+  if (rangeMatch) return raw;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return "";
+  if (num <= 150) return "〜150";
+  if (num <= 155) return "151〜155";
+  if (num <= 160) return "156〜160";
+  if (num <= 165) return "161〜165";
+  if (num <= 170) return "166〜170";
+  return "171〜";
+}
+
+function parseHeightToNumber(value?: string | null): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed === "〜150") return 150;
+  const rangeMatch = trimmed.match(/^(\d{2,3})〜(\d{2,3})$/);
+  if (rangeMatch) return Number(rangeMatch[2]);
+  const num = Number(trimmed);
+  return Number.isFinite(num) ? num : null;
+}
+
 function parseWageMinFromLabel(label?: string | null): number | null {
   if (!label) return null;
   const m = String(label).match(/(\d{4})/); // "2500円〜..." の最初の数値
@@ -922,7 +950,7 @@ function ShopDetailModal({
     (shop as any).postalCode ?? (shop as any).postal_code ?? "",
   );
   const [heightUi, setHeightUi] = useState<string>(
-    (shop as any).height ?? "",
+    mapHeightToOption((shop as any).height ?? ""),
   );
   const [bodyTypeUi, setBodyTypeUi] = useState<string>(
     (shop as any).bodyType ?? (shop as any).body_type ?? "",
@@ -1007,7 +1035,7 @@ function ShopDetailModal({
 
     // 登録情報①（保存対象）
     setPostalCode((detail as any).postalCode ?? (detail as any).postal_code ?? "");
-    setHeightUi((detail as any).height ?? "");
+    setHeightUi(mapHeightToOption((detail as any).height ?? ""));
     setBodyTypeUi((detail as any).bodyType ?? (detail as any).body_type ?? "");
     setCautionUi((detail as any).caution ?? "");
     setPhoneChecked(Boolean((detail as any).phoneChecked ?? (detail as any).phone_checked ?? false));
@@ -1102,7 +1130,12 @@ function ShopDetailModal({
     if (postalCode.trim()) (payload as any).postalCode = postalCode.trim();
     else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
 
-    (payload as any).height = heightUi.trim();
+    const heightValue = parseHeightToNumber(heightUi);
+    if (heightValue !== null) {
+      (payload as any).height = heightValue;
+    } else {
+      (payload as any).height = "";
+    }
     (payload as any).bodyType = bodyTypeUi.trim();
     (payload as any).caution = cautionUi.trim();
     (payload as any).ownerStaff = ownerStaff || "";

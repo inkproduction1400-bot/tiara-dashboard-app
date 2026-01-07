@@ -353,45 +353,6 @@ export default function ShopsPage() {
     for (let v = 2500; v <= 6500; v += 500) arr.push(v);
     return arr;
   }, []);
-      const modal = useMemo(() => {
-        if (!selectedShop) return null;
-        return (
-        <ShopDetailModal
-          base={selectedShop}
-          detail={shopDetail}
-          loading={shopDetailLoading}
-          error={shopDetailError}
-          onClose={handleCloseModal}
-          onSaved={async (updated) => {
-            // 一覧の items を即時反映
-            setItems((prev) =>
-              prev.map((item) =>
-                item.id === updated.id ? { ...item, ...updated } : item,
-              ),
-            );
-
-            // ★ 追加：モーダル内の base / detail も更新して「再表示ズレ」を防ぐ
-            setSelectedShop((prev) =>
-              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
-            );
-            setShopDetail((prev) =>
-              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
-            );
-
-            handleCloseModal();
-
-            // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
-            await reload();
-          }}
-        />
-        );
-      }, [
-        selectedShop?.id,
-        shopDetail?.id,
-        shopDetailLoading,
-        shopDetailError,
-      ]);
-
 
   return (
     <div className="space-y-2">
@@ -735,7 +696,36 @@ export default function ShopsPage() {
         />
       </section>
 
-      {modal}
+      {selectedShop && (
+        <ShopDetailModal
+          base={selectedShop}
+          detail={shopDetail}
+          loading={shopDetailLoading}
+          error={shopDetailError}
+          onClose={handleCloseModal}
+          onSaved={async (updated) => {
+            // 一覧の items を即時反映
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === updated.id ? { ...item, ...updated } : item,
+              ),
+            );
+
+            // ★ 追加：モーダル内の base / detail も更新して「再表示ズレ」を防ぐ
+            setSelectedShop((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+            setShopDetail((prev) =>
+              prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
+            );
+
+            handleCloseModal();
+
+            // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
+            await reload();
+          }}
+        />
+      )}
     </div>
   );
 }

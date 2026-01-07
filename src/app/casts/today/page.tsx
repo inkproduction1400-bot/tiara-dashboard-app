@@ -339,7 +339,7 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<string>("");
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
-  const [itemsPerPage, setItemsPerPage] = useState<50 | 100>(50);
+  const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(56);
   const [statusTab, setStatusTab] = useState<
     "today" | "all" | "matched" | "unassigned"
   >("today");
@@ -1298,10 +1298,11 @@ export default function Page() {
                     className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
                     value={itemsPerPage}
                     onChange={(e) =>
-                      setItemsPerPage(Number(e.target.value) as 50 | 100)
+                      setItemsPerPage(Number(e.target.value) as 50 | 56 | 100)
                     }
                   >
                     <option value={50}>50件</option>
+                    <option value={56}>56件</option>
                     <option value={100}>100件</option>
                   </select>
                   <select

@@ -1,7 +1,7 @@
 // src/app/casts/today/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   listTodayCasts,
@@ -484,6 +484,10 @@ export default function Page() {
   const [photoByCastId, setPhotoByCastId] = useState<Record<string, string>>(
     {},
   );
+  const [castDetailById, setCastDetailById] = useState<Record<string, any>>(
+    {},
+  );
+  const castDetailFetchRef = useRef<Set<string>>(new Set());
   const photoCacheSaveTimer = useRef<number | null>(null);
   const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
@@ -1044,9 +1048,35 @@ export default function Page() {
     );
   };
 
+  const ensureCastDetail = useCallback(
+    async (castId: string) => {
+      if (castDetailById[castId]) return;
+      if (castDetailFetchRef.current.has(castId)) return;
+      castDetailFetchRef.current.add(castId);
+      try {
+        const detail = await getCast(castId);
+        setCastDetailById((prev) =>
+          prev[castId] ? prev : { ...prev, [castId]: detail },
+        );
+        const url = resolvePhotoUrl(detail);
+        if (url) {
+          setPhotoByCastId((prev) =>
+            prev[castId] ? prev : { ...prev, [castId]: url },
+          );
+        }
+      } catch {
+        // ignore detail fetch errors
+      } finally {
+        castDetailFetchRef.current.delete(castId);
+      }
+    },
+    [castDetailById],
+  );
+
   const openCastDetail = (cast: Cast) => {
     setSelectedCast(cast);
     setCastDetailModalOpen(true);
+    void ensureCastDetail(cast.id);
   };
 
   const closeCastDetail = () => {
@@ -1125,6 +1155,9 @@ export default function Page() {
             if (!url || cancelled) return;
             setPhotoByCastId((prev) =>
               prev[c.id] ? prev : { ...prev, [c.id]: url },
+            );
+            setCastDetailById((prev) =>
+              prev[c.id] ? prev : { ...prev, [c.id]: detail },
             );
           } catch {
             // ignore photo fetch errors
@@ -1822,6 +1855,34 @@ export default function Page() {
               </div>
 
               <div className="flex-1 flex flex-col gap-3 text-xs text-gray-900">
+                {(() => {
+                  const detail = selectedCast
+                    ? castDetailById[selectedCast.id]
+                    : null;
+                  const desiredHourlyRaw =
+                    detail?.preferences?.desiredHourly ??
+                    detail?.desiredHourly ??
+                    selectedCast?.desiredHourly;
+                  const desiredHourly =
+                    typeof desiredHourlyRaw === "number"
+                      ? desiredHourlyRaw
+                      : Number.isFinite(Number(desiredHourlyRaw))
+                        ? Number(desiredHourlyRaw)
+                        : null;
+                  const drinkLevel = detail
+                    ? mapDrinkLevel(
+                        detail?.attributes?.drinkLevel ??
+                          detail?.drinkLevel ??
+                          detail?.drinkOk,
+                      )
+                    : selectedCast?.drinkLevel ?? null;
+                  const genres: CastGenre[] =
+                    detail?.background?.genres ??
+                    detail?.genres ??
+                    selectedCast?.genres ??
+                    [];
+                  return (
+                    <>
                 <div>
                   <div className="text-[11px] text-muted">
                     管理番号 / ID / 旧ID
@@ -1853,14 +1914,16 @@ export default function Page() {
                   <div>
                     <div className="text-[11px] text-muted">希望時給</div>
                     <div className="mt-0.5 text-sm font-semibold">
-                      ¥{selectedCast.desiredHourly.toLocaleString()}
+                      {desiredHourly !== null
+                        ? `¥${desiredHourly.toLocaleString()}`
+                        : "未登録"}
                     </div>
                   </div>
 
                   <div>
                     <div className="text-[11px] text-muted">飲酒</div>
                     <div className="mt-0.5 text-xs">
-                      {formatDrinkLabel(selectedCast)}
+                      {formatDrinkLabel({ drinkLevel } as Cast)}
                     </div>
                   </div>
 
@@ -1868,8 +1931,8 @@ export default function Page() {
                   <div className="col-span-2">
                     <div className="text-[11px] text-muted">ジャンル</div>
                     <div className="mt-0.5 flex flex-wrap gap-1">
-                      {selectedCast.genres && selectedCast.genres.length > 0 ? (
-                        selectedCast.genres.map((g) => (
+                      {genres.length > 0 ? (
+                        genres.map((g) => (
                           <span
                             key={g}
                             className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 text-[11px]"
@@ -1885,7 +1948,9 @@ export default function Page() {
                     </div>
                   </div>
                 </div>
-
+                    </>
+                  );
+                })()}
                 <div className="mt-2">
                   <div className="relative">
                     <textarea

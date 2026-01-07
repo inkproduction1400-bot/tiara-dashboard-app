@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import {
   listTodayCasts,
   listCasts as fetchCastList,
+  getCast,
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 import {
@@ -430,6 +431,9 @@ export default function Page() {
   const [orderAssignments, setOrderAssignments] = useState<
     Record<string, Cast[]>
   >({});
+  const [photoByCastId, setPhotoByCastId] = useState<Record<string, string>>(
+    {},
+  );
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
   const [pendingCast, setPendingCast] = useState<Cast | null>(null);
   const orderSeqRef = useRef(1);
@@ -1021,6 +1025,34 @@ export default function Page() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    const targets = filteredCasts.filter(
+      (c) => !c.photoUrl && !photoByCastId[c.id],
+    );
+    if (targets.length === 0) return;
+    const run = async () => {
+      await Promise.all(
+        targets.map(async (c) => {
+          try {
+            const detail = await getCast(c.id);
+            const url = resolvePhotoUrl(detail);
+            if (!url || cancelled) return;
+            setPhotoByCastId((prev) =>
+              prev[c.id] ? prev : { ...prev, [c.id]: url },
+            );
+          } catch {
+            // ignore photo fetch errors
+          }
+        }),
+      );
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredCasts, photoByCastId]);
+
+  useEffect(() => {
     if (floatPos) return;
     if (typeof window === "undefined") return;
     const width = 360;
@@ -1492,62 +1524,65 @@ export default function Page() {
                 )}
               </div>
 
-            <div
-              className="grid gap-3"
-              style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
-            >
+              <div
+                className="grid gap-3"
+                style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
+              >
                 {!loading &&
-                  filteredCasts.map((cast: Cast) => (
-                    <div
-                      key={cast.id}
-                      className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("text/plain", cast.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
-                      onClick={() => openCastDetail(cast)}
-                    >
-                      <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
-                        {cast.photoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={cast.photoUrl}
-                            alt={cast.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
-                            PHOTO
-                          </div>
-                        )}
-                      </div>
+                  filteredCasts.map((cast: Cast) => {
+                    const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl;
+                    return (
+                      <div
+                        key={cast.id}
+                        className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", cast.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onClick={() => openCastDetail(cast)}
+                      >
+                        <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
+                          {photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={photoUrl}
+                              alt={cast.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                              PHOTO
+                            </div>
+                          )}
+                        </div>
 
-                      <div className="px-3 pt-1.5 pb-2.5 flex flex-col gap-0.5">
-                        <div className="font-semibold text-[13px] leading-tight truncate">
-                          {cast.name}
-                        </div>
-                        <div className="text-[11px] leading-tight">
-                          <span className="text-slate-500 mr-1">時給</span>
-                          <span className="font-semibold">
-                            ¥{cast.desiredHourly.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 leading-tight">
-                          年齢{" "}
-                          <span className="font-medium text-slate-700">
-                            {cast.age} 歳
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 leading-tight">
-                          {formatDrinkLabel(cast)}
+                        <div className="px-3 pt-1.5 pb-2.5 flex flex-col gap-0.5">
+                          <div className="font-semibold text-[13px] leading-tight truncate">
+                            {cast.name}
+                          </div>
+                          <div className="text-[11px] leading-tight">
+                            <span className="text-slate-500 mr-1">時給</span>
+                            <span className="font-semibold">
+                              ¥{cast.desiredHourly.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 leading-tight">
+                            年齢{" "}
+                            <span className="font-medium text-slate-700">
+                              {cast.age} 歳
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 leading-tight">
+                            {formatDrinkLabel(cast)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
 
-          </>
+            </>
         )}
         </section>
       </div>
@@ -1657,10 +1692,10 @@ export default function Page() {
             <div className="flex-1 overflow-auto p-4 flex gap-4 bg-white">
               <div className="w-40 shrink-0">
                 <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
-                  {selectedCast.photoUrl ? (
+                  {(photoByCastId[selectedCast.id] ?? selectedCast.photoUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={selectedCast.photoUrl}
+                      src={photoByCastId[selectedCast.id] ?? selectedCast.photoUrl}
                       alt={selectedCast.name}
                       className="w-full h-full object-cover"
                     />

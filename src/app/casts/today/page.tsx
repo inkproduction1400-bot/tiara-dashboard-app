@@ -56,6 +56,8 @@ type Cast = {
   /** 飲酒レベル: NG / 弱い / 普通 / 強い / 未登録(null) */
   drinkLevel: DrinkLevel;
   photoUrl?: string;
+  hasExclusive?: boolean;
+  hasNominated?: boolean;
   /** このキャストがNGの店舗ID一覧（将来APIから付与 or 更新） */
   ngShopIds?: string[];
   /** 旧ID（既存仕様：管理番号・名前・旧IDで検索できる想定） */
@@ -197,6 +199,54 @@ const parseWageMinFromLabel = (label?: string | null): number | null => {
   if (!m) return null;
   const v = Number(m[1]);
   return Number.isFinite(v) ? v : null;
+};
+
+const getCastExclusiveFlag = (item: any): boolean => {
+  const direct = [
+    item?.hasExclusive,
+    item?.has_exclusive,
+    item?.exclusive,
+    item?.exclusiveFlag,
+  ];
+  for (const v of direct) {
+    if (typeof v === "boolean") return v;
+  }
+  const ids = item?.exclusiveShopIds ?? item?.exclusive_shop_ids;
+  if (Array.isArray(ids)) return ids.length > 0;
+  return false;
+};
+
+const getCastNominatedFlag = (item: any): boolean => {
+  const direct = [
+    item?.hasNominated,
+    item?.has_nominated,
+    item?.nominated,
+    item?.nominatedFlag,
+  ];
+  for (const v of direct) {
+    if (typeof v === "boolean") return v;
+  }
+  const ids = item?.nominatedShopIds ?? item?.nominated_shop_ids;
+  if (Array.isArray(ids)) return ids.length > 0;
+  return false;
+};
+
+const getCastBadgeIcons = (cast: Cast) => {
+  const icons: { src: string; alt: string }[] = [];
+  if (cast.drinkLevel === "strong") {
+    icons.push({ src: "/img/strong.svg", alt: "飲酒: 強い" });
+  } else if (cast.drinkLevel === "normal") {
+    icons.push({ src: "/img/norma.svg", alt: "飲酒: 普通" });
+  } else if (cast.drinkLevel === "ng") {
+    icons.push({ src: "/img/nothing.svg", alt: "飲酒: NG" });
+  }
+  if (cast.hasExclusive) {
+    icons.push({ src: "/img/senzoku.svg", alt: "専属指名あり" });
+  }
+  if (cast.hasNominated) {
+    icons.push({ src: "/img/Shimei.svg", alt: "指名あり" });
+  }
+  return icons;
 };
 
 const normalizeContactMethod = (shop: Shop): ContactMethodFilter => {
@@ -605,6 +655,8 @@ export default function Page() {
           ),
           photoUrl:
             resolvePhotoUrl(item) ?? allPhotoMap.get(item.castId) ?? undefined,
+          hasExclusive: getCastExclusiveFlag(item),
+          hasNominated: getCastNominatedFlag(item),
           ngShopIds: (item as any).ngShopIds ?? [],
           oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
           genres: ((item as any).genres ?? []) as CastGenre[],
@@ -627,6 +679,8 @@ export default function Page() {
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
             photoUrl: resolvePhotoUrl(item) ?? undefined,
+            hasExclusive: getCastExclusiveFlag(item),
+            hasNominated: getCastNominatedFlag(item),
             ngShopIds: (item as any).ngShopIds ?? [],
             oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
             genres: ((item as any).genres ?? []) as CastGenre[],
@@ -1528,34 +1582,48 @@ export default function Page() {
                 className="grid gap-3"
                 style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
               >
-                {!loading &&
-                  filteredCasts.map((cast: Cast) => {
-                    const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl;
-                    return (
-                      <div
-                        key={cast.id}
-                        className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
-                        draggable
+              {!loading &&
+                filteredCasts.map((cast: Cast) => {
+                  const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl;
+                  const badgeIcons = getCastBadgeIcons(cast);
+                  return (
+                    <div
+                      key={cast.id}
+                      className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
+                      draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", cast.id);
                           e.dataTransfer.effectAllowed = "move";
                         }}
                         onClick={() => openCastDetail(cast)}
                       >
-                        <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden">
-                          {photoUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={photoUrl}
-                              alt={cast.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
-                              PHOTO
-                            </div>
-                          )}
-                        </div>
+                      <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden relative">
+                        {photoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={photoUrl}
+                            alt={cast.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                            PHOTO
+                          </div>
+                        )}
+                        {badgeIcons.length > 0 && (
+                          <div className="absolute left-1 top-1 flex flex-col gap-1">
+                            {badgeIcons.map((icon) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={icon.src}
+                                src={icon.src}
+                                alt={icon.alt}
+                                className="w-4 h-4"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                         <div className="px-3 pt-1.5 pb-2.5 flex flex-col gap-0.5">
                           <div className="font-semibold text-[13px] leading-tight truncate">

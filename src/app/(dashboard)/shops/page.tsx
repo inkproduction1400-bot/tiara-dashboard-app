@@ -970,69 +970,6 @@ function ShopDetailModal({
   const [err, setErr] = useState<string | null>(null);
   const [shopNumberError, setShopNumberError] = useState<string | null>(null);
 
-  const lastInputRef = useRef<{ field: string; value: string } | null>(null);
-  const trackInputChange = useCallback((field: string, value: string) => {
-    lastInputRef.current = { field, value };
-    // eslint-disable-next-line no-console
-    console.log("[ShopDetailModal] input change", { field, value });
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[ShopDetailModal] mount");
-    return () => {
-      // eslint-disable-next-line no-console
-      console.log("[ShopDetailModal] unmount");
-    };
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[ShopDetailModal] base changed", base.id);
-  }, [base.id]);
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[ShopDetailModal] detail changed", detail?.id ?? "none");
-  }, [detail]);
-
-  useEffect(() => {
-    if (!lastInputRef.current) return;
-    const { field, value } = lastInputRef.current;
-    const currentValues: Record<string, string> = {
-      shopNumber,
-      name,
-      kana,
-      postalCode,
-      addressLine,
-      buildingName,
-      phone,
-      heightUi,
-      bodyTypeUi,
-      cautionUi,
-    };
-    const current = currentValues[field];
-    if (current !== value) {
-      // eslint-disable-next-line no-console
-      console.log("[ShopDetailModal] input rollback detected", {
-        field,
-        lastTyped: value,
-        current,
-      });
-    }
-  }, [
-    shopNumber,
-    name,
-    kana,
-    postalCode,
-    addressLine,
-    buildingName,
-    phone,
-    heightUi,
-    bodyTypeUi,
-    cautionUi,
-  ]);
-
   const drinkOptions: { value: ShopDrinkPreference; label: string }[] = [
     { value: "none", label: "NG" },
     { value: "weak", label: "弱い" },
@@ -1059,6 +996,7 @@ function ShopDetailModal({
   ];
 
   const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
+  const bodyTypeOptions = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"];
 
   // ★ 追加：base が切り替わったら「未反映」状態に戻す
   useEffect(() => {
@@ -1118,8 +1056,6 @@ function ShopDetailModal({
 
     // 反映済みマーク
     lastAppliedShopIdRef.current = detail.id;
-    // eslint-disable-next-line no-console
-    console.log("[ShopDetailModal] applied detail to state", detail.id);
   }, [detail]);
 
   // ---- 専属 / NG 初期ロード（表示用）----
@@ -1369,7 +1305,6 @@ function ShopDetailModal({
                         <ShopDetailInput
                           value={shopNumber}
                           onChange={(e: any) => {
-                            trackInputChange("shopNumber", e.target.value);
                             setShopNumber(e.target.value);
                             setShopNumberError(null);
                           }}
@@ -1388,10 +1323,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={name}
-                          onChange={(e: any) => {
-                            trackInputChange("name", e.target.value);
-                            setName(e.target.value);
-                          }}
+                          onChange={(e: any) => setName(e.target.value)}
                           placeholder="自由入力"
                         />
                       </ShopDetailField>
@@ -1404,10 +1336,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={kana}
-                          onChange={(e: any) => {
-                            trackInputChange("kana", e.target.value);
-                            setKana(e.target.value);
-                          }}
+                          onChange={(e: any) => setKana(e.target.value)}
                           placeholder="自由入力"
                         />
                       </ShopDetailField>
@@ -1420,10 +1349,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={postalCode}
-                          onChange={(e: any) => {
-                            trackInputChange("postalCode", e.target.value);
-                            setPostalCode(e.target.value);
-                          }}
+                          onChange={(e: any) => setPostalCode(e.target.value)}
                           placeholder="自由入力または住所から自動反映"
                         />
                       </ShopDetailField>
@@ -1436,10 +1362,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={addressLine}
-                          onChange={(e: any) => {
-                            trackInputChange("addressLine", e.target.value);
-                            setAddressLine(e.target.value);
-                          }}
+                          onChange={(e: any) => setAddressLine(e.target.value)}
                           placeholder="自由入力または郵便番号から自動反映"
                         />
                       </ShopDetailField>
@@ -1452,10 +1375,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={buildingName}
-                          onChange={(e: any) => {
-                            trackInputChange("buildingName", e.target.value);
-                            setBuildingName(e.target.value);
-                          }}
+                          onChange={(e: any) => setBuildingName(e.target.value)}
                           placeholder="自由入力"
                         />
                       </ShopDetailField>
@@ -1469,10 +1389,7 @@ function ShopDetailModal({
                         <ShopDetailField>
                           <ShopDetailInput
                             value={phone}
-                            onChange={(e: any) => {
-                              trackInputChange("phone", e.target.value);
-                              setPhone(e.target.value);
-                            }}
+                            onChange={(e: any) => setPhone(e.target.value)}
                             placeholder="自動入力"
                           />
                         </ShopDetailField>
@@ -1608,10 +1525,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={heightUi}
-                          onChange={(e: any) => {
-                            trackInputChange("heightUi", e.target.value);
-                            setHeightUi(e.target.value);
-                          }}
+                          onChange={(e: any) => setHeightUi(e.target.value)}
                           placeholder="数値又は範囲プルダウン（保存対象）"
                         />
                       </ShopDetailField>
@@ -1622,14 +1536,17 @@ function ShopDetailModal({
                     <ShopDetailLabel>体型</ShopDetailLabel>
                     <div className="mt-1">
                       <ShopDetailField>
-                        <ShopDetailInput
+                        <ShopDetailSelect
                           value={bodyTypeUi}
-                          onChange={(e: any) => {
-                            trackInputChange("bodyTypeUi", e.target.value);
-                            setBodyTypeUi(e.target.value);
-                          }}
-                          placeholder="細い・普通・太いのプルダウン？（保存対象）"
-                        />
+                          onChange={(e: any) => setBodyTypeUi(e.target.value)}
+                        >
+                          <option value="">プルダウン</option>
+                          {bodyTypeOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </ShopDetailSelect>
                       </ShopDetailField>
                     </div>
                   </div>
@@ -1640,10 +1557,7 @@ function ShopDetailModal({
                       <ShopDetailField>
                         <ShopDetailInput
                           value={cautionUi}
-                          onChange={(e: any) => {
-                            trackInputChange("cautionUi", e.target.value);
-                            setCautionUi(e.target.value);
-                          }}
+                          onChange={(e: any) => setCautionUi(e.target.value)}
                           placeholder="自由入力（保存対象）"
                         />
                       </ShopDetailField>

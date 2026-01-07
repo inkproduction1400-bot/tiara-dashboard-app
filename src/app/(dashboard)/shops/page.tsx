@@ -158,16 +158,6 @@ function hasNominated(item: ShopListItem): boolean {
   return false;
 }
 
-// ==========================================================
-// JST 今日（YYYY-MM-DD）ユーティリティ（UTCズレ防止）
-// - toISOString() は UTC なので、そのまま slice すると日付ズレする可能性あり
-// - JST(UTC+9) を基準に "YYYY-MM-DD" を作る
-// ==========================================================
-function formatDateYYYYMMDD_JST(date = new Date()): string {
-  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-  return jst.toISOString().slice(0, 10);
-}
-
 export default function ShopsPage() {
   const [items, setItems] = useState<ShopListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -722,8 +712,6 @@ export default function ShopsPage() {
               prev && prev.id === updated.id ? { ...prev, ...updated } : prev,
             );
 
-            handleCloseModal();
-
             // ★ 最小修正：保存後に一覧を再取得（select完全一致の結果を反映）
             await reload();
           }}
@@ -865,12 +853,6 @@ const ShopDetailChipTitle = ({ children }: { children: any }) => (
   </div>
 );
 
-const ShopDetailSubTitle = ({ children }: { children: any }) => (
-  <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-    {children}
-  </div>
-);
-
 type ShopDetailModalProps = {
   base: ShopListItem;
   detail: ShopDetail | null;
@@ -894,7 +876,7 @@ function ShopDetailModal({
   // ★ 追加：detail が後から来ても state が初期化されない問題対策
   // - base.id が変わったら「未反映」状態に戻す
   // - detail が来た時に1回だけフォーム state に反映する
-  const lastAppliedShopIdRef = useRef<string | null>(null);
+  const lastAppliedDetailRef = useRef<string | null>(null);
 
   // ---- 必須 1〜8項目＋追加項目の state ----
   const [shopNumber, setShopNumber] = useState<string>(shop?.shopNumber ?? ""); // ①店舗番号
@@ -953,18 +935,10 @@ function ShopDetailModal({
   const [contactMethod, setContactMethod] = useState<ContactMethodFilter>(
     normalizeContactMethod(shop as any),
   );
-  // ★ hairSet 衝突回避：登録情報①の hairSet はトップキーで送る（dailyOrder はネストで送る）
+  // ★ hairSet 衝突回避：登録情報①の hairSet はトップキーで送る
   const [hairSet, setHairSet] = useState<string>(
     String((shop as any).hairSet ?? (shop as any).hair_set ?? ""),
   );
-
-  // 当日特別オーダー
-  const [todaysContactConfirm, setTodaysContactConfirm] = useState<string>("");
-  const [todaysDrink, setTodaysDrink] = useState<string>("");
-  const [todaysHeight, setTodaysHeight] = useState<string>("");
-  const [todaysBodyType, setTodaysBodyType] = useState<string>("");
-  const [todaysHairSet, setTodaysHairSet] = useState<string>("");
-  const [todaysWage, setTodaysWage] = useState<string>("");
 
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -997,18 +971,25 @@ function ShopDetailModal({
 
   const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
   const bodyTypeOptions = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"];
+  const heightOptions = ["〜150", "151〜155", "156〜160", "161〜165", "166〜170", "171〜"];
 
   // ★ 追加：base が切り替わったら「未反映」状態に戻す
   useEffect(() => {
-    lastAppliedShopIdRef.current = null;
+    lastAppliedDetailRef.current = null;
   }, [base.id]);
 
   // ★ 追加：detail が後から来ても state に反映されない問題を解消
   useEffect(() => {
     if (!detail) return;
 
-    // 既にこの店舗IDの detail を反映済みなら何もしない
-    if (lastAppliedShopIdRef.current === detail.id) return;
+    const signature = [
+      detail.id,
+      detail.updatedAt ?? "",
+      detail.dailyOrder?.updatedAt ?? "",
+    ].join("|");
+
+    // 既にこの detail を反映済みなら何もしない
+    if (lastAppliedDetailRef.current === signature) return;
 
     // detail の内容でフォームを上書き（初回だけ）
     setShopNumber(detail.shopNumber ?? "");
@@ -1039,23 +1020,8 @@ function ShopDetailModal({
     // 登録情報① hairSet（保存対象）
     setHairSet(String((detail as any).hairSet ?? (detail as any).hair_set ?? ""));
 
-    // ★★★ 当日特別オーダーは detail.dailyOrder から反映 ★★★
-    const dailyOrder =
-      (detail as any).dailyOrder ??
-      (detail as any).daily_order ??
-      (detail as any).todayOrder ??
-      (detail as any).today_order ??
-      null;
-
-    setTodaysContactConfirm(dailyOrder?.contactConfirm ?? "");
-    setTodaysDrink(dailyOrder?.drink ?? "");
-    setTodaysHeight(dailyOrder?.height ?? "");
-    setTodaysBodyType(dailyOrder?.bodyType ?? "");
-    setTodaysHairSet(dailyOrder?.hairSet ?? "");
-    setTodaysWage(dailyOrder?.wage ?? "");
-
     // 反映済みマーク
-    lastAppliedShopIdRef.current = detail.id;
+    lastAppliedDetailRef.current = signature;
   }, [detail]);
 
   // ---- 専属 / NG 初期ロード（表示用）----
@@ -1147,33 +1113,14 @@ function ShopDetailModal({
     (payload as any).contactMethod = contactMethod || "";
 
     // ★ hairSet 衝突回避：登録情報①の hairSet はトップキーに入れる
-    // （当日特別オーダーは dailyOrder ネストで送る）
     (payload as any).hairSet = hairSet || "";
-
-    // ===== 当日特別オーダー：ネストで送る（hairSet衝突回避）=====
-    // ✅ JST 기준で “今日” を作る（UTCズレ防止）
-    const dailyOrderDate = formatDateYYYYMMDD_JST(new Date()); // "YYYY-MM-DD"
-
-    (payload as any).dailyOrderDate = dailyOrderDate;
-
-    // ★★★ ここが衝突回避の本体：dailyOrder にまとめて送る ★★★
-    (payload as any).dailyOrder = {
-      date: dailyOrderDate,
-      contactConfirm: todaysContactConfirm,
-      drink: todaysDrink,
-      height: todaysHeight,
-      bodyType: todaysBodyType,
-      hairSet: todaysHairSet,
-      wage: todaysWage,
-    };
 
     try {
       // 1) update
       await updateShop(base.id, payload);
 
       // 2) 保存直後に再取得して「再表示ズレ」を潰す
-      //    ※ API 側が PATCH レスポンスで dailyOrder 同梱しているので
-      //       本来は updateShop の戻り値でも反映可能だが、確実性優先で refetch
+      //    ※ updateShop の戻り値でも反映可能だが、確実性優先で refetch
       const refetched = await getShop(base.id);
       await onSaved(refetched);
     } catch (e: any) {
@@ -1523,11 +1470,17 @@ function ShopDetailModal({
                     <ShopDetailLabel>身長</ShopDetailLabel>
                     <div className="mt-1">
                       <ShopDetailField>
-                        <ShopDetailInput
+                        <ShopDetailSelect
                           value={heightUi}
                           onChange={(e: any) => setHeightUi(e.target.value)}
-                          placeholder="数値又は範囲プルダウン（保存対象）"
-                        />
+                        >
+                          <option value="">プルダウン</option>
+                          {heightOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </ShopDetailSelect>
                       </ShopDetailField>
                     </div>
                   </div>
@@ -1582,112 +1535,7 @@ function ShopDetailModal({
                 </div>
               </div>
             </div>
-          </section>
 
-          {/* ===== 下段：当日特別オーダー ===== */}
-          <section className="px-4 py-4 bg-[#a87e7e] border-b-2 border-slate-900">
-            <div className="mb-3">
-              <ShopDetailChipTitle>当日特別オーダー</ShopDetailChipTitle>
-            </div>
-
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-12 md:col-span-6 space-y-4">
-                <div>
-                  <ShopDetailSubTitle>連絡確認</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysContactConfirm} onChange={(e: any) => setTodaysContactConfirm(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="未">未</option>
-                        <option value="済">済</option>
-                        <option value="要折返し">要折返し</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-
-                <div>
-                  <ShopDetailSubTitle>飲酒</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysDrink} onChange={(e: any) => setTodaysDrink(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="NG">NG</option>
-                        <option value="弱い">弱い</option>
-                        <option value="普通">普通</option>
-                        <option value="強い">強い</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-
-                <div>
-                  <ShopDetailSubTitle>身長</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysHeight} onChange={(e: any) => setTodaysHeight(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="〜150">〜150</option>
-                        <option value="151〜155">151〜155</option>
-                        <option value="156〜160">156〜160</option>
-                        <option value="161〜165">161〜165</option>
-                        <option value="166〜170">166〜170</option>
-                        <option value="171〜">171〜</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-span-12 md:col-span-6 space-y-4">
-                <div>
-                  <ShopDetailSubTitle>体型</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysBodyType} onChange={(e: any) => setTodaysBodyType(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="細身">細身</option>
-                        <option value="普通">普通</option>
-                        <option value="グラマー">グラマー</option>
-                        <option value="ぽっちゃり">ぽっちゃり</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-
-                <div>
-                  <ShopDetailSubTitle>ヘアーセット</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysHairSet} onChange={(e: any) => setTodaysHairSet(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="要">要</option>
-                        <option value="不要">不要</option>
-                        <option value="どちらでも">どちらでも</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-
-                <div>
-                  <ShopDetailSubTitle>時給</ShopDetailSubTitle>
-                  <div className="mt-2">
-                    <ShopDetailField>
-                      <ShopDetailSelect  value={todaysWage} onChange={(e: any) => setTodaysWage(e.target.value)}>
-                        <option value="">選択してください</option>
-                        <option value="〜2500">〜2500</option>
-                        <option value="2600〜3000">2600〜3000</option>
-                        <option value="3100〜3500">3100〜3500</option>
-                        <option value="3600〜4000">3600〜4000</option>
-                        <option value="4100〜">4100〜</option>
-                      </ShopDetailSelect>
-                    </ShopDetailField>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* footer buttons */}
             <div className="mt-8 flex items-center justify-end gap-6">
               <button
                 onClick={save}

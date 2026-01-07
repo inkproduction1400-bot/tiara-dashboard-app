@@ -484,6 +484,8 @@ export default function Page() {
   const [photoByCastId, setPhotoByCastId] = useState<Record<string, string>>(
     {},
   );
+  const photoCacheSaveTimer = useRef<number | null>(null);
+  const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
   const [pendingCast, setPendingCast] = useState<Cast | null>(null);
   const orderSeqRef = useRef(1);
@@ -503,6 +505,36 @@ export default function Page() {
     useState<ContactMethodFilter>("");
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("tiara:cast-photo-cache-v1");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        setPhotoByCastId(parsed as Record<string, string>);
+      }
+    } catch {
+      // ignore cache parse errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (photoCacheSaveTimer.current) {
+      window.clearTimeout(photoCacheSaveTimer.current);
+    }
+    photoCacheSaveTimer.current = window.setTimeout(() => {
+      const entries = Object.entries(photoByCastId);
+      const limited = entries.slice(0, 800);
+      const next = Object.fromEntries(limited);
+      window.localStorage.setItem(
+        "tiara:cast-photo-cache-v1",
+        JSON.stringify(next),
+      );
+    }, 300);
+  }, [photoByCastId]);
 
   const shopTableColumns = [
     { key: "code", label: "店舗番号", width: "80px" },
@@ -1104,6 +1136,22 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
+  }, [filteredCasts, photoByCastId]);
+
+  useEffect(() => {
+    const urls: string[] = [];
+    for (const cast of filteredCasts) {
+      const url = photoByCastId[cast.id] ?? cast.photoUrl;
+      if (url) urls.push(url);
+      if (urls.length >= 48) break;
+    }
+    if (urls.length === 0) return;
+    urls.forEach((url) => {
+      if (prefetchedImageUrlsRef.current.has(url)) return;
+      prefetchedImageUrlsRef.current.add(url);
+      const img = new Image();
+      img.src = url;
+    });
   }, [filteredCasts, photoByCastId]);
 
   useEffect(() => {

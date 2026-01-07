@@ -1516,7 +1516,7 @@ function ShopDetailModal({
                             setDrinkPreference((e.target.value || "") as ShopDrinkPreference | "")
                           }
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           {drinkOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
@@ -1535,7 +1535,7 @@ function ShopDetailModal({
                           value={heightUi}
                           onChange={(e: any) => setHeightUi(e.target.value)}
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           {heightOptions.map((opt) => (
                             <option key={opt} value={opt}>
                               {opt}

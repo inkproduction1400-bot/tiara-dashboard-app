@@ -1,12 +1,13 @@
 // src/app/casts/today/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import {
   listTodayCasts,
   listCasts as fetchCastList,
 } from "@/lib/api.casts";
+import { listShops } from "@/lib/api.shops";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -54,6 +55,7 @@ type Shop = {
   id: string;
   code: string;
   name: string;
+  nameKana?: string | null;
   /** 最低時給（未指定なら無制限） */
   minHourly?: number;
   /** 最大時給（未指定なら無制限） */
@@ -216,6 +218,7 @@ export default function Page() {
 
   // 本日分の店舗（スケジュールAPI連携）
   const [todayShops, setTodayShops] = useState<Shop[]>([]);
+  const [fallbackShops, setFallbackShops] = useState<Shop[]>([]);
 
   const [staged, setStaged] = useState<Cast[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<string>("");
@@ -264,9 +267,72 @@ export default function Page() {
   const [ngSortKey, setNgSortKey] = useState<"number" | "kana">("number");
   const [ngSelectedShopIds, setNgSelectedShopIds] = useState<string[]>([]);
 
-  const [panelTab, setPanelTab] = useState<"casts" | "shops">("casts");
+  const [panelTab, setPanelTab] = useState<"casts" | "shops">("shops");
+  const [shopSortKey, setShopSortKey] = useState<"number" | "kana">("number");
+  const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [floatMinimized, setFloatMinimized] = useState(true);
+  const [floatZ, setFloatZ] = useState(40);
+  const [dispatchCount, setDispatchCount] = useState<string>("1");
+  const [entryTime, setEntryTime] = useState<string>("00:00");
+  const [orderItems, setOrderItems] = useState<
+    { id: string; name: string; detail: string }[]
+  >([]);
+  const [orderAssignments, setOrderAssignments] = useState<
+    Record<string, Cast[]>
+  >({});
+  const [orderSelectOpen, setOrderSelectOpen] = useState(false);
+  const [pendingCast, setPendingCast] = useState<Cast | null>(null);
+  const orderSeqRef = useRef(1);
+  const [orderShopQuery, setOrderShopQuery] = useState<string>("");
+  const [orderShopOpen, setOrderShopOpen] = useState(false);
+  const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+
+  const shopTableColumns = [
+    { key: "code", label: "店舗番号", width: "80px" },
+    { key: "name", label: "店舗", width: "160px" },
+    { key: "tel", label: "TEL", width: "120px" },
+    { key: "hourly", label: "時給", width: "140px" },
+    { key: "genre", label: "ジャンル", width: "100px" },
+    { key: "points", label: "部分指", width: "80px" },
+    { key: "drink", label: "お酒", width: "80px" },
+    { key: "body", label: "体系", width: "80px" },
+    { key: "dorm", label: "寮", width: "60px" },
+    { key: "hair", label: "ヘアセット", width: "110px" },
+    { key: "notes", label: "注意点", width: "180px" },
+    { key: "owner", label: "担当", width: "90px" },
+    { key: "contact", label: "連絡方法", width: "110px" },
+    { key: "contacted", label: "連絡済", width: "90px" },
+  ] as const;
+
+  const renderShopCell = (shop: Shop, key: (typeof shopTableColumns)[number]["key"]) => {
+    switch (key) {
+      case "code":
+        return shop.code || "-";
+      case "name":
+        return shop.name || "-";
+      case "hourly": {
+        const min = shop.minHourly != null ? `¥${shop.minHourly.toLocaleString()}` : "";
+        const max = shop.maxHourly != null ? `¥${shop.maxHourly.toLocaleString()}` : "";
+        if (min && max) return `${min}〜${max}`;
+        if (min) return `${min}〜`;
+        if (max) return `〜${max}`;
+        return "-";
+      }
+      case "genre":
+        return shop.genre ? SHOP_GENRE_LABEL[shop.genre] : "-";
+      default:
+        return "-";
+    }
+  };
 
   // ★ スケジュールで登録された「本日分の店舗」をロード（無ければ空配列）
   useEffect(() => {
@@ -308,9 +374,35 @@ export default function Page() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await listShops({ limit: 10_000 });
+        if (cancelled) return;
+        const items = (res.items ?? []).map((shop) => ({
+          id: shop.id,
+          code: shop.shopNumber ?? shop.id,
+          name: shop.name ?? "",
+          nameKana: shop.nameKana ?? shop.kana ?? null,
+          genre: shop.genre ?? null,
+        })) as Shop[];
+        setFallbackShops(items);
+      } catch {
+        if (!cancelled) setFallbackShops([]);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const effectiveShops = fallbackShops;
+
   const selectedShop = useMemo(
-    () => todayShops.find((s: Shop) => s.id === selectedShopId) ?? null,
-    [todayShops, selectedShopId],
+    () => effectiveShops.find((s: Shop) => s.id === selectedShopId) ?? null,
+    [effectiveShops, selectedShopId],
   );
 
   // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
@@ -578,6 +670,33 @@ export default function Page() {
     );
   }, [shopSearch, todayShops]);
 
+  const sortedTodayShops = useMemo(() => {
+    const list = [...effectiveShops];
+    if (shopSortKey === "number") {
+      list.sort((a, b) => shopNumberKey(a) - shopNumberKey(b));
+    } else {
+      list.sort((a, b) => shopKanaKey(a).localeCompare(shopKanaKey(b), "ja"));
+    }
+    return list;
+  }, [effectiveShops, shopSortKey]);
+
+  const orderShopMatches = useMemo(() => {
+    const t = orderShopQuery.trim().toLowerCase();
+    if (!t) return [];
+    return effectiveShops
+      .filter((s) => {
+        const code = s.code?.toLowerCase() ?? "";
+        const name = s.name?.toLowerCase() ?? "";
+        const kana = s.nameKana?.toLowerCase() ?? "";
+        return code.includes(t) || name.includes(t) || kana.includes(t);
+      })
+      .slice(0, 8);
+  }, [orderShopQuery, effectiveShops]);
+
+  useEffect(() => {
+    if (orderShopActiveIndex > 0) setOrderShopActiveIndex(0);
+  }, [orderShopQuery]);
+
   // NG登録モーダル用 店舗リスト（ジャンル・名前・ID・並び替え）
   const ngCandidateShops = useMemo(() => {
     let list = [...todayShops];
@@ -659,336 +778,457 @@ export default function Page() {
     setNgModalOpen(false);
   };
 
+  const assignCastToOrder = (orderId: string, cast: Cast) => {
+    setOrderAssignments((prev) => {
+      const current = prev[orderId] ?? [];
+      if (current.some((c) => c.id === cast.id)) return prev;
+      return { ...prev, [orderId]: [...current, cast] };
+    });
+    setStaged((prev: Cast[]) =>
+      prev.some((x) => x.id === cast.id) ? prev : [...prev, cast],
+    );
+  };
+
+  const handleOrderDrop = (cast: Cast) => {
+    if (orderItems.length === 0) {
+      alert("オーダーがありません。先に追加してください。");
+      return;
+    }
+    if (orderItems.length === 1) {
+      assignCastToOrder(orderItems[0].id, cast);
+      return;
+    }
+    setPendingCast(cast);
+    setOrderSelectOpen(true);
+  };
+
+  useEffect(() => {
+    if (floatPos) return;
+    if (typeof window === "undefined") return;
+    const width = 360;
+    const height = 420;
+    const x = Math.max(16, window.innerWidth - width - 24);
+    const y = Math.max(16, window.innerHeight - height - 24);
+    setFloatPos({ x, y });
+  }, [floatPos]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: MouseEvent) => {
+      setFloatPos((prev) => {
+        if (!prev) return prev;
+        return { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y };
+      });
+    };
+    const handleUp = () => setDragging(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [dragging, dragOffset]);
+
   return (
     <AppShell>
       <div className="h-full flex flex-col gap-3">
         {/* 上部：統計バー & コントロール（タイトル文言は非表示） */}
-        <section className="tiara-panel p-3 flex flex-col gap-2">
+        <section className="tiara-panel rounded-none p-3 flex flex-col gap-2" style={{ borderRadius: 0 }}>
           <header className="flex items-center justify-between">
             <div />
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-600">
+            <span className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600">
               build: {buildStamp}
             </span>
           </header>
 
-          {/* 統計ピル */}
-          <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
-              本日の出勤：
-              <span className="font-semibold ml-1">{todayCasts.length}</span> 名
-            </span>
-            {/* ここは将来 API 連携で置き換え */}
-            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
-              配属済数：
-              <span className="font-semibold ml-1">{154}</span> 名
-            </span>
-            <span className="inline-flex items-center rounded-full bg-white text-slate-700 px-3 py-1 shadow-sm border border-slate-200">
-              明日の出勤予定：
-              <span className="font-semibold ml-1">{667}</span> 名
-            </span>
-          </div>
-
-          {/* 検索・担当者・件数・並び替え・飲酒・ジャンル・年齢レンジ */}
-          <div className="mt-1 flex flex-wrap items-start gap-3 text-xs">
-            {/* キーワード */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">
-                キーワード（管理番号・名前・旧ID）
-              </span>
-              <input
-                className="tiara-input h-8 w-[260px] text-xs"
-                placeholder="管理番号・名前・旧IDで検索"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-              />
+          <div className="flex flex-wrap items-start gap-3 text-xs">
+            <div className="border border-slate-200 bg-white px-3 py-2">
+              <div className="font-semibold">オーダー数</div>
+              <div className="mt-1 text-[11px]">0 件</div>
             </div>
-
-            {/* 担当者（ダミー） */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">担当者</span>
-              <select
-                className="tiara-input h-8 w-[140px] text-xs"
-                value={担当者}
-                onChange={(e) => set担当者(e.target.value)}
-              >
-                <option value="all">（すべて）</option>
-                <option value="nagai">永井</option>
-                <option value="kitamura">北村</option>
-              </select>
+            <div className="border border-slate-200 bg-white px-3 py-2">
+              <div className="font-semibold">オーダー人数</div>
+              <div className="mt-1 text-[11px]">0 人</div>
             </div>
-
-            {/* 表示件数 */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">表示件数</span>
-              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden">
-                <button
-                  type="button"
-                  className={`px-3 py-1 text-[11px] ${
-                    itemsPerPage === 50
-                      ? "bg-sky-600 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                  onClick={() => setItemsPerPage(50)}
-                >
-                  50件
-                </button>
-                <button
-                  type="button"
-                  className={`px-3 py-1 text-[11px] ${
-                    itemsPerPage === 100
-                      ? "bg-sky-600 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                  onClick={() => setItemsPerPage(100)}
-                >
-                  100件
-                </button>
+            <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
+              <div className="font-semibold">時給別（本日出勤予定）</div>
+              <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
+                <span>・2500円　・名</span>
+                <span>・3000円　・名</span>
+                <span>・3500円　・名</span>
+                <span>・4500円　・名</span>
+                <span>・5000円　・名</span>
+                <span>・5500円　・名</span>
+                <span>・6000円　・名</span>
+                <span>・6500円　・名</span>
               </div>
             </div>
-
-            {/* 既存の並び替え（年齢・時給） */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">並び替え</span>
-              <select
-                className="tiara-input h-8 w-[180px] text-xs"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-              >
-                <option value="default">デフォルト</option>
-                <option value="hourlyDesc">時給が高い順</option>
-                <option value="ageAsc">年齢が若い順</option>
-                <option value="ageDesc">年齢が高い順</option>
-              </select>
-            </div>
-
-            {/* 追加: 並び順（複数選択可） */}
-            <div className="flex flex-col gap-1">
-              <span className="text-muted whitespace-nowrap">
-                並び順（複数選択可）
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortKana}
-                    onChange={(e) => setSortKana(e.target.checked)}
-                  />
-                  <span>50音順</span>
-                </label>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortNumberSmallFirst}
-                    onChange={(e) =>
-                      setSortNumberSmallFirst(e.target.checked)
-                    }
-                  />
-                  <span>番号（小さい順）</span>
-                </label>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={sortNumberLargeFirst}
-                    onChange={(e) =>
-                      setSortNumberLargeFirst(e.target.checked)
-                    }
-                  />
-                  <span>番号（大きい順）</span>
-                </label>
+            <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
+              <div className="font-semibold">時給別（システム登録）</div>
+              <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
+                <span>・2500円　・名</span>
+                <span>・3000円　・名</span>
+                <span>・3500円　・名</span>
+                <span>・4500円　・名</span>
+                <span>・5000円　・名</span>
+                <span>・5500円　・名</span>
+                <span>・6000円　・名</span>
+                <span>・6500円　・名</span>
               </div>
             </div>
-
-            {/* 飲酒ソート（チェックボックス） */}
-            <div className="flex flex-col gap-1">
-              <span className="text-muted whitespace-nowrap">飲酒</span>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={drinkSort === "okFirst"}
-                    onChange={(e) =>
-                      setDrinkSort(e.target.checked ? "okFirst" : "none")
-                    }
-                  />
-                  <span>飲める順（強い→普通→弱い→NG）</span>
-                </label>
-                <label className="inline-flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3"
-                    checked={drinkSort === "ngFirst"}
-                    onChange={(e) =>
-                      setDrinkSort(e.target.checked ? "ngFirst" : "none")
-                    }
-                  />
-                  <span>飲めない順（NG→弱い→普通→強い）</span>
-                </label>
-              </div>
-            </div>
-
-            {/* キャストジャンルフィルタ */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">ジャンル</span>
-              <select
-                className="tiara-input h-8 w-[140px] text-xs"
-                value={castGenreFilter}
-                onChange={(e) =>
-                  setCastGenreFilter(
-                    (e.target.value || "") as CastGenre | "",
-                  )
-                }
-              >
-                <option value="">すべて</option>
-                <option value="club">クラブ</option>
-                <option value="cabaret">キャバ</option>
-                <option value="snack">スナック</option>
-                <option value="gb">ガルバ</option>
-              </select>
-            </div>
-
-            {/* 年齢レンジフィルタ */}
-            <div className="flex items-center gap-1">
-              <span className="text-muted whitespace-nowrap">年齢レンジ</span>
-              <select
-                className="tiara-input h-8 w-[150px] text-xs"
-                value={ageRangeFilter}
-                onChange={(e) =>
-                  setAgeRangeFilter(e.target.value as AgeRangeFilter)
-                }
-              >
-                <option value="">すべて</option>
-                <option value="18-19">18〜19歳</option>
-                <option value="20-24">20〜24歳</option>
-                <option value="25-29">25〜29歳</option>
-                <option value="30-34">30〜34歳</option>
-                <option value="35-39">35〜39歳</option>
-                <option value="40-49">40〜49歳</option>
-                <option value="50-">50歳以上</option>
-              </select>
-            </div>
-          </div>
-
-          {/* ステータスタブ + ページ送り */}
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { id: "unassigned", label: "未配属" },
-                { id: "today", label: "本日出勤" },
-                { id: "matched", label: "マッチ済み" },
-                { id: "all", label: "全キャスト" },
-              ].map((tab) => {
-                const active = statusTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={
-                      "px-3 py-1 rounded-full border text-xs " +
-                      (active
-                        ? "bg-sky-600 text-white border-sky-600"
-                        : "bg-white text-slate-700 border-slate-200")
-                    }
-                    onClick={() => setStatusTab(tab.id as typeof statusTab)}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* ページ情報 & ページ送り */}
-            <div className="inline-flex items-center rounded-full bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2 ml-2">
+            {floatMinimized && (
               <button
                 type="button"
-                className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
-                onClick={() =>
-                  setCurrentPage((p) => Math.max(1, p - 1))
-                }
-                disabled={effectivePage <= 1}
+                className="border border-slate-300 bg-white px-3 py-2 text-[11px] h-[34px] flex items-center"
+                onClick={() => setFloatMinimized(false)}
               >
-                ←
+                オーダー画面
               </button>
-              <span className="text-xs">
-                {effectivePage} / {totalPages}　全 {filteredTotal} 名
-              </span>
-              <button
-                type="button"
-                className="text-xs px-2 py-0.5 rounded-full border border-gray-300 disabled:opacity-40"
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={effectivePage >= totalPages}
-              >
-                →
-              </button>
-            </div>
+            )}
           </div>
-
-          {/* ローディング・エラー表示 */}
-          {loading && (
-            <p className="mt-1 text-xs text-muted">
-              本日出勤キャストを読込中...
-            </p>
-          )}
-          {error && !loading && (
-            <p className="mt-1 text-xs text-red-500">
-              データ取得エラー: {error}
-            </p>
-          )}
         </section>
 
-        {/* メイン：左カード一覧 + 右割当パネル */}
-        <div className="flex-1 flex gap-3">
-          {/* キャストカード一覧 */}
-          <section className="tiara-panel grow p-3 flex flex-col">
-            <div className="flex items-center justify-between gap-2">
-              <div className="inline-flex rounded-full bg-white/70 border border-slate-200 overflow-hidden text-xs">
-                <button
-                  type="button"
-                  className={`px-3 py-1 ${
-                    panelTab === "casts"
-                      ? "bg-sky-600 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                  onClick={() => setPanelTab("casts")}
-                >
-                  キャスト
-                </button>
-                <button
-                  type="button"
-                  className={`px-3 py-1 border-l border-slate-200 ${
-                    panelTab === "shops"
-                      ? "bg-sky-600 text-white"
-                      : "bg-transparent text-gray-700"
-                  }`}
-                  onClick={() => setPanelTab("shops")}
-                >
-                  店舗
-                </button>
-              </div>
-              <span className="text-[11px] text-muted">
-                {panelTab === "casts"
-                  ? `表示中: ${filteredTotal} 名`
-                  : `表示中: ${todayShops.length} 店舗`}
-              </span>
-            </div>
+        <section
+          className="tiara-panel rounded-none p-3 pt-6 flex flex-col gap-3 relative"
+          style={{ borderRadius: 0 }}
+        >
+          <div className="absolute -top-4 left-3 inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm">
+            <button
+              type="button"
+              className={`px-4 py-1.5 ${
+                panelTab === "shops"
+                  ? "bg-sky-600 text-white"
+                  : "bg-transparent text-gray-700"
+              }`}
+              onClick={() => setPanelTab("shops")}
+            >
+              店舗一覧
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-1.5 border-l border-slate-200 ${
+                panelTab === "casts"
+                  ? "bg-sky-600 text-white"
+                  : "bg-transparent text-gray-700"
+              }`}
+              onClick={() => setPanelTab("casts")}
+            >
+              キャスト一覧
+            </button>
+          </div>
 
-            {panelTab === "casts" ? (
-              <div
-                className="mt-2 grid gap-3"
-                style={{
-                  gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
-                }}
-              >
+          {panelTab === "shops" ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  defaultValue=""
+                >
+                  <option value="">並び順</option>
+                  <option value="number">番号順</option>
+                  <option value="kana">50音順</option>
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  defaultValue=""
+                >
+                  <option value="">担当者</option>
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  defaultValue=""
+                >
+                  <option value="">条件</option>
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  defaultValue=""
+                >
+                  <option value="">ジャンル</option>
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
+                  defaultValue=""
+                >
+                  <option value="">連絡方法</option>
+                </select>
+                <button
+                  type="button"
+                  className="border border-slate-300 bg-white px-3 h-8 text-xs flex-none"
+                >
+                  絞り込み
+                </button>
+                <div className="ml-auto text-[11px] text-muted">
+                  表示中: {sortedTodayShops.length} 店舗
+                </div>
+              </div>
+
+              <div className="border border-slate-200 bg-white text-xs overflow-auto">
+                <table className="min-w-[1400px] w-full border-collapse">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      {shopTableColumns.map((col) => (
+                        <th
+                          key={col.key}
+                          className="border border-slate-200 px-2 py-1 text-left font-semibold whitespace-nowrap"
+                          style={{ width: col.width }}
+                        >
+                          {col.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedTodayShops.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={shopTableColumns.length}
+                          className="border border-slate-200 px-3 py-6 text-center text-muted"
+                        >
+                          本日の店舗がありません。
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedTodayShops.map((shop) => {
+                        const isSelected = shop.id === selectedShopId;
+                        return (
+                          <tr
+                            key={shop.id}
+                            className={`${
+                              isSelected ? "bg-sky-100" : ""
+                            } hover:bg-slate-50 cursor-pointer`}
+                            onClick={() =>
+                              setSelectedShopId((prev) => {
+                                const next = prev === shop.id ? "" : shop.id;
+                                if (next) {
+                                  if (typeof window !== "undefined") {
+                                    const width = 360;
+                                    const height = 420;
+                                    const x = Math.max(
+                                      16,
+                                      Math.round((window.innerWidth - width) / 2),
+                                    );
+                                    const y = Math.max(
+                                      16,
+                                      Math.round(
+                                        (window.innerHeight - height) / 2,
+                                      ),
+                                    );
+                                    setFloatPos({ x, y });
+                                  }
+                                  setFloatMinimized(false);
+                                  setFloatZ((z) => z + 1);
+                                }
+                                return next;
+                              })
+                            }
+                          >
+                          {shopTableColumns.map((col, idx) => (
+                            <td
+                              key={col.key}
+                              className={`border border-slate-200 px-2 py-1 whitespace-nowrap ${
+                                isSelected && idx === 0
+                                  ? "border-l-4 border-l-sky-500"
+                                  : ""
+                              }`}
+                            >
+                              {renderShopCell(shop, col.key)}
+                            </td>
+                          ))}
+                        </tr>
+                      )})
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
+              <div className="flex flex-col gap-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className="tiara-input rounded-none h-8 !w-[200px] text-[10px] leading-tight flex-none"
+                    placeholder="管理番号・名前・旧ID"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                  />
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    value={担当者}
+                    onChange={(e) => set担当者(e.target.value)}
+                  >
+                    <option value="all">担当者</option>
+                    <option value="nagai">永井</option>
+                    <option value="kitamura">北村</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
+                    value={itemsPerPage}
+                    onChange={(e) =>
+                      setItemsPerPage(Number(e.target.value) as 50 | 100)
+                    }
+                  >
+                    <option value={50}>50件</option>
+                    <option value={100}>100件</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[180px] text-[11px] leading-snug flex-none"
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  >
+                    <option value="default">並び替え</option>
+                    <option value="hourlyDesc">時給が高い順</option>
+                    <option value="ageAsc">年齢が若い順</option>
+                    <option value="ageDesc">年齢が高い順</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[170px] text-[11px] leading-snug flex-none"
+                    value={drinkSort}
+                    onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
+                  >
+                    <option value="none">飲酒</option>
+                    <option value="okFirst">飲める順</option>
+                    <option value="ngFirst">飲めない順</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    value={castGenreFilter}
+                    onChange={(e) =>
+                      setCastGenreFilter(
+                        (e.target.value || "") as CastGenre | "",
+                      )
+                    }
+                  >
+                    <option value="">ジャンル</option>
+                    <option value="club">クラブ</option>
+                    <option value="cabaret">キャバ</option>
+                    <option value="snack">スナック</option>
+                    <option value="gb">ガルバ</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    value={ageRangeFilter}
+                    onChange={(e) =>
+                      setAgeRangeFilter(e.target.value as AgeRangeFilter)
+                    }
+                  >
+                    <option value="">年齢レンジ</option>
+                    <option value="18-19">18〜19歳</option>
+                    <option value="20-24">20〜24歳</option>
+                    <option value="25-29">25〜29歳</option>
+                    <option value="30-34">30〜34歳</option>
+                    <option value="35-39">35〜39歳</option>
+                    <option value="40-49">40〜49歳</option>
+                    <option value="50-">50歳以上</option>
+                  </select>
+                  <label className="inline-flex items-center gap-1 text-[10px]">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={sortKana}
+                      onChange={(e) => setSortKana(e.target.checked)}
+                    />
+                    50音
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-[10px]">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={sortNumberSmallFirst}
+                      onChange={(e) =>
+                        setSortNumberSmallFirst(e.target.checked)
+                      }
+                    />
+                    番号↑
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-[10px]">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={sortNumberLargeFirst}
+                      onChange={(e) =>
+                        setSortNumberLargeFirst(e.target.checked)
+                      }
+                    />
+                    番号↓
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { id: "unassigned", label: "未配属" },
+                      { id: "today", label: "本日出勤" },
+                      { id: "matched", label: "マッチ済み" },
+                      { id: "all", label: "全キャスト" },
+                    ].map((tab) => {
+                      const active = statusTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          className={
+                            "px-3 py-1 border text-xs " +
+                            (active
+                              ? "bg-sky-600 text-white border-sky-600"
+                              : "bg-white text-slate-700 border-slate-200")
+                          }
+                          onClick={() =>
+                            setStatusTab(tab.id as typeof statusTab)
+                          }
+                        >
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="inline-flex items-center bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2 ml-2">
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-0.5 border border-gray-300 disabled:opacity-40"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.max(1, p - 1))
+                      }
+                      disabled={effectivePage <= 1}
+                    >
+                      ←
+                    </button>
+                    <span className="text-xs">
+                      {effectivePage} / {totalPages}　全 {filteredTotal} 名
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-0.5 border border-gray-300 disabled:opacity-40"
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={effectivePage >= totalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+
+                {loading && (
+                  <p className="text-xs text-muted">
+                    本日出勤キャストを読込中...
+                  </p>
+                )}
+                {error && !loading && (
+                  <p className="text-xs text-red-500">
+                    データ取得エラー: {error}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-3">
                 {!loading &&
                   filteredCasts.map((cast: Cast) => (
                     <div
                       key={cast.id}
-                      className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
+                      className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", cast.id);
@@ -1034,193 +1274,10 @@ export default function Page() {
                     </div>
                   ))}
               </div>
-            ) : (
-              <div className="mt-2 flex-1 min-h-0">
-                {todayShops.length === 0 ? (
-                  <div className="text-xs text-muted">
-                    本日の店舗がありません。
-                  </div>
-                ) : (
-                  <div className="grid gap-2">
-                    {todayShops.map((shop: Shop) => (
-                      <div
-                        key={shop.id}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="font-mono text-[11px] text-slate-600">
-                            {shop.code}
-                          </span>
-                          <span className="font-semibold text-sm truncate">
-                            {shop.name}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-muted">
-                          {shop.genre ? SHOP_GENRE_LABEL[shop.genre] : "-"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
 
-          {/* 右：店舗セット & D&D 割当 */}
-          <aside
-            className="tiara-panel w-[320px] shrink-0 p-3 flex flex-col"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const castId = e.dataTransfer.getData("text/plain");
-              if (!castId) return;
-              const cast =
-                allCasts.find((c: Cast) => c.id === castId) ?? null;
-              if (!cast) return;
-
-              if (selectedShop && !matchesShopConditions(cast, selectedShop)) {
-                alert(
-                  "このキャストは、選択中の店舗条件／NGにより割当不可です。",
-                );
-                return;
-              }
-
-              setStaged((prev: Cast[]) =>
-                prev.some((x: Cast) => x.id === cast.id) ? prev : [...prev, cast],
-              );
-            }}
-          >
-            <header className="pb-2 border-b border-gray-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm">店舗セット</h3>
-              </div>
-
-              {/* 本日のスケジュール有無メッセージ */}
-              {todayShops.length === 0 ? (
-                <p className="text-[11px] text-red-500">
-                  本日のスケジュール登録がありません。
-                  スケジュール画面から店舗リクエストを登録してください。
-                </p>
-              ) : (
-                <div className="space-y-1 text-[11px] text-muted">
-                  <div className="flex items-center justify-between">
-                    <span>店舗：</span>
-                    <span className="font-medium text-ink">
-                      {selectedShop
-                        ? `${selectedShop.code} / ${selectedShop.name}`
-                        : "未選択"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>更新：</span>
-                    <span>-</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  type="button"
-                  className="tiara-btn text-xs w-full"
-                  onClick={() => setShopModalOpen(true)}
-                  disabled={todayShops.length === 0}
-                >
-                  店舗をセット
-                </button>
-              </div>
-            </header>
-
-            {/* D&D 受け皿 */}
-            <div className="mt-3 flex-1 min-h-0">
-              <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 h-full flex flex-col">
-                <div className="px-3 py-2 border-b border-gray-200">
-                  <p className="text-xs text-muted">
-                    ここにキャストカードをドラッグ＆ドロップ
-                  </p>
-                </div>
-                <div className="flex-1 overflow-auto px-2 py-2 space-y-2">
-                  {staged.length === 0 ? (
-                    <div className="text-xs text-muted">
-                      割当候補はまだ選択されていません。
-                    </div>
-                  ) : (
-                    staged.map((c: Cast) => (
-                      <div
-                        key={c.id}
-                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {c.photoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={c.photoUrl}
-                                alt={c.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-[10px] text-ink/80">
-                                {c.name.slice(0, 2)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold truncate">{c.name}</span>
-                            <span className="text-[10px] text-muted">
-                              {c.code} / {c.age}歳 / ¥
-                              {c.desiredHourly.toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 下：ボタン */}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="rounded-xl border border-gray-300 bg-white text-ink px-4 py-2 text-sm"
-                onClick={() => setStaged([])}
-                disabled={staged.length === 0}
-              >
-                クリア
-              </button>
-              <button
-                type="button"
-                className="tiara-btn text-sm"
-                onClick={() => {
-                  if (!selectedShop) {
-                    alert("店舗が未選択です。");
-                    return;
-                  }
-                  if (staged.length === 0) {
-                    alert("割当候補がありません。");
-                    return;
-                  }
-                  alert(
-                    `${selectedShop.name} への割当を確定（デモ）\n\n` +
-                      staged
-                        .map(
-                          (c: Cast) =>
-                            `${c.code} ${c.name}（¥${c.desiredHourly.toLocaleString()}）`,
-                        )
-                        .join("\n"),
-                  );
-                }}
-                disabled={staged.length === 0}
-              >
-                確定
-              </button>
-            </div>
-          </aside>
-        </div>
+          </>
+        )}
+        </section>
       </div>
 
       {/* 店舗選択モーダル */}
@@ -1230,7 +1287,7 @@ export default function Page() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setShopModalOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col">
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] bg-white border border-gray-200 shadow-2xl flex flex-col">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">店舗を選択</h2>
               <button
@@ -1247,7 +1304,7 @@ export default function Page() {
                 店舗番号・店舗名
               </label>
               <input
-                className="tiara-input h-8 text-xs flex-1"
+                className="tiara-input rounded-none h-8 text-xs flex-1"
                 placeholder="例）001 / ティアラ本店"
                 value={shopSearch}
                 onChange={(e) => setShopSearch(e.target.value)}
@@ -1281,7 +1338,7 @@ export default function Page() {
                         type="button"
                         onClick={() => handleSelectShop(shop)}
                         className={
-                          "text左 rounded-xl border px-3 py-2 text-xs transition-colors " +
+                          "text左 border px-3 py-2 text-xs transition-colors " +
                           (active
                             ? "bg-sky-600/10 border-sky-400 text-ink"
                             : "bg-white border-gray-200 text-gray-900 hover:border-sky-400")
@@ -1313,7 +1370,7 @@ export default function Page() {
             className="absolute inset-0 bg-black/40"
             onClick={closeCastDetail}
           />
-          <div className="relative z-10 w-full max-w-xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative z-10 w-full max-w-xl max-h-[80vh] bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">キャスト詳細</h2>
               <button
@@ -1327,7 +1384,7 @@ export default function Page() {
 
             <div className="flex-1 overflow-auto p-4 flex gap-4 bg-white">
               <div className="w-40 shrink-0">
-                <div className="w-full aspect-[3/4] rounded-xl overflow-hidden bg-gray-200 flex items-center justify-center">
+                <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
                   {selectedCast.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1392,7 +1449,7 @@ export default function Page() {
                         selectedCast.genres.map((g) => (
                           <span
                             key={g}
-                            className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-[11px]"
+                            className="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 text-[11px]"
                           >
                             {CAST_GENRE_LABEL[g] ?? g}
                           </span>
@@ -1410,14 +1467,14 @@ export default function Page() {
                 <div className="mt-1 flex justify-end">
                   <button
                     type="button"
-                    className="px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
+                    className="px-3 py-1.5 border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
                     onClick={() => setNgModalOpen(true)}
                   >
                     NG登録
                   </button>
                 </div>
 
-                <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200">
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200">
                   <div className="text-[11px] text-muted">
                     備考（将来拡張用）
                   </div>
@@ -1431,7 +1488,7 @@ export default function Page() {
             <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
               <button
                 type="button"
-                className="rounded-xl border border-gray-300 bg-white text-ink px-4 py-1.5 text-xs"
+                className="border border-gray-300 bg-white text-ink px-4 py-1.5 text-xs"
                 onClick={closeCastDetail}
               >
                 閉じる
@@ -1461,7 +1518,7 @@ export default function Page() {
         /* NG登録モーダル：詳細モーダルの上に重ねる（サブモーダル階層） */
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={closeNgModal} />
-          <div className="relative z-10 w-full max-w-4xl max-h-[80vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative z-10 w-full max-w-4xl max-h-[80vh] bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">
                 NG登録（{selectedCast.name}）
@@ -1480,7 +1537,7 @@ export default function Page() {
               {/* NG種別 */}
               <div className="flex items-center gap-3">
                 <span className="text-muted whitespace-nowrap">NG種別</span>
-                <div className="inline-flex rounded-full bg-gray-100 border border-gray-300 overflow-hidden">
+                <div className="inline-flex bg-gray-100 border border-gray-300 overflow-hidden">
                   <button
                     type="button"
                     className={
@@ -1513,7 +1570,7 @@ export default function Page() {
                 <div className="flex items-center gap-1">
                   <span className="text-muted whitespace-nowrap">ジャンル</span>
                   <select
-                    className="tiara-input h-8 w-[140px] text-xs"
+                    className="tiara-input rounded-none h-8 w-[140px] text-xs"
                     value={ngFilterGenre}
                     onChange={(e) =>
                       setNgFilterGenre(
@@ -1532,7 +1589,7 @@ export default function Page() {
                 <div className="flex items-center gap-1">
                   <span className="text-muted whitespace-nowrap">店舗名</span>
                   <input
-                    className="tiara-input h-8 w-[200px] text-xs"
+                    className="tiara-input rounded-none h-8 w-[200px] text-xs"
                     placeholder="店舗名で検索"
                     value={ngFilterName}
                     onChange={(e) => setNgFilterName(e.target.value)}
@@ -1542,7 +1599,7 @@ export default function Page() {
                 <div className="flex items-center gap-1">
                   <span className="text-muted whitespace-nowrap">店舗番号</span>
                   <input
-                    className="tiara-input h-8 w-[140px] text-xs"
+                    className="tiara-input rounded-none h-8 w-[140px] text-xs"
                     placeholder="店舗番号で検索"
                     value={ngFilterCode}
                     onChange={(e) => setNgFilterCode(e.target.value)}
@@ -1552,7 +1609,7 @@ export default function Page() {
                 <div className="flex items-center gap-1">
                   <span className="text-muted whitespace-nowrap">並び替え</span>
                   <select
-                    className="tiara-input h-8 w-[160px] text-xs"
+                    className="tiara-input rounded-none h-8 w-[160px] text-xs"
                     value={ngSortKey}
                     onChange={(e) =>
                       setNgSortKey(e.target.value as "number" | "kana")
@@ -1624,14 +1681,14 @@ export default function Page() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-gray-800"
+                  className="px-3 py-1.5 border border-gray-300 bg-white text-gray-800"
                   onClick={closeNgModal}
                 >
                   キャンセル
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-1.5 rounded-xl bg-red-600 text-white"
+                  className="px-4 py-1.5 bg-red-600 text-white"
                   onClick={handleNgSave}
                 >
                   登録
@@ -1641,6 +1698,369 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {floatPos && !floatMinimized && (
+        <div
+          className="fixed border border-gray-300 bg-white shadow-lg"
+          style={{ left: floatPos.x, top: floatPos.y, width: 360, zIndex: floatZ }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const castId = e.dataTransfer.getData("text/plain");
+            if (!castId) return;
+            const cast =
+              allCasts.find((c: Cast) => c.id === castId) ?? null;
+            if (!cast) return;
+
+            if (selectedShop && !matchesShopConditions(cast, selectedShop)) {
+              alert(
+                "このキャストは、選択中の店舗条件／NGにより割当不可です。",
+              );
+              return;
+            }
+
+            handleOrderDrop(cast);
+          }}
+        >
+          <div
+            className="cursor-move bg-gray-100 px-3 py-2 text-xs font-semibold border-b border-gray-300 flex items-center justify-between"
+            onMouseDown={(e) => {
+              if (!floatPos) return;
+              setDragging(true);
+              setDragOffset({
+                x: e.clientX - floatPos.x,
+                y: e.clientY - floatPos.y,
+              });
+              setFloatZ((z) => z + 1);
+            }}
+          >
+            <span>オーダー画面</span>
+            <button
+              type="button"
+              className="border border-gray-300 bg-white px-2 py-0.5 text-[10px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFloatMinimized(true);
+              }}
+            >
+              最小化
+            </button>
+          </div>
+          <div className="p-3 flex flex-col gap-3">
+            <div className="flex flex-col gap-1 text-[11px] text-muted">
+              <div className="flex items-center gap-1">
+                <input
+                  className="tiara-input rounded-none h-8 text-[11px] leading-snug flex-1"
+                  placeholder="店舗名・店舗番号で検索"
+                  value={orderShopQuery}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setOrderShopQuery(q);
+                    setOrderShopOpen(true);
+                    if (!q.trim()) {
+                      setSelectedShopId("");
+                    }
+                  }}
+                  onFocus={() => {
+                    if (orderShopQuery.trim()) setOrderShopOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!orderShopMatches.length) return;
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setOrderShopActiveIndex((i) =>
+                        Math.min(i + 1, orderShopMatches.length - 1),
+                      );
+                      return;
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setOrderShopActiveIndex((i) => Math.max(i - 1, 0));
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const hit = orderShopMatches[orderShopActiveIndex];
+                      if (!hit) return;
+                      setSelectedShopId(hit.id);
+                      setOrderShopQuery(`${hit.code} ${hit.name}`);
+                      setOrderShopOpen(false);
+                      setFloatMinimized(false);
+                      setFloatZ((z) => z + 1);
+                    }
+                  }}
+                />
+                {orderShopOpen && (
+                  <button
+                    type="button"
+                    className="border border-gray-300 bg-white text-ink px-2 h-8 text-[11px]"
+                    onClick={() => setOrderShopOpen(false)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              {orderShopOpen && orderShopMatches.length > 0 && (
+                <div className="border border-gray-200 bg-white text-[11px] max-h-40 overflow-auto">
+                  {orderShopMatches.map((shop, idx) => (
+                    <button
+                      key={shop.id}
+                      type="button"
+                      className={`w-full text-left px-2 py-1 border-b border-gray-100 last:border-b-0 ${
+                        idx === orderShopActiveIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                      }`}
+                      onClick={() => {
+                        setSelectedShopId(shop.id);
+                        setOrderShopQuery(`${shop.code} ${shop.name}`);
+                        setOrderShopOpen(false);
+                        setFloatMinimized(false);
+                        setFloatZ((z) => z + 1);
+                        setOrderShopActiveIndex(idx);
+                      }}
+                    >
+                      {shop.code} / {shop.name}
+                      {shop.nameKana ? `（${shop.nameKana}）` : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-1 text-[11px] text-muted">
+              <div className="flex items-center justify-between">
+                <span>店舗：</span>
+                <span className="font-medium text-ink">
+                  {selectedShop
+                    ? `${selectedShop.code} / ${selectedShop.name}`
+                    : "未選択"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="tiara-input rounded-none h-8 !w-[110px] text-[11px] leading-snug flex-none"
+                  value={dispatchCount}
+                  onChange={(e) => setDispatchCount(e.target.value)}
+                >
+                  {["1", "2", "3", "4", "5"].map((n) => (
+                    <option key={n} value={n}>
+                      派遣人数 {n}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[110px] text-[11px] leading-snug flex-none"
+                  value={entryTime}
+                  onChange={(e) => setEntryTime(e.target.value)}
+                >
+                  {["00:00", "20:00", "21:00", "22:00", "23:00"].map((t) => (
+                    <option key={t} value={t}>
+                      入店時間 {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="border border-gray-300 bg-white text-ink px-3 h-8 text-xs flex-none"
+                  onClick={() => {
+                    const detail = `${dispatchCount}名　${entryTime}〜`;
+                    setOrderItems((prev) => {
+                      if (prev.some((o) => o.detail === detail)) return prev;
+                      const seq = orderSeqRef.current++;
+                      return [
+                        ...prev,
+                        {
+                          id: `order-${seq}`,
+                          name: `オーダー${seq}`,
+                          detail,
+                        },
+                      ];
+                    });
+                  }}
+                >
+                  追加
+                </button>
+              </div>
+              <div className="flex flex-col gap-1 text-[11px] text-muted">
+                {orderItems.length === 0 ? (
+                  <span>オーダー（{dispatchCount}名　{entryTime}〜）</span>
+                ) : (
+                  orderItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span>
+                        {item.name}（{item.detail}）
+                      </span>
+                      <button
+                        type="button"
+                        className="border border-gray-300 bg-white text-ink px-2 py-0.5 text-[10px]"
+                        onClick={() => {
+                          setOrderItems((prev) =>
+                            prev.filter((x) => x.id !== item.id),
+                          );
+                          setOrderAssignments((prev) => {
+                            const next = { ...prev };
+                            delete next[item.id];
+                            const remaining = new Set(
+                              Object.values(next)
+                                .flat()
+                                .map((c) => c.id),
+                            );
+                            setStaged((prevStaged: Cast[]) =>
+                              prevStaged.filter((c) => remaining.has(c.id)),
+                            );
+                            return next;
+                          });
+                        }}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 bg-gray-50 h-[220px] flex flex-col">
+              <div className="px-3 py-2 border-b border-gray-200">
+                <p className="text-xs text-muted">
+                  ここにキャストカードをドラッグ＆ドロップ
+                </p>
+              </div>
+              <div className="flex-1 overflow-auto px-2 py-2 space-y-2">
+                {Object.keys(orderAssignments).length === 0 ? (
+                  <div className="text-xs text-muted">
+                    割当候補はまだ選択されていません。
+                  </div>
+                ) : (
+                  orderItems.flatMap((order) =>
+                    (orderAssignments[order.id] ?? []).map((c: Cast) => (
+                      <div
+                        key={`${order.id}-${c.id}`}
+                        className="border border-gray-200 bg-white px-2 py-1.5 text-xs flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-9 h-9 overflow-hidden bg-gray-200 flex items-center justify-center">
+                            {c.photoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={c.photoUrl}
+                                alt={c.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[10px] text-ink/80">
+                                {c.name.slice(0, 2)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold truncate">
+                              {c.name}
+                            </span>
+                            <span className="text-[10px] text-muted">
+                              {order.name} / {c.code} / {c.age}歳 / ¥
+                              {c.desiredHourly.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )),
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="border border-gray-300 bg-white text-ink px-4 py-2 text-sm"
+                onClick={() => {
+                  setOrderAssignments({});
+                  setStaged([]);
+                }}
+                disabled={Object.keys(orderAssignments).length === 0}
+              >
+                クリア
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-sm"
+                onClick={() => {
+                  if (!selectedShop) {
+                    alert("店舗が未選択です。");
+                    return;
+                  }
+                  if (Object.keys(orderAssignments).length === 0) {
+                    alert("割当候補がありません。");
+                    return;
+                  }
+                  alert(
+                    `${selectedShop.name} への割当を確定（デモ）\n\n` +
+                      orderItems
+                        .flatMap((order) =>
+                          (orderAssignments[order.id] ?? []).map(
+                            (c: Cast) =>
+                              `${order.name} ${c.code} ${c.name}（¥${c.desiredHourly.toLocaleString()}）`,
+                          ),
+                        )
+                        .join("\n"),
+                  );
+                }}
+                disabled={Object.keys(orderAssignments).length === 0}
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {orderSelectOpen && pendingCast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setOrderSelectOpen(false);
+              setPendingCast(null);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white border border-gray-200 shadow-xl p-4">
+            <div className="text-sm font-semibold">オーダー選択</div>
+            <div className="mt-2 text-xs text-muted">
+              割り当てるオーダーを選択してください。
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {orderItems.map((order) => (
+                <button
+                  key={order.id}
+                  type="button"
+                  className="border border-gray-300 bg-white text-left px-3 py-2 text-xs hover:bg-slate-50"
+                  onClick={() => {
+                    assignCastToOrder(order.id, pendingCast);
+                    setOrderSelectOpen(false);
+                    setPendingCast(null);
+                  }}
+                >
+                  {order.name}（{order.detail}）
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        :global(.tiara-input) {
+          border-radius: 0 !important;
+        }
+      `}</style>
     </AppShell>
   );
 }

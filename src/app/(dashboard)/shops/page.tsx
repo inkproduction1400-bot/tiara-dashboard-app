@@ -1163,7 +1163,13 @@ function ShopDetailModal({
     }
     (payload as any).bodyType = bodyTypeValue;
     if (heightValue !== null || bodyTypeValue || (!heightUi && !bodyTypeUi)) {
-      (payload as any).dailyOrderDate = formatDateYYYYMMDD_JST(new Date());
+      const dailyOrderDate = formatDateYYYYMMDD_JST(new Date());
+      (payload as any).dailyOrderDate = dailyOrderDate;
+      (payload as any).dailyOrder = {
+        date: dailyOrderDate,
+        height: heightValue ?? null,
+        bodyType: bodyTypeValue || null,
+      };
     }
     (payload as any).caution = cautionUi.trim();
     (payload as any).ownerStaff = ownerStaff || "";

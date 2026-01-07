@@ -1554,7 +1554,7 @@ function ShopDetailModal({
                           value={bodyTypeUi}
                           onChange={(e: any) => setBodyTypeUi(e.target.value)}
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           {bodyTypeOptions.map((opt) => (
                             <option key={opt} value={opt}>
                               {opt}

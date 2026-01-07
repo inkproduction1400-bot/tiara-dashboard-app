@@ -1677,7 +1677,7 @@ export default function Page() {
             className="absolute inset-0 bg-black/40"
             onClick={closeCastDetail}
           />
-          <div className="relative z-10 w-full max-w-xl max-h-[80vh] bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative z-10 w-full max-w-3xl max-h-[80vh] bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">キャスト詳細</h2>
               <button
@@ -1784,7 +1784,7 @@ export default function Page() {
                 <div className="mt-2">
                   <div className="relative">
                     <textarea
-                      className="w-full h-24 px-3 py-2 border border-gray-200 text-xs resize-none"
+                      className="w-full h-28 px-3 py-2 border border-gray-200 text-xs resize-none"
                       placeholder="チャットを入力"
                     />
                     <button
@@ -1821,11 +1821,22 @@ export default function Page() {
                 className="tiara-btn text-xs"
                 onClick={() => {
                   if (!selectedCast) return;
-                  setStaged((prev: Cast[]) =>
-                    prev.some((x: Cast) => x.id === selectedCast.id)
-                      ? prev
-                      : [...prev, selectedCast],
-                  );
+                  if (orderItems.length === 0) {
+                    const seq = orderSeqRef.current++;
+                    const detail = `${dispatchCount}名　${entryTime}〜`;
+                    const newOrder = {
+                      id: `order-${seq}`,
+                      name: `オーダー${seq}`,
+                      detail,
+                    };
+                    setOrderItems((prev) => [...prev, newOrder]);
+                    assignCastToOrder(newOrder.id, selectedCast);
+                  } else if (orderItems.length === 1) {
+                    assignCastToOrder(orderItems[0].id, selectedCast);
+                  } else {
+                    setPendingCast(selectedCast);
+                    setOrderSelectOpen(true);
+                  }
                   setFloatMinimized(false);
                   setFloatZ((z) => z + 1);
                   closeCastDetail();

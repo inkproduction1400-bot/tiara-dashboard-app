@@ -1162,7 +1162,7 @@ function ShopDetailModal({
       (payload as any).height = "";
     }
     (payload as any).bodyType = bodyTypeValue;
-    if (heightValue !== null || bodyTypeValue) {
+    if (heightValue !== null || bodyTypeValue || (!heightUi && !bodyTypeUi)) {
       (payload as any).dailyOrderDate = formatDateYYYYMMDD_JST(new Date());
     }
     (payload as any).caution = cautionUi.trim();

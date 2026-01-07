@@ -76,15 +76,15 @@ function mapHeightToOption(value?: string | number | null): string {
   return "171〜";
 }
 
-function parseHeightToNumber(value?: string | null): number | null {
+function parseHeightToString(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (trimmed === "〜150") return 150;
+  if (trimmed === "〜150") return "150";
   const rangeMatch = trimmed.match(/^(\d{2,3})〜(\d{2,3})$/);
-  if (rangeMatch) return Number(rangeMatch[2]);
+  if (rangeMatch) return String(Number(rangeMatch[2]));
   const num = Number(trimmed);
-  return Number.isFinite(num) ? num : null;
+  return Number.isFinite(num) ? String(num) : null;
 }
 
 function parseWageMinFromLabel(label?: string | null): number | null {
@@ -1130,7 +1130,7 @@ function ShopDetailModal({
     if (postalCode.trim()) (payload as any).postalCode = postalCode.trim();
     else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
 
-    const heightValue = parseHeightToNumber(heightUi);
+    const heightValue = parseHeightToString(heightUi);
     if (heightValue !== null) {
       (payload as any).height = heightValue;
     } else {

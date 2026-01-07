@@ -1781,13 +1781,28 @@ export default function Page() {
                   </button>
                 </div>
 
-                <div className="mt-2 p-3 bg-gray-50 border border-gray-200">
-                  <div className="text-[11px] text-muted">
-                    備考（将来拡張用）
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 h-9 px-3 border border-gray-200 text-xs"
+                    placeholder="チャットを入力"
+                  />
+                  <button
+                    type="button"
+                    className="h-9 px-4 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    送信
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-col gap-1 text-[11px] text-gray-700">
+                  <div>
+                    <span className="text-muted">最終出勤日</span>{" "}
+                    <span className="font-medium">未登録</span>
                   </div>
-                  <p className="mt-1 text-[11px] text-gray-700">
-                    ここに査定情報・NG詳細・希望シフト・メモなどを表示する想定です。
-                  </p>
+                  <div>
+                    <span className="text-muted">出勤回数</span>{" "}
+                    <span className="font-medium">- 回</span>
+                  </div>
                 </div>
               </div>
             </div>

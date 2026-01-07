@@ -236,7 +236,7 @@ const getCastBadgeIcons = (cast: Cast) => {
   if (cast.drinkLevel === "strong") {
     icons.push({ src: "/img/strong.svg", alt: "飲酒: 強い" });
   } else if (cast.drinkLevel === "normal") {
-    icons.push({ src: "/img/norma.svg", alt: "飲酒: 普通" });
+    icons.push({ src: "/img/normal.svg", alt: "飲酒: 普通" });
   } else if (cast.drinkLevel === "ng") {
     icons.push({ src: "/img/nothing.svg", alt: "飲酒: NG" });
   }
@@ -244,7 +244,7 @@ const getCastBadgeIcons = (cast: Cast) => {
     icons.push({ src: "/img/senzoku.svg", alt: "専属指名あり" });
   }
   if (cast.hasNominated) {
-    icons.push({ src: "/img/Shimei.svg", alt: "指名あり" });
+    icons.push({ src: "/img/shimei.svg", alt: "指名あり" });
   }
   return icons;
 };

@@ -1129,7 +1129,7 @@ function ShopDetailModal({
     </div>
   );
 
-  const Input = useCallback((props: any) => (
+  const Input = (props: any) => (
     <input
       {...props}
       className={
@@ -1137,10 +1137,9 @@ function ShopDetailModal({
         (props.className ?? "")
       }
     />
+  );
 
-
-  ), []);
-const Select = useCallback((props: any) => (
+  const Select = (props: any) => (
     <select
       {...props}
       className={
@@ -1148,9 +1147,9 @@ const Select = useCallback((props: any) => (
         (props.className ?? "")
       }
     />
+  );
 
-), []);
-const ChipTitle = ({ children }: { children: any }) => (
+  const ChipTitle = ({ children }: { children: any }) => (
     <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
       {children}
     </div>

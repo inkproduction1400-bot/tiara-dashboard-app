@@ -1083,11 +1083,13 @@ function ShopDetailModal({
 
     // ===== 登録情報①：保存対象を網羅 =====
     // postalCode / height / bodyType / caution / ownerStaff / phoneChecked / contactMethod / hairSet
-    (payload as any).postalCode = toNull(postalCode);
+    if (postalCode.trim()) (payload as any).postalCode = postalCode.trim();
+    else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
+
     (payload as any).height = toNull(heightUi);
-    (payload as any).bodyType = toNull(bodyTypeUi);
-    (payload as any).caution = toNull(cautionUi);
-    (payload as any).ownerStaff = ownerStaff || "";
+(payload as any).bodyType = toNull(bodyTypeUi);
+(payload as any).caution = toNull(cautionUi);
+(payload as any).ownerStaff = ownerStaff || "";
     (payload as any).phoneChecked = Boolean(phoneChecked);
 
     // 連絡方法（line/sms/tel）を保存
@@ -1129,7 +1131,7 @@ function ShopDetailModal({
     </div>
   );
 
-  const Input = useCallback((props: any) => (
+  const Input = (props: any) => (
     <input
       {...props}
       className={
@@ -1137,10 +1139,9 @@ function ShopDetailModal({
         (props.className ?? "")
       }
     />
+  );
 
-
-  ), []);
-const Select = useCallback((props: any) => (
+  const Select = (props: any) => (
     <select
       {...props}
       className={
@@ -1148,9 +1149,9 @@ const Select = useCallback((props: any) => (
         (props.className ?? "")
       }
     />
+  );
 
-), []);
-const ChipTitle = ({ children }: { children: any }) => (
+  const ChipTitle = ({ children }: { children: any }) => (
     <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
       {children}
     </div>

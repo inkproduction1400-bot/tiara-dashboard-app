@@ -956,10 +956,16 @@ function ShopDetailModal({
     (shop as any).postalCode ?? (shop as any).postal_code ?? "",
   );
   const [heightUi, setHeightUi] = useState<string>(
-    mapHeightToOption((shop as any).height ?? ""),
+    mapHeightToOption(
+      (shop as any).height ?? (shop as any).dailyOrder?.height ?? "",
+    ),
   );
   const [bodyTypeUi, setBodyTypeUi] = useState<string>(
-    (shop as any).bodyType ?? (shop as any).body_type ?? "",
+    (shop as any).bodyType ??
+      (shop as any).body_type ??
+      (shop as any).dailyOrder?.bodyType ??
+      (shop as any).dailyOrder?.body_type ??
+      "",
   );
   const [cautionUi, setCautionUi] = useState<string>(
     (shop as any).caution ?? "",
@@ -1041,8 +1047,20 @@ function ShopDetailModal({
 
     // 登録情報①（保存対象）
     setPostalCode((detail as any).postalCode ?? (detail as any).postal_code ?? "");
-    setHeightUi(mapHeightToOption((detail as any).height ?? ""));
-    setBodyTypeUi((detail as any).bodyType ?? (detail as any).body_type ?? "");
+    const dailyOrder =
+      (detail as any).dailyOrder ??
+      (detail as any).daily_order ??
+      (detail as any).todayOrder ??
+      (detail as any).today_order ??
+      null;
+    setHeightUi(mapHeightToOption((detail as any).height ?? dailyOrder?.height ?? ""));
+    setBodyTypeUi(
+      (detail as any).bodyType ??
+        (detail as any).body_type ??
+        dailyOrder?.bodyType ??
+        dailyOrder?.body_type ??
+        "",
+    );
     setCautionUi((detail as any).caution ?? "");
     setPhoneChecked(Boolean((detail as any).phoneChecked ?? (detail as any).phone_checked ?? false));
 
@@ -1236,7 +1254,7 @@ function ShopDetailModal({
                           value={rank}
                           onChange={(e: any) => setRank((e.target.value || "") as ShopRank | "")}
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           <option value="S">S</option>
                           <option value="A">A</option>
                           <option value="B">B</option>
@@ -1257,7 +1275,7 @@ function ShopDetailModal({
                             setContactMethod((e.target.value || "") as ContactMethodFilter)
                           }
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           <option value="line">LINE</option>
                           <option value="sms">SMS</option>
                           <option value="tel">TEL</option>
@@ -1275,7 +1293,7 @@ function ShopDetailModal({
                           value={hairSet}
                           onChange={(e: any) => setHairSet(e.target.value)}
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           <option value="none">不要</option>
                           <option value="need">必要</option>
                         </ShopDetailSelect>
@@ -1401,7 +1419,7 @@ function ShopDetailModal({
                     <div className="mt-1">
                       <ShopDetailField>
                         <ShopDetailSelect  value={genre} onChange={(e: any) => setGenre((e.target.value || "") as ShopGenre | "")}>
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           <option value="club">クラブ</option>
                           <option value="cabaret">キャバクラ</option>
                           <option value="snack">スナック</option>

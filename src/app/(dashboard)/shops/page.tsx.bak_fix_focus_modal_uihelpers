@@ -302,7 +302,7 @@ export default function ShopsPage() {
   }, [perPage, maxPage, offset]);
 
   // API からは「q (+ genre/orderBy)」で一覧を取得 → ページング＆一部並び替えはフロント側
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true);
     try {
       const res = await listShops({
@@ -319,14 +319,14 @@ export default function ShopsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [q, genreFilter, sortMode]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   // 店舗カードクリック → 詳細取得 → モーダル表示
-  const handleOpenShop = async (row: ShopListItem) => {
+  const handleOpenShop = useCallback(async (row: ShopListItem) => {
     setSelectedShop(row);
     setShopDetail(null);
     setShopDetailError(null);
@@ -339,14 +339,14 @@ export default function ShopsPage() {
     } finally {
       setShopDetailLoading(false);
     }
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setSelectedShop(null);
     setShopDetail(null);
     setShopDetailError(null);
     setShopDetailLoading(false);
-  };
+  }, []);
 
   const wageSteps = useMemo(() => {
     const arr: number[] = [];
@@ -836,90 +836,6 @@ function DisplayCountControl({ limit, total, onChange }: DisplayCountControlProp
   );
 }
 
-
-// ===============================
-// UI helper components (stable)
-// - MUST be top-level to keep focus in inputs
-// ===============================
-  const UiLabel = ({ children }: { children: any }) => (
-    <div className="text-sm font-semibold text-slate-900">{children}</div>
-  );
-
-  const UiField = ({ children }: { children: any }) => (
-    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
-      {children}
-    </div>
-  );
-const UiSelect = (props: any) => (
-    <select
-      {...props}
-      className={
-        "w-full bg-transparent outline-none text-slate-900 " +
-        (props.className ?? "")
-      }
-    />
-
-);
-const UiChipTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
-  const UiSubTitle = ({ children }: { children: any }) => (
-    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-      {children}
-    </div>
-  );
-
-
-
-// ===============================
-// UI helper components (stable)
-// - MUST be top-level to keep focus in inputs
-// ===============================
-const Label = ({ children }: { children: any }) => (
-  <div className="text-sm font-semibold text-slate-900">{children}</div>
-);
-
-const Field = ({ children }: { children: any }) => (
-  <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
-    {children}
-  </div>
-);
-
-const Input = (props: any) => (
-  <input
-    {...props}
-    className={
-      "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
-      (props.className ?? "")
-    }
-  />
-);
-
-const Select = (props: any) => (
-  <select
-    {...props}
-    className={
-      "w-full bg-transparent outline-none text-slate-900 " +
-      (props.className ?? "")
-    }
-  />
-);
-
-const ChipTitle = ({ children }: { children: any }) => (
-  <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
-    {children}
-  </div>
-);
-
-const SubTitle = ({ children }: { children: any }) => (
-  <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
-    {children}
-  </div>
-);
-
 type ShopDetailModalProps = {
   base: ShopListItem;
   detail: ShopDetail | null;
@@ -1211,7 +1127,51 @@ function ShopDetailModal({
       setSaving(false);
     }
   };
+
   // ---- ここからレイアウト（スクショ寄せ・ライト固定） ----
+  const Label = ({ children }: { children: any }) => (
+    <div className="text-sm font-semibold text-slate-900">{children}</div>
+  );
+
+  const Field = ({ children }: { children: any }) => (
+    <div className="w-full rounded bg-white border border-slate-900/70 px-3 py-2 text-slate-900">
+      {children}
+    </div>
+  );
+
+  const Input = useCallback((props: any) => (
+    <input
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 placeholder:text-slate-400 " +
+        (props.className ?? "")
+      }
+    />
+
+
+  ), []);
+const Select = useCallback((props: any) => (
+    <select
+      {...props}
+      className={
+        "w-full bg-transparent outline-none text-slate-900 " +
+        (props.className ?? "")
+      }
+    />
+
+), []);
+const ChipTitle = ({ children }: { children: any }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#3f67b6] px-3 py-2 text-white font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
+  const SubTitle = ({ children }: { children: any }) => (
+    <div className="inline-flex items-center rounded-sm bg-[#efe2dd] px-3 py-2 text-slate-900 font-semibold text-sm border border-slate-900/70">
+      {children}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       {/* overlay */}

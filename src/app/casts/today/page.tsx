@@ -213,6 +213,8 @@ const getCastExclusiveFlag = (item: any): boolean => {
   }
   const ids = item?.exclusiveShopIds ?? item?.exclusive_shop_ids;
   if (Array.isArray(ids)) return ids.length > 0;
+  if (item?.exclusiveShopId || item?.exclusive_shop_id) return true;
+  if (item?.exclusiveShop) return true;
   return false;
 };
 
@@ -228,8 +230,15 @@ const getCastNominatedFlag = (item: any): boolean => {
   }
   const ids = item?.nominatedShopIds ?? item?.nominated_shop_ids;
   if (Array.isArray(ids)) return ids.length > 0;
+  const shops = item?.nominatedShops ?? item?.nominated_shops;
+  if (Array.isArray(shops)) return shops.length > 0;
   return false;
 };
+
+const getDrinkLevelFromDetail = (detail: any): DrinkLevel =>
+  mapDrinkLevel(
+    detail?.attributes?.drinkLevel ?? detail?.drinkLevel ?? detail?.drinkOk,
+  );
 
 const getCastBadgeIcons = (cast: Cast) => {
   const icons: { src: string; alt: string }[] = [];
@@ -1064,6 +1073,28 @@ export default function Page() {
             prev[castId] ? prev : { ...prev, [castId]: url },
           );
         }
+        const drinkLevel = getDrinkLevelFromDetail(detail);
+        const hasExclusive = getCastExclusiveFlag(detail);
+        const hasNominated = getCastNominatedFlag(detail);
+        setAllCasts((prev) =>
+          prev.map((c) =>
+            c.id === castId
+              ? { ...c, drinkLevel, hasExclusive, hasNominated }
+              : c,
+          ),
+        );
+        setTodayCasts((prev) =>
+          prev.map((c) =>
+            c.id === castId
+              ? { ...c, drinkLevel, hasExclusive, hasNominated }
+              : c,
+          ),
+        );
+        setSelectedCast((prev) =>
+          prev && prev.id === castId
+            ? { ...prev, drinkLevel, hasExclusive, hasNominated }
+            : prev,
+        );
       } catch {
         // ignore detail fetch errors
       } finally {
@@ -1152,13 +1183,33 @@ export default function Page() {
           try {
             const detail = await getCast(c.id);
             const url = resolvePhotoUrl(detail);
-            if (!url || cancelled) return;
-            setPhotoByCastId((prev) =>
-              prev[c.id] ? prev : { ...prev, [c.id]: url },
-            );
-            setCastDetailById((prev) =>
-              prev[c.id] ? prev : { ...prev, [c.id]: detail },
-            );
+            if (url && !cancelled) {
+              setPhotoByCastId((prev) =>
+                prev[c.id] ? prev : { ...prev, [c.id]: url },
+              );
+            }
+            if (!cancelled) {
+              setCastDetailById((prev) =>
+                prev[c.id] ? prev : { ...prev, [c.id]: detail },
+              );
+              const drinkLevel = getDrinkLevelFromDetail(detail);
+              const hasExclusive = getCastExclusiveFlag(detail);
+              const hasNominated = getCastNominatedFlag(detail);
+              setAllCasts((prev) =>
+                prev.map((item) =>
+                  item.id === c.id
+                    ? { ...item, drinkLevel, hasExclusive, hasNominated }
+                    : item,
+                ),
+              );
+              setTodayCasts((prev) =>
+                prev.map((item) =>
+                  item.id === c.id
+                    ? { ...item, drinkLevel, hasExclusive, hasNominated }
+                    : item,
+                ),
+              );
+            }
           } catch {
             // ignore photo fetch errors
           }

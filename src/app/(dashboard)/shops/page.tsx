@@ -87,6 +87,12 @@ function parseHeightToString(value?: string | null): string | null {
   return Number.isFinite(num) ? String(num) : null;
 }
 
+// JST 기준 YYYY-MM-DD（API バリデーション用）
+function formatDateYYYYMMDD_JST(date = new Date()): string {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
 function parseWageMinFromLabel(label?: string | null): number | null {
   if (!label) return null;
   const m = String(label).match(/(\d{4})/); // "2500円〜..." の最初の数値
@@ -1131,12 +1137,16 @@ function ShopDetailModal({
     else (payload as any).postalCode = ""; // 空も明示的に送る（API方針に合わせて）
 
     const heightValue = parseHeightToString(heightUi);
+    const bodyTypeValue = bodyTypeUi.trim();
     if (heightValue !== null) {
       (payload as any).height = heightValue;
     } else {
       (payload as any).height = "";
     }
-    (payload as any).bodyType = bodyTypeUi.trim();
+    (payload as any).bodyType = bodyTypeValue;
+    if (heightValue !== null || bodyTypeValue) {
+      (payload as any).dailyOrderDate = formatDateYYYYMMDD_JST(new Date());
+    }
     (payload as any).caution = cautionUi.trim();
     (payload as any).ownerStaff = ownerStaff || "";
     (payload as any).phoneChecked = Boolean(phoneChecked);

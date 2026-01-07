@@ -1743,7 +1743,7 @@ export default function Page() {
                           </div>
                         )}
                         {badgeIcons.length > 0 && (
-                          <div className="absolute left-1 top-1 flex flex-col gap-1">
+                          <div className="absolute left-1 top-1 z-10 flex flex-col gap-1">
                             {badgeIcons.map((icon) => (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img

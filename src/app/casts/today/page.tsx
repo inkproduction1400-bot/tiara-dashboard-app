@@ -1770,17 +1770,6 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* NG登録ボタン */}
-                <div className="mt-1 flex justify-end">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 border border-red-300 bg-red-50 text-[11px] text-red-700 hover:bg-red-100"
-                    onClick={() => setNgModalOpen(true)}
-                  >
-                    NG登録
-                  </button>
-                </div>
-
                 <div className="mt-2">
                   <div className="relative">
                     <textarea
@@ -1795,14 +1784,14 @@ export default function Page() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-700 justify-start">
+                <div className="mt-2 flex items-center gap-6 text-sm text-gray-700 justify-start">
                   <div>
                     <span className="text-muted">最終出勤日</span>{" "}
-                    <span className="font-medium">未登録</span>
+                    <span className="font-semibold text-gray-800">未登録</span>
                   </div>
                   <div>
                     <span className="text-muted">出勤回数</span>{" "}
-                    <span className="font-medium">- 回</span>
+                    <span className="font-semibold text-gray-800">- 回</span>
                   </div>
                 </div>
               </div>

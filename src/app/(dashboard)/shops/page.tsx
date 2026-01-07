@@ -1434,7 +1434,7 @@ function ShopDetailModal({
                     <div className="mt-1">
                       <ShopDetailField>
                         <ShopDetailSelect  value={hourlyRate} onChange={(e: any) => setHourlyRate(e.target.value)}>
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           {wageOptions.map((opt) => (
                             <option key={opt} value={opt}>
                               {opt}
@@ -1496,7 +1496,7 @@ function ShopDetailModal({
                           value={idDocument}
                           onChange={(e: any) => setIdDocument((e.target.value || "") as ShopIdRequirement | "")}
                         >
-                          <option value="">プルダウン</option>
+                          <option value="">指定なし</option>
                           <option value="none">条件なし</option>
                           <option value="photo_only">顔写真</option>
                           <option value="address_only">本籍地</option>

@@ -1781,20 +1781,21 @@ export default function Page() {
                   </button>
                 </div>
 
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 h-9 px-3 border border-gray-200 text-xs"
-                    placeholder="チャットを入力"
-                  />
-                  <button
-                    type="button"
-                    className="h-9 px-4 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    送信
-                  </button>
+                <div className="mt-2">
+                  <div className="relative">
+                    <textarea
+                      className="w-full h-24 px-3 py-2 border border-gray-200 text-xs resize-none"
+                      placeholder="チャットを入力"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 bottom-2 px-4 py-1.5 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                    >
+                      送信
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-col gap-1 text-[11px] text-gray-700">
+                <div className="mt-2 flex items-center gap-4 text-[11px] text-gray-700 justify-start">
                   <div>
                     <span className="text-muted">最終出勤日</span>{" "}
                     <span className="font-medium">未登録</span>
@@ -1825,10 +1826,12 @@ export default function Page() {
                       ? prev
                       : [...prev, selectedCast],
                   );
+                  setFloatMinimized(false);
+                  setFloatZ((z) => z + 1);
                   closeCastDetail();
                 }}
               >
-                割当候補に追加（デモ）
+                割当候補に追加
               </button>
             </footer>
           </div>

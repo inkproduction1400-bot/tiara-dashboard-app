@@ -1928,18 +1928,63 @@ export default function Page() {
 
             <div className="flex-1 overflow-auto p-4 flex gap-4 bg-white">
               <div className="w-40 shrink-0">
-                <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
-                  {(photoByCastId[selectedCast.id] ?? selectedCast.photoUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photoByCastId[selectedCast.id] ?? selectedCast.photoUrl}
-                      alt={selectedCast.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-xs text-gray-500">NO PHOTO</span>
-                  )}
-                </div>
+                {(() => {
+                  const detail = selectedCast
+                    ? castDetailById[selectedCast.id]
+                    : null;
+                  const drinkLevel = detail
+                    ? mapDrinkLevel(
+                        detail?.attributes?.drinkLevel ??
+                          detail?.drinkLevel ??
+                          detail?.drinkOk,
+                      )
+                    : selectedCast?.drinkLevel ?? null;
+                  const hasExclusive = detail
+                    ? getCastExclusiveFlag(detail)
+                    : selectedCast?.hasExclusive ?? false;
+                  const hasNominated = detail
+                    ? getCastNominatedFlag(detail)
+                    : selectedCast?.hasNominated ?? false;
+                  const icons = getCastBadgeIcons({
+                    ...selectedCast,
+                    drinkLevel,
+                    hasExclusive,
+                    hasNominated,
+                  } as Cast);
+                  return (
+                    <>
+                      <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
+                        {(photoByCastId[selectedCast.id] ??
+                          selectedCast.photoUrl) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={
+                              photoByCastId[selectedCast.id] ??
+                              selectedCast.photoUrl
+                            }
+                            alt={selectedCast.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-500">NO PHOTO</span>
+                        )}
+                      </div>
+                      {icons.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          {icons.map((icon) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={icon.src}
+                              src={icon.src}
+                              alt={icon.alt}
+                              className="w-5 h-5"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex-1 flex flex-col gap-3 text-xs text-gray-900">

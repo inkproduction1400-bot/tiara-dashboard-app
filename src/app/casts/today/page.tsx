@@ -505,6 +505,7 @@ export default function Page() {
   const [orderShopQuery, setOrderShopQuery] = useState<string>("");
   const [orderShopOpen, setOrderShopOpen] = useState(false);
   const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
+  const backgroundFetchIndexRef = useRef(0);
   const [shopFilterExclusive, setShopFilterExclusive] = useState<YesNoFilter>(
     "",
   );
@@ -1237,6 +1238,42 @@ export default function Page() {
       img.src = url;
     });
   }, [filteredCasts, photoByCastId]);
+
+  useEffect(() => {
+    const targets = filteredCasts.slice(0, 48);
+    if (targets.length === 0) return;
+    targets.forEach((cast) => {
+      if (castDetailById[cast.id]) return;
+      void ensureCastDetail(cast.id);
+    });
+  }, [filteredCasts, castDetailById, ensureCastDetail]);
+
+  useEffect(() => {
+    if (allCasts.length === 0) return;
+    let cancelled = false;
+    const batchSize = 8;
+    const tick = async () => {
+      if (cancelled) return;
+      let processed = 0;
+      while (
+        backgroundFetchIndexRef.current < allCasts.length &&
+        processed < batchSize
+      ) {
+        const cast = allCasts[backgroundFetchIndexRef.current];
+        backgroundFetchIndexRef.current += 1;
+        if (!cast || castDetailById[cast.id]) continue;
+        await ensureCastDetail(cast.id);
+        processed += 1;
+      }
+      if (backgroundFetchIndexRef.current < allCasts.length) {
+        setTimeout(tick, 300);
+      }
+    };
+    void tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [allCasts, castDetailById, ensureCastDetail]);
 
   useEffect(() => {
     if (floatPos) return;

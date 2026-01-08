@@ -3347,10 +3347,30 @@ function NgShopSelectModal({
   shops: ShopLite[];
 }) {
   const [selected, setSelected] = useState<string[]>(initialSelectedIds ?? []);
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "genre">("name");
 
   useEffect(() => {
     setSelected(initialSelectedIds ?? []);
   }, [initialSelectedIds]);
+
+  const filteredShops = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = shops.filter((shop) => {
+      if (!q) return true;
+      return shop.name.toLowerCase().includes(q);
+    });
+    list = [...list].sort((a, b) => {
+      if (sortKey === "genre") {
+        const ag = a.genre ?? "";
+        const bg = b.genre ?? "";
+        const r = ag.localeCompare(bg, "ja");
+        if (r !== 0) return r;
+      }
+      return a.name.localeCompare(b.name, "ja");
+    });
+    return list;
+  }, [shops, query, sortKey]);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -3369,6 +3389,23 @@ function NgShopSelectModal({
           </button>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            className="tiara-input h-9 text-xs w-full sm:w-64"
+            placeholder="店舗名で検索"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select
+            className="tiara-input h-9 text-xs w-40"
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as "name" | "genre")}
+          >
+            <option value="name">名前順</option>
+            <option value="genre">ジャンル順</option>
+          </select>
+        </div>
+
         <div className="tiara-table-wrap mt-3">
           <table className="tiara-table">
             <thead>
@@ -3379,7 +3416,7 @@ function NgShopSelectModal({
               </tr>
             </thead>
             <tbody>
-              {shops.map((shop) => {
+              {filteredShops.map((shop) => {
                 const on = selected.includes(shop.id);
                 return (
                   <tr key={shop.id} className="hover:bg-black/5">
@@ -3391,7 +3428,7 @@ function NgShopSelectModal({
                   </tr>
                 );
               })}
-              {shops.length === 0 && (
+              {filteredShops.length === 0 && (
                 <tr>
                   <td className="px-2 py-6 text-center text-sm text-muted" colSpan={3}>
                     店舗がありません
@@ -3437,10 +3474,30 @@ function ExclusiveShopSelectModal({
   shops: ShopLite[];
 }) {
   const [selected, setSelected] = useState<string | null>(initialSelectedId ?? null);
+  const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<"name" | "genre">("name");
 
   useEffect(() => {
     setSelected(initialSelectedId ?? null);
   }, [initialSelectedId]);
+
+  const filteredShops = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = shops.filter((shop) => {
+      if (!q) return true;
+      return shop.name.toLowerCase().includes(q);
+    });
+    list = [...list].sort((a, b) => {
+      if (sortKey === "genre") {
+        const ag = a.genre ?? "";
+        const bg = b.genre ?? "";
+        const r = ag.localeCompare(bg, "ja");
+        if (r !== 0) return r;
+      }
+      return a.name.localeCompare(b.name, "ja");
+    });
+    return list;
+  }, [shops, query, sortKey]);
 
   return (
     <div className="tiara-modal-backdrop">
@@ -3455,6 +3512,23 @@ function ExclusiveShopSelectModal({
           </button>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            className="tiara-input h-9 text-xs w-full sm:w-64"
+            placeholder="店舗名で検索"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select
+            className="tiara-input h-9 text-xs w-40"
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as "name" | "genre")}
+          >
+            <option value="name">名前順</option>
+            <option value="genre">ジャンル順</option>
+          </select>
+        </div>
+
         <div className="tiara-table-wrap mt-3">
           <table className="tiara-table">
             <thead>
@@ -3465,7 +3539,7 @@ function ExclusiveShopSelectModal({
               </tr>
             </thead>
             <tbody>
-              {shops.map((shop) => {
+              {filteredShops.map((shop) => {
                 const on = selected === shop.id;
                 return (
                   <tr key={shop.id} className="hover:bg-black/5">
@@ -3482,7 +3556,7 @@ function ExclusiveShopSelectModal({
                   </tr>
                 );
               })}
-              {shops.length === 0 && (
+              {filteredShops.length === 0 && (
                 <tr>
                   <td className="px-2 py-6 text-center text-sm text-muted" colSpan={3}>
                     店舗がありません

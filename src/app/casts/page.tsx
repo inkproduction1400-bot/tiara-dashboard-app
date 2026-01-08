@@ -3348,7 +3348,7 @@ function NgShopSelectModal({
 }) {
   const [selected, setSelected] = useState<string[]>(initialSelectedIds ?? []);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<"name" | "genre">("name");
+  const [genreFilter, setGenreFilter] = useState("");
 
   useEffect(() => {
     setSelected(initialSelectedIds ?? []);
@@ -3360,17 +3360,12 @@ function NgShopSelectModal({
       if (!q) return true;
       return shop.name.toLowerCase().includes(q);
     });
-    list = [...list].sort((a, b) => {
-      if (sortKey === "genre") {
-        const ag = a.genre ?? "";
-        const bg = b.genre ?? "";
-        const r = ag.localeCompare(bg, "ja");
-        if (r !== 0) return r;
-      }
-      return a.name.localeCompare(b.name, "ja");
-    });
+    if (genreFilter) {
+      list = list.filter((shop) => (shop.genre ?? "") === genreFilter);
+    }
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name, "ja"));
     return list;
-  }, [shops, query, sortKey]);
+  }, [shops, query, genreFilter]);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -3398,11 +3393,17 @@ function NgShopSelectModal({
           />
           <select
             className="tiara-input h-9 text-xs w-40"
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as "name" | "genre")}
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
           >
-            <option value="name">名前順</option>
-            <option value="genre">ジャンル順</option>
+            <option value="">ジャンル：すべて</option>
+            {[...new Set(shops.map((shop) => shop.genre ?? "").filter(Boolean))]
+              .sort((a, b) => a.localeCompare(b, "ja"))
+              .map((genre) => (
+                <option key={genre} value={genre}>
+                  {genre}
+                </option>
+              ))}
           </select>
         </div>
 
@@ -3475,7 +3476,7 @@ function ExclusiveShopSelectModal({
 }) {
   const [selected, setSelected] = useState<string | null>(initialSelectedId ?? null);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<"name" | "genre">("name");
+  const [genreFilter, setGenreFilter] = useState("");
 
   useEffect(() => {
     setSelected(initialSelectedId ?? null);
@@ -3487,17 +3488,12 @@ function ExclusiveShopSelectModal({
       if (!q) return true;
       return shop.name.toLowerCase().includes(q);
     });
-    list = [...list].sort((a, b) => {
-      if (sortKey === "genre") {
-        const ag = a.genre ?? "";
-        const bg = b.genre ?? "";
-        const r = ag.localeCompare(bg, "ja");
-        if (r !== 0) return r;
-      }
-      return a.name.localeCompare(b.name, "ja");
-    });
+    if (genreFilter) {
+      list = list.filter((shop) => (shop.genre ?? "") === genreFilter);
+    }
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name, "ja"));
     return list;
-  }, [shops, query, sortKey]);
+  }, [shops, query, genreFilter]);
 
   return (
     <div className="tiara-modal-backdrop">
@@ -3521,11 +3517,17 @@ function ExclusiveShopSelectModal({
           />
           <select
             className="tiara-input h-9 text-xs w-40"
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as "name" | "genre")}
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
           >
-            <option value="name">名前順</option>
-            <option value="genre">ジャンル順</option>
+            <option value="">ジャンル：すべて</option>
+            {[...new Set(shops.map((shop) => shop.genre ?? "").filter(Boolean))]
+              .sort((a, b) => a.localeCompare(b, "ja"))
+              .map((genre) => (
+                <option key={genre} value={genre}>
+                  {genre}
+                </option>
+              ))}
           </select>
         </div>
 

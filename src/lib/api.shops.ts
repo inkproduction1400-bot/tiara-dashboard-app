@@ -276,6 +276,10 @@ export async function updateShop(
   );
 }
 
+export async function deleteShop(id: string): Promise<void> {
+  await apiFetch<void>(`/shops/${id}`, withUser({ method: "DELETE" }));
+}
+
 export async function importShopsExcel(file: File) {
   // apiFetch は JSON 前提なのでここは fetch を直接使う
   const RAW_BASE = (

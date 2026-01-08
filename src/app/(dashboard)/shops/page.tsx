@@ -10,6 +10,7 @@ import {
   listShops,
   updateShop,
   getShop,
+  deleteShop,
   type ShopListItem,
   type ShopGenre,
   type ShopRank,
@@ -219,6 +220,9 @@ export default function ShopsPage() {
   const [shopDetail, setShopDetail] = useState<ShopDetail | null>(null);
   const [shopDetailLoading, setShopDetailLoading] = useState(false);
   const [shopDetailError, setShopDetailError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ShopListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // キーワード・店舗番号・ジャンルでのフィルタ & 並び替え
   const filteredItems = useMemo(() => {
@@ -374,6 +378,24 @@ export default function ShopsPage() {
     setShopDetailError(null);
     setShopDetailLoading(false);
   }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteShop(deleteTarget.id);
+      if (selectedShop?.id === deleteTarget.id) {
+        handleCloseModal();
+      }
+      setDeleteTarget(null);
+      await reload();
+    } catch (e: any) {
+      setDeleteError(e?.message ?? "削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, selectedShop, handleCloseModal]);
 
   const wageSteps = useMemo(() => {
     const arr: number[] = [];
@@ -615,6 +637,9 @@ export default function ShopsPage() {
                     <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[170px]">
                       最終更新
                     </th>
+                    <th className="px-3 py-2 text-left text-slate-50 font-semibold w-[110px]">
+                      削除
+                    </th>
                   </tr>
                 </thead>
 
@@ -698,6 +723,19 @@ export default function ShopsPage() {
                         <td className="px-3 py-2 text-slate-700">
                           {r.updatedAt ? new Date(r.updatedAt).toLocaleString() : "-"}
                         </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            className="px-3 py-1 text-[11px] border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(r);
+                              setDeleteError(null);
+                            }}
+                          >
+                            削除
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -750,6 +788,46 @@ export default function ShopsPage() {
             await reload();
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => (deleting ? null : setDeleteTarget(null))}
+          />
+          <div className="relative z-10 w-full max-w-md bg-white border border-gray-200 shadow-2xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900">
+              店舗削除の確認
+            </h3>
+            <p className="mt-3 text-xs text-gray-700 leading-relaxed">
+              データベースから完全に
+              <span className="font-semibold">「{deleteTarget.name}」</span>
+              の情報を削除します。復元はできませんが本当に削除していいですか？
+            </p>
+            {deleteError && (
+              <p className="mt-3 text-xs text-red-600">{deleteError}</p>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-2 text-xs border border-gray-300 bg-white"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 text-xs border border-red-400 bg-red-500 text-white disabled:opacity-60"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+              >
+                DBから削除する
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

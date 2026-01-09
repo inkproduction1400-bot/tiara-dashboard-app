@@ -8,6 +8,7 @@ import {
   listCasts as fetchCastList,
   getCast,
 } from "@/lib/api.casts";
+import { replaceOrderAssignments } from "@/lib/api.shop-orders";
 import { listShops } from "@/lib/api.shops";
 import {
   type ScheduleShopRequest,
@@ -485,7 +486,7 @@ export default function Page() {
   const [dispatchCount, setDispatchCount] = useState<string>("1");
   const [entryTime, setEntryTime] = useState<string>("00:00");
   const [orderItems, setOrderItems] = useState<
-    { id: string; name: string; detail: string }[]
+    { id: string; name: string; detail: string; shopId?: string }[]
   >([]);
   const [orderAssignments, setOrderAssignments] = useState<
     Record<string, Cast[]>
@@ -501,6 +502,10 @@ export default function Page() {
   const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
   const [pendingCast, setPendingCast] = useState<Cast | null>(null);
+  const [confirmOrderSelectOpen, setConfirmOrderSelectOpen] = useState(false);
+  const [confirmOrderCandidates, setConfirmOrderCandidates] = useState<
+    { id: string; name: string; detail: string; shopId?: string }[]
+  >([]);
   const orderSeqRef = useRef(1);
   const [orderShopQuery, setOrderShopQuery] = useState<string>("");
   const [orderShopOpen, setOrderShopOpen] = useState(false);
@@ -1170,6 +1175,55 @@ export default function Page() {
     }
     setPendingCast(cast);
     setOrderSelectOpen(true);
+  };
+
+  const finalizeOrderConfirm = async (orderId: string) => {
+    const casts = orderAssignments?.[orderId] ?? [];
+    if (casts.length === 0) {
+      alert("割当候補がありません。");
+      return;
+    }
+    const payloads = casts.map((c: Cast) => ({
+      castId: c.id,
+      castCode: (c as any).managementNumber ?? c.code ?? "",
+      castName: (c as any).displayName ?? c.name ?? "",
+      agreedHourly: Number((c as any).hourly ?? c.desiredHourly ?? 0),
+      note: "",
+    }));
+    try {
+      await replaceOrderAssignments(orderId, payloads);
+    } catch (err) {
+      console.warn("[casts/today] replaceOrderAssignments failed", {
+        orderId,
+        err,
+      });
+      alert("保存に失敗しました。時間をおいて再度お試しください。");
+      return;
+    }
+    if (selectedShop) {
+      alert(
+        `${selectedShop.name} への割当を確定（デモ）\n\n` +
+          orderItems
+            .flatMap((order) =>
+              (orderAssignments[order.id] ?? []).map(
+                (c: Cast) =>
+                  `${order.name} ${c.code} ${c.name}（¥${c.desiredHourly.toLocaleString()}）`,
+              ),
+            )
+            .join("\n"),
+      );
+    }
+    setOrderAssignments({});
+    setOrderItems([]);
+    setStaged([]);
+    setSelectedShopId("");
+    setOrderShopQuery("");
+    setOrderShopOpen(false);
+    setOrderSelectOpen(false);
+    setPendingCast(null);
+    setConfirmOrderSelectOpen(false);
+    setConfirmOrderCandidates([]);
+    setFloatMinimized(true);
   };
 
   useEffect(() => {
@@ -2131,6 +2185,7 @@ export default function Page() {
                       id: `order-${seq}`,
                       name: `オーダー${seq}`,
                       detail,
+                      shopId: selectedShopId,
                     };
                     setOrderItems((prev) => [...prev, newOrder]);
                     assignCastToOrder(newOrder.id, selectedCast);
@@ -2516,6 +2571,7 @@ export default function Page() {
                           id: `order-${seq}`,
                           name: `オーダー${seq}`,
                           detail,
+                          shopId: selectedShopId,
                         },
                       ];
                     });
@@ -2631,7 +2687,7 @@ export default function Page() {
               <button
                 type="button"
                 className="tiara-btn text-sm"
-                onClick={() => {
+                onClick={async () => {
                   if (!selectedShop) {
                     alert("店舗が未選択です。");
                     return;
@@ -2640,26 +2696,22 @@ export default function Page() {
                     alert("割当候補がありません。");
                     return;
                   }
-                  alert(
-                    `${selectedShop.name} への割当を確定（デモ）\n\n` +
-                      orderItems
-                        .flatMap((order) =>
-                          (orderAssignments[order.id] ?? []).map(
-                            (c: Cast) =>
-                              `${order.name} ${c.code} ${c.name}（¥${c.desiredHourly.toLocaleString()}）`,
-                          ),
-                        )
-                        .join("\n"),
-                  );
-                  setOrderAssignments({});
-                  setOrderItems([]);
-                  setStaged([]);
-                  setSelectedShopId("");
-                  setOrderShopQuery("");
-                  setOrderShopOpen(false);
-                  setOrderSelectOpen(false);
-                  setPendingCast(null);
-                  setFloatMinimized(true);
+                  const shopOrders = orderItems.filter((o) => {
+                    const shopId = (o as any)?.shopId ?? (o as any)?.shop?.id ?? "";
+                    return shopId ? shopId === selectedShopId : true;
+                  });
+                  if (shopOrders.length === 0) {
+                    alert(
+                      "この店舗のオーダーが見つかりません。先にオーダーを作成してください。",
+                    );
+                    return;
+                  }
+                  if (shopOrders.length > 1) {
+                    setConfirmOrderCandidates(shopOrders);
+                    setConfirmOrderSelectOpen(true);
+                    return;
+                  }
+                  await finalizeOrderConfirm(shopOrders[0].id);
                 }}
                 disabled={Object.keys(orderAssignments).length === 0}
               >
@@ -2699,6 +2751,52 @@ export default function Page() {
                   {order.name}（{order.detail}）
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmOrderSelectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setConfirmOrderSelectOpen(false);
+              setConfirmOrderCandidates([]);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white border border-gray-200 shadow-xl p-4">
+            <div className="text-sm font-semibold">オーダー選択（確定）</div>
+            <div className="mt-2 text-xs text-muted">
+              確定するオーダーを選択してください。
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {confirmOrderCandidates.map((order) => (
+                <button
+                  key={order.id}
+                  type="button"
+                  className="border border-gray-300 bg-white text-left px-3 py-2 text-xs hover:bg-slate-50"
+                  onClick={() => {
+                    setConfirmOrderSelectOpen(false);
+                    setConfirmOrderCandidates([]);
+                    void finalizeOrderConfirm(order.id);
+                  }}
+                >
+                  {order.name}（{order.detail}）
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="border border-gray-300 bg-white px-3 py-1 text-xs"
+                onClick={() => {
+                  setConfirmOrderSelectOpen(false);
+                  setConfirmOrderCandidates([]);
+                }}
+              >
+                キャンセル
+              </button>
             </div>
           </div>
         </div>

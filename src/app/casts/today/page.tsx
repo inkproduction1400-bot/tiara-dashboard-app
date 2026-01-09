@@ -8,7 +8,10 @@ import {
   listCasts as fetchCastList,
   getCast,
 } from "@/lib/api.casts";
-import { replaceOrderAssignments } from "@/lib/api.shop-orders";
+import {
+  listShopOrders,
+  replaceOrderAssignments,
+} from "@/lib/api.shop-orders";
 import { listShops } from "@/lib/api.shops";
 import {
   type ScheduleShopRequest,
@@ -486,7 +489,13 @@ export default function Page() {
   const [dispatchCount, setDispatchCount] = useState<string>("1");
   const [entryTime, setEntryTime] = useState<string>("00:00");
   const [orderItems, setOrderItems] = useState<
-    { id: string; name: string; detail: string; shopId?: string }[]
+    {
+      id: string;
+      name: string;
+      detail: string;
+      shopId?: string;
+      apiOrderId?: string | null;
+    }[]
   >([]);
   const [orderAssignments, setOrderAssignments] = useState<
     Record<string, Cast[]>
@@ -1183,6 +1192,38 @@ export default function Page() {
       alert("割当候補がありません。");
       return;
     }
+    const targetOrder = orderItems.find((order) => order.id === orderId);
+    let apiOrderId = targetOrder?.apiOrderId ?? null;
+    if (!apiOrderId) {
+      const date = todayKey();
+      const orders = await listShopOrders(date);
+      const matches = orders.filter(
+        (order) =>
+          order?.shopId === selectedShopId || order?.shop?.id === selectedShopId,
+      );
+      if (matches.length === 0) {
+        alert("API上にオーダーが見つかりません。");
+        return;
+      }
+      if (matches.length > 1) {
+        alert(
+          "同一店舗に複数オーダーがあります。割当確認ページでオーダーを選択して保存してください。",
+        );
+        return;
+      }
+      apiOrderId = matches[0]?.id ?? null;
+      if (apiOrderId) {
+        setOrderItems((prev) =>
+          prev.map((order) =>
+            order.id === orderId ? { ...order, apiOrderId } : order,
+          ),
+        );
+      }
+    }
+    if (!apiOrderId) {
+      alert("API上にオーダーが見つかりません。");
+      return;
+    }
     const payloads = casts.map((c: Cast) => ({
       castId: c.id,
       castCode: (c as any).managementNumber ?? c.code ?? "",
@@ -1191,10 +1232,10 @@ export default function Page() {
       note: "",
     }));
     try {
-      await replaceOrderAssignments(orderId, payloads);
+      await replaceOrderAssignments(apiOrderId, payloads);
     } catch (err) {
       console.warn("[casts/today] replaceOrderAssignments failed", {
-        orderId,
+        orderId: apiOrderId,
         err,
       });
       alert("保存に失敗しました。時間をおいて再度お試しください。");
@@ -2186,6 +2227,7 @@ export default function Page() {
                       name: `オーダー${seq}`,
                       detail,
                       shopId: selectedShopId,
+                      apiOrderId: null,
                     };
                     setOrderItems((prev) => [...prev, newOrder]);
                     assignCastToOrder(newOrder.id, selectedCast);
@@ -2572,6 +2614,7 @@ export default function Page() {
                           name: `オーダー${seq}`,
                           detail,
                           shopId: selectedShopId,
+                          apiOrderId: null,
                         },
                       ];
                     });

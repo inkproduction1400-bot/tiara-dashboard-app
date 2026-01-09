@@ -1,14 +1,16 @@
 // src/app/assignments/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   type ShopAssignment,
   loadAssignments,
   saveAssignments,
   createEmptyAssignment,
+  subscribeAssignments,
 } from "@/store/assignmentsStore";
+import { listShopOrders } from "@/lib/api.shop-orders";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -27,6 +29,14 @@ const dateKey = (offset: number = 0) => {
 const todayKey = () => dateKey(0);
 const tomorrowKey = () => dateKey(1);
 
+const resolveAssignmentsDateKey = (
+  filter: "all" | "today" | "tomorrow",
+): string | undefined => {
+  if (filter === "today") return todayKey();
+  if (filter === "tomorrow") return tomorrowKey();
+  return undefined;
+};
+
 const formatDateLabel = (date: string) => {
   if (date === todayKey()) return "本日";
   if (date === tomorrowKey()) return "明日";
@@ -39,6 +49,36 @@ const formatDateYmdJa = (date: string) => {
   const [y, m, d] = date.split("-");
   if (!y || !m || !d) return date;
   return `${y}/${m}/${d}`;
+};
+
+type OrderCandidate = {
+  id: string;
+  orderNo: number;
+};
+
+const resolveTargetOrdersForShop = async (
+  shopId: string,
+  date?: string,
+): Promise<OrderCandidate[]> => {
+  if (!date) return [];
+  try {
+    const orders = await listShopOrders(date);
+    const matches = orders.filter(
+      (order) => order?.shopId === shopId || order?.shop?.id === shopId,
+    );
+    if (matches.length === 0) return [];
+    const sorted = [...matches].sort((a, b) => {
+      const an = Number(a?.orderNo ?? a?.order_no ?? 0);
+      const bn = Number(b?.orderNo ?? b?.order_no ?? 0);
+      return an - bn;
+    });
+    return sorted.map((order) => ({
+      id: order.id,
+      orderNo: Number(order?.orderNo ?? order?.order_no ?? 0),
+    }));
+  } catch {
+    return [];
+  }
 };
 
 // 新規リクエストのひな形（スケジュール共通ストア用）
@@ -61,7 +101,7 @@ export default function Page() {
   const [items, setItems] = useState<ScheduleShopRequest[]>([]);
   // 割当キャストは従来どおりローカルストア
   const [assignments, setAssignments] = useState<ShopAssignment[]>(() =>
-    loadAssignments(),
+    loadAssignments(resolveAssignmentsDateKey("all")),
   );
 
   const [keyword, setKeyword] = useState("");
@@ -77,6 +117,12 @@ export default function Page() {
   const [assignmentDraft, setAssignmentDraft] =
     useState<ShopAssignment | null>(null);
   const [assignmentDraftIsNew, setAssignmentDraftIsNew] = useState(false);
+  const [orderCandidates, setOrderCandidates] = useState<OrderCandidate[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [orderSelectOpen, setOrderSelectOpen] = useState(false);
+  const editingRef = useRef<ScheduleShopRequest | null>(null);
+  const assignmentDraftRef = useRef<ShopAssignment | null>(null);
+  const dateFilterRef = useRef<"all" | "today" | "tomorrow">("all");
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
 
@@ -104,6 +150,30 @@ export default function Page() {
       }
     };
     void fetch();
+  }, []);
+
+  useEffect(() => {
+    editingRef.current = editing;
+  }, [editing]);
+
+  useEffect(() => {
+    assignmentDraftRef.current = assignmentDraft;
+  }, [assignmentDraft]);
+
+  useEffect(() => {
+    dateFilterRef.current = dateFilter;
+    if (editingRef.current || assignmentDraftRef.current) return;
+    const key = resolveAssignmentsDateKey(dateFilter);
+    setAssignments(loadAssignments(key));
+  }, [dateFilter]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAssignments(() => {
+      if (editingRef.current || assignmentDraftRef.current) return;
+      const key = resolveAssignmentsDateKey(dateFilterRef.current);
+      setAssignments(loadAssignments(key));
+    });
+    return unsubscribe;
   }, []);
 
   // 店舗ごとの割当リスト（一覧表示用）
@@ -219,7 +289,7 @@ export default function Page() {
     // この店舗に紐づく割当キャストも削除（ローカルストア永続）
     setAssignments((prev) => {
       const next = prev.filter((a) => a.shopId !== shop.id);
-      saveAssignments(next);
+      saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });
 
@@ -230,23 +300,57 @@ export default function Page() {
   };
 
   // ===== 割当キャスト 編集系（モーダル内） =====
-  const beginNewAssignment = () => {
+  const beginNewAssignment = async () => {
     if (!editing) return;
-    setAssignmentDraft(createEmptyAssignment(editing.id));
+    const draft = createEmptyAssignment(editing.id);
+    if (editing.date) {
+      const candidates = await resolveTargetOrdersForShop(
+        editing.id,
+        editing.date,
+      );
+      if (candidates.length === 1) {
+        draft.id = `${candidates[0].id}-${Date.now()}`;
+        setOrderCandidates([]);
+        setSelectedOrderId(null);
+        setOrderSelectOpen(false);
+      } else if (candidates.length > 1) {
+        setOrderCandidates(candidates);
+        setSelectedOrderId(null);
+        setOrderSelectOpen(true);
+      } else {
+        setOrderCandidates([]);
+        setSelectedOrderId(null);
+        setOrderSelectOpen(false);
+      }
+    } else {
+      setOrderCandidates([]);
+      setSelectedOrderId(null);
+      setOrderSelectOpen(false);
+    }
+    setAssignmentDraft(draft);
     setAssignmentDraftIsNew(true);
   };
 
   const beginEditAssignment = (a: ShopAssignment) => {
     setAssignmentDraft({ ...a });
     setAssignmentDraftIsNew(false);
+    setOrderCandidates([]);
+    setSelectedOrderId(null);
+    setOrderSelectOpen(false);
   };
 
   const cancelAssignmentDraft = () => {
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
+    setOrderCandidates([]);
+    setSelectedOrderId(null);
+    setOrderSelectOpen(false);
   };
 
   const saveAssignmentDraft = () => {
+    if (orderSelectOpen) {
+      return;
+    }
     if (!assignmentDraft) return;
 
     setAssignments((prev) => {
@@ -254,7 +358,7 @@ export default function Page() {
       const next = exists
         ? prev.map((a) => (a.id === assignmentDraft.id ? assignmentDraft : a))
         : [...prev, assignmentDraft];
-      saveAssignments(next);
+      saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });
 
@@ -273,7 +377,7 @@ export default function Page() {
 
     setAssignments((prev) => {
       const next = prev.filter((x) => x.id !== a.id);
-      saveAssignments(next);
+      saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });
 
@@ -881,6 +985,55 @@ export default function Page() {
                       </button>
                     </div>
 
+                    {orderSelectOpen && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                        <div className="text-[11px] text-amber-900 font-semibold">
+                          オーダー番号を選択してください
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            className="tiara-input h-8 text-[11px] min-w-[180px]"
+                            value={selectedOrderId ?? ""}
+                            onChange={(e) =>
+                              setSelectedOrderId(e.target.value || null)
+                            }
+                          >
+                            <option value="">オーダー番号を選択</option>
+                            {orderCandidates.map((candidate, index) => (
+                              <option key={candidate.id} value={candidate.id}>
+                                {`オーダー${candidate.orderNo || index + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="tiara-btn text-[11px] px-3 py-1"
+                            disabled={!selectedOrderId}
+                            onClick={() => {
+                              if (!selectedOrderId) return;
+                              setAssignmentDraft({
+                                ...assignmentDraft,
+                                id: `${selectedOrderId}-${Date.now()}`,
+                              });
+                              setOrderSelectOpen(false);
+                            }}
+                          >
+                            このオーダーで割当を作成
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-xl border border-gray-300 bg-white text-gray-700 px-3 py-1 text-[11px] hover:bg-gray-50"
+                            onClick={cancelAssignmentDraft}
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                        <div className="text-[10px] text-amber-800/80">
+                          ※ 選択後は割当の入力フォームに戻ります。
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-4 gap-3">
                       <div>
                         <label className="block text-[10px] text-muted mb-1">
@@ -959,7 +1112,10 @@ export default function Page() {
                       </button>
                       <button
                         type="button"
-                        className="tiara-btn text-[11px]"
+                        className={`tiara-btn text-[11px] ${
+                          orderSelectOpen ? "opacity-40 cursor-not-allowed" : ""
+                        }`}
+                        disabled={orderSelectOpen}
                         onClick={saveAssignmentDraft}
                       >
                         {assignmentDraftIsNew

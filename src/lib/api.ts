@@ -61,8 +61,28 @@ export async function apiFetch<T>(
   };
 
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
-  console.warn("[api] fetch", { url, method: init?.method ?? "GET" });
-  const res = await fetch(url, { ...init, headers, cache: "no-store" });
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "server";
+  console.warn("[api] fetch", {
+    baseUrl: API_BASE,
+    fullUrl: url,
+    origin,
+    method: init?.method ?? "GET",
+  });
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, headers, cache: "no-store" });
+  } catch (err) {
+    console.warn("[api] fetch failed", {
+      baseUrl: API_BASE,
+      fullUrl: url,
+      origin,
+      method: init?.method ?? "GET",
+      name: err instanceof Error ? err.name : "UnknownError",
+      message: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 
   if (!res.ok) {
     throw new Error(`API ${res.status} ${res.statusText}`);

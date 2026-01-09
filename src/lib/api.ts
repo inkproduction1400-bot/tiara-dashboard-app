@@ -61,6 +61,7 @@ export async function apiFetch<T>(
   };
 
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  console.warn("[api] fetch", { url, method: init?.method ?? "GET" });
   const res = await fetch(url, { ...init, headers, cache: "no-store" });
 
   if (!res.ok) {

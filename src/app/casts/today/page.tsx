@@ -2651,6 +2651,15 @@ export default function Page() {
                         )
                         .join("\n"),
                   );
+                  setOrderAssignments({});
+                  setOrderItems([]);
+                  setStaged([]);
+                  setSelectedShopId("");
+                  setOrderShopQuery("");
+                  setOrderShopOpen(false);
+                  setOrderSelectOpen(false);
+                  setPendingCast(null);
+                  setFloatMinimized(true);
                 }}
                 disabled={Object.keys(orderAssignments).length === 0}
               >

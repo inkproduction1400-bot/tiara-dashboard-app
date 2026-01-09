@@ -108,6 +108,13 @@ export default function Page() {
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "tomorrow">(
     "all",
   );
+  useEffect(() => {
+    console.warn("[assignments] dateFilter init", {
+      dateFilter,
+      resolved: resolveAssignmentsDateKey(dateFilter),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 店舗編集モーダル用
   const [editing, setEditing] = useState<ScheduleShopRequest | null>(null);
@@ -162,6 +169,10 @@ export default function Page() {
 
   useEffect(() => {
     dateFilterRef.current = dateFilter;
+    console.warn("[assignments] dateFilter change", {
+      dateFilter,
+      resolved: resolveAssignmentsDateKey(dateFilter),
+    });
     if (editingRef.current || assignmentDraftRef.current) return;
     const key = resolveAssignmentsDateKey(dateFilter);
     setAssignments(loadAssignments(key));

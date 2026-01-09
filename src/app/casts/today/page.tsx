@@ -1187,20 +1187,47 @@ export default function Page() {
   };
 
   const finalizeOrderConfirm = async (orderId: string) => {
+    console.warn("[casts/today] finalize start", {
+      orderId,
+      selectedShopId,
+    });
     const casts = orderAssignments?.[orderId] ?? [];
     if (casts.length === 0) {
       alert("割当候補がありません。");
       return;
     }
     const targetOrder = orderItems.find((order) => order.id === orderId);
+    console.warn("[casts/today] finalize targetOrder", {
+      targetOrder,
+      apiOrderId: targetOrder?.apiOrderId ?? null,
+    });
     let apiOrderId = targetOrder?.apiOrderId ?? null;
     if (!apiOrderId) {
       const date = todayKey();
-      const orders = await listShopOrders(date);
+      let orders = [];
+      try {
+        orders = await listShopOrders(date);
+      } catch (err) {
+        console.warn("[casts/today] listShopOrders failed", {
+          date,
+          selectedShopId,
+          err,
+        });
+        const message =
+          err instanceof Error ? `（${err.message}）` : "";
+        alert(
+          `オーダー取得に失敗しました。ログイン切れや権限不足の可能性があります。${message}`,
+        );
+        return;
+      }
       const matches = orders.filter(
         (order) =>
           order?.shopId === selectedShopId || order?.shop?.id === selectedShopId,
       );
+      console.warn("[casts/today] listShopOrders matches", {
+        date,
+        matchesLength: matches.length,
+      });
       if (matches.length === 0) {
         alert("API上にオーダーが見つかりません。");
         return;
@@ -1231,8 +1258,15 @@ export default function Page() {
       agreedHourly: Number((c as any).hourly ?? c.desiredHourly ?? 0),
       note: "",
     }));
+    console.warn("[casts/today] replaceOrderAssignments start", {
+      apiOrderId,
+      payloadCount: payloads.length,
+    });
     try {
       await replaceOrderAssignments(apiOrderId, payloads);
+      console.warn("[casts/today] replaceOrderAssignments success", {
+        apiOrderId,
+      });
     } catch (err) {
       console.warn("[casts/today] replaceOrderAssignments failed", {
         orderId: apiOrderId,
@@ -2729,8 +2763,18 @@ export default function Page() {
               </button>
               <button
                 type="button"
-                className="tiara-btn text-sm"
+                className={`tiara-btn text-sm ${
+                  Object.keys(orderAssignments).length === 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : ""
+                }`}
                 onClick={async () => {
+                  console.warn("[casts/today] confirm click", {
+                    selectedShopId,
+                    selectedShop,
+                    orderItemsLength: orderItems.length,
+                    assignmentsCount: Object.keys(orderAssignments).length,
+                  });
                   if (!selectedShop) {
                     alert("店舗が未選択です。");
                     return;
@@ -2742,6 +2786,9 @@ export default function Page() {
                   const shopOrders = orderItems.filter((o) => {
                     const shopId = (o as any)?.shopId ?? (o as any)?.shop?.id ?? "";
                     return shopId ? shopId === selectedShopId : true;
+                  });
+                  console.warn("[casts/today] confirm shopOrders", {
+                    shopOrdersLength: shopOrders.length,
                   });
                   if (shopOrders.length === 0) {
                     alert(

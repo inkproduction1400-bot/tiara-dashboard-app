@@ -223,6 +223,7 @@ const detectOrderIdFromAssignments = (
 };
 
 async function loadAssignmentsFromApi(date: string): Promise<ShopAssignment[]> {
+  console.warn("[assignmentsStore] loadAssignmentsFromApi", { date });
   const orders = await listShopOrders(date);
   const list = normalizeOrders(orders);
   if (list.length === 0) return [];

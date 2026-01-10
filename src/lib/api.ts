@@ -63,12 +63,10 @@ export async function apiFetch<T>(
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   const origin =
     typeof window !== "undefined" ? window.location.origin : "server";
-  console.warn("[api] fetch", {
-    baseUrl: API_BASE,
-    fullUrl: url,
-    origin,
-    method: init?.method ?? "GET",
-  });
+  if (path.includes("/shop-orders")) {
+    const query = url.includes("?") ? url.split("?")[1] : "";
+    console.warn("[apiFetch]", { base: API_BASE, path, url, query });
+  }
   let res: Response;
   try {
     res = await fetch(url, { ...init, headers, cache: "no-store" });

@@ -615,7 +615,7 @@ export default function Page() {
         if (cancelled) return;
 
         const shops: Shop[] = reqs.map((req) => ({
-          id: req.id, // スケジュール側の id を採用
+          id: req.shopId ?? req.id, // shopId(UUID) を優先
           code: req.code,
           name: req.name,
           minHourly: req.minHourly,

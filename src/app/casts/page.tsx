@@ -1243,6 +1243,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     const pickupDestination =
       detailAny?.attributes?.pickupDestination ??
       detailAny?.pickupDestination ??
+      detailAny?.background?.pickupAddress ??
       "";
     const pickupDestinationExtra =
       detailAny?.attributes?.pickupDestinationExtra ??
@@ -1520,6 +1521,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         idMemo: form.idMemo ?? null,
         genres: form.genres?.length ? form.genres : null,
         ngShopMemo: form.ngShopMemo ?? null,
+        pickupAddress: form.pickupDestination ?? null,
         // ★ 4項目（rank/owner/exclusiveMemo/atmosphere）は root に寄せるため、background に入れない
       };
 

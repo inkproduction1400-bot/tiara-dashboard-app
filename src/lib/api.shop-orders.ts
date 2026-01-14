@@ -76,9 +76,60 @@ export async function listShopOrders(
     withUser(),
   );
   if (Array.isArray(res)) return res as ShopOrderRecord[];
-  if (Array.isArray(res?.items)) return res.items as ShopOrderRecord[];
-  if (Array.isArray(res?.data)) return res.data as ShopOrderRecord[];
+  if (Array.isArray(res?.items)) {
+    const items = res.items as any[];
+    if (items.some((item) => Array.isArray(item?.orders))) {
+      return items.flatMap((item) =>
+        (item.orders ?? []).map((order: any) => ({
+          ...order,
+          shopId:
+            order?.shopId ??
+            order?.shop_request?.shopId ??
+            item?.shopRequest?.shopId ??
+            null,
+          shop: order?.shop ?? item?.shopRequest?.shop ?? null,
+        })),
+      ) as ShopOrderRecord[];
+    }
+    return items as ShopOrderRecord[];
+  }
+  if (Array.isArray(res?.data)) {
+    const data = res.data as any[];
+    if (data.some((item) => Array.isArray(item?.orders))) {
+      return data.flatMap((item) =>
+        (item.orders ?? []).map((order: any) => ({
+          ...order,
+          shopId:
+            order?.shopId ??
+            order?.shop_request?.shopId ??
+            item?.shopRequest?.shopId ??
+            null,
+          shop: order?.shop ?? item?.shopRequest?.shop ?? null,
+        })),
+      ) as ShopOrderRecord[];
+    }
+    return data as ShopOrderRecord[];
+  }
   return [];
+}
+
+export type CreateShopOrderPayload = {
+  shopRequestId: string;
+  orderNo: number;
+  headcount?: number;
+  startTime?: string;
+  status?: ShopOrderStatus;
+  note?: string | null;
+};
+
+export async function createShopOrder(
+  payload: CreateShopOrderPayload,
+): Promise<ShopOrderRecord> {
+  return apiFetch<ShopOrderRecord>("/shop-orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getOrderAssignments(

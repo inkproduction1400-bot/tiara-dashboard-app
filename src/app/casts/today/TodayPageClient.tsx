@@ -1247,8 +1247,8 @@ export default function Page() {
     if (res.items.length > 0) return res.items[0].id;
     const safeHeadcount =
       typeof headcount === "number" && Number.isFinite(headcount)
-        ? headcount
-        : 0;
+        ? Math.max(1, headcount)
+        : 1;
     const created = await createShopRequest({
       shopId,
       requestDate: date,
@@ -1418,12 +1418,14 @@ export default function Page() {
       setMissingOrderConfirmOpen(true);
       return;
     }
+    const assignedTime = targetOrder?.startTime ?? entryTime ?? "00:00";
+    const assignedFrom = `${todayKey()}T${assignedTime}:00+09:00`;
     const payloads = casts.map((c: Cast) => ({
       castId: c.id,
-      castCode: (c as any).managementNumber ?? c.code ?? "",
-      castName: (c as any).displayName ?? c.name ?? "",
-      agreedHourly: Number((c as any).hourly ?? c.desiredHourly ?? 0),
-      note: "",
+      assignedFrom,
+      assignedTo: null,
+      priority: 0,
+      reasonOverride: null,
     }));
     console.warn("[casts/today] replaceOrderAssignments start", {
       apiOrderId,

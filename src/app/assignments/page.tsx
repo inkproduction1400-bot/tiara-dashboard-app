@@ -51,6 +51,8 @@ const formatDateYmdJa = (date: string) => {
   return `${y}/${m}/${d}`;
 };
 
+const resolveShopKey = (shop: ScheduleShopRequest) => shop.shopId ?? shop.id;
+
 type OrderCandidate = {
   id: string;
   orderNo: number;
@@ -232,7 +234,7 @@ export default function Page() {
 
     for (const shop of filteredItems) {
       totalRequestedHeadcount += shop.requestedHeadcount ?? 0;
-      totalAssigned += assignmentsByShop[shop.id]?.length ?? 0;
+      totalAssigned += assignmentsByShop[resolveShopKey(shop)]?.length ?? 0;
     }
 
     return {
@@ -245,7 +247,7 @@ export default function Page() {
   // 編集中店舗に紐づく割当（モーダル内表示用）
   const currentEditingAssignments = useMemo(() => {
     if (!editing) return [];
-    return assignments.filter((a) => a.shopId === editing.id);
+    return assignments.filter((a) => a.shopId === resolveShopKey(editing));
   }, [assignments, editing]);
 
   const openEdit = (shop: ScheduleShopRequest) => {
@@ -299,7 +301,7 @@ export default function Page() {
 
     // この店舗に紐づく割当キャストも削除（ローカルストア永続）
     setAssignments((prev) => {
-      const next = prev.filter((a) => a.shopId !== shop.id);
+      const next = prev.filter((a) => a.shopId !== resolveShopKey(shop));
       saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });
@@ -313,10 +315,11 @@ export default function Page() {
   // ===== 割当キャスト 編集系（モーダル内） =====
   const beginNewAssignment = async () => {
     if (!editing) return;
-    const draft = createEmptyAssignment(editing.id);
+    const shopKey = resolveShopKey(editing);
+    const draft = createEmptyAssignment(shopKey);
     if (editing.date) {
       const candidates = await resolveTargetOrdersForShop(
-        editing.id,
+        shopKey,
         editing.date,
       );
       if (candidates.length === 1) {
@@ -586,9 +589,10 @@ export default function Page() {
                   </tr>
                 ) : (
                   filteredItems.map((shop) => {
-                    const assignedNames = formatAssignedNames(shop.id);
+                    const shopKey = resolveShopKey(shop);
+                    const assignedNames = formatAssignedNames(shopKey);
                     const assignedCount =
-                      assignmentsByShop[shop.id]?.length ?? 0;
+                      assignmentsByShop[resolveShopKey(shop)]?.length ?? 0;
 
                     return (
                       <tr

@@ -328,6 +328,7 @@ const readAssignmentsStorage = (date?: string): ShopAssignment[] => {
   if (!isBrowser()) return [...MOCK_ASSIGNMENTS];
   const raw =
     window.localStorage.getItem(assignmentsStorageKey(date)) ??
+    window.localStorage.getItem(assignmentsStorageKey("default")) ??
     window.localStorage.getItem(STORAGE_KEY_ASSIGNMENTS);
   return safeParseJson<ShopAssignment[]>(raw, MOCK_ASSIGNMENTS);
 };

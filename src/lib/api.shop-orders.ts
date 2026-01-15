@@ -158,7 +158,7 @@ export async function replaceOrderAssignments(
     withUser({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(safe),
+      body: JSON.stringify({ assignments: safe }),
     }),
   );
 }

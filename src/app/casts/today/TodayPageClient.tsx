@@ -2833,7 +2833,17 @@ export default function Page() {
                       <button
                         type="button"
                         className="border border-gray-300 bg-white text-ink px-2 py-0.5 text-[10px]"
-                        onClick={() => {
+                        onClick={async () => {
+                          if (item.apiOrderId) {
+                            try {
+                              await replaceOrderAssignments(item.apiOrderId, []);
+                            } catch (err) {
+                              console.warn(
+                                "[casts/today] clearOrderAssignments failed",
+                                { apiOrderId: item.apiOrderId, err },
+                              );
+                            }
+                          }
                           setOrderItems((prev) =>
                             prev.filter((x) => x.id !== item.id),
                           );

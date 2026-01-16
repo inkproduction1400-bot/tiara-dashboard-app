@@ -33,6 +33,9 @@ export type ShopRequest = {
 export type ShopAssignment = {
   id: string;
   shopId: string; // ShopRequest.id を参照
+  orderId?: string;
+  orderNo?: number;
+  orderStartTime?: string;
   castId?: string; // API連携用（存在すれば優先）
   castCode: string;
   castName: string;
@@ -213,9 +216,15 @@ const mapOrderAssignmentsToLegacy = (
 ): ShopAssignment[] => {
   const shopId = order?.shopId ?? order?.shop?.id ?? "";
   if (!shopId) return [];
+  const orderId = order?.id ?? undefined;
+  const orderNo = Number(order?.orderNo ?? order?.order_no ?? 0) || undefined;
+  const orderStartTime = order?.startTime ?? order?.start_time ?? undefined;
   return assignments.map((a) => ({
     id: a?.id ?? `${order.id}-${a?.castId ?? a?.castCode ?? ""}`,
     shopId,
+    orderId,
+    orderNo,
+    orderStartTime,
     castId: a?.castId ?? a?.cast?.id ?? undefined,
     castCode: pickCastCode(a),
     castName: pickCastName(a),

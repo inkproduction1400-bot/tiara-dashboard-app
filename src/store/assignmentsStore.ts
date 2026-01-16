@@ -182,7 +182,27 @@ const pickAgreedHourly = (a: any): number =>
 
 const normalizeOrders = (res: any): any[] => {
   if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res?.items)) {
+    const items = res.items;
+    if (items.length && Array.isArray(items[0]?.orders)) {
+      return items.flatMap((item: any) => {
+        const shopRequest = item?.shopRequest ?? {};
+        const orders = Array.isArray(item?.orders) ? item.orders : [];
+        return orders.map((order: any) => ({
+          ...order,
+          shopId:
+            order?.shopId ??
+            shopRequest?.shopId ??
+            shopRequest?.id ??
+            order?.shop?.id ??
+            "",
+          shop: order?.shop ?? shopRequest?.shop ?? order?.shopRequest?.shop,
+          shopRequest: order?.shopRequest ?? shopRequest,
+        }));
+      });
+    }
+    return items;
+  }
   if (Array.isArray(res?.data)) return res.data;
   return [];
 };

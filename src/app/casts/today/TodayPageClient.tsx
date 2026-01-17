@@ -1619,7 +1619,10 @@ export default function Page() {
     console.warn("[casts/today] reject start", { orderId, selectedShopId });
     const apiOrderId = await ensureApiOrderId(orderId, false);
     if (!apiOrderId) {
-      alert("オーダーが見つかりませんでした。");
+      if (selectedShopId) {
+        await setContactStatus(selectedShopId, "rejected", { force: true });
+      }
+      resetOrderState();
       return;
     }
     try {
@@ -1776,7 +1779,8 @@ export default function Page() {
       return shopId ? shopId === selectedShopId : true;
     });
     if (shopOrders.length === 0) {
-      alert("対象のオーダーが見つかりません。");
+      await setContactStatus(selectedShopId, "rejected", { force: true });
+      resetOrderState();
       return;
     }
     if (shopOrders.length > 1) {

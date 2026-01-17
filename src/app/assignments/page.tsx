@@ -164,6 +164,9 @@ export default function Page() {
   const [orderStartTime, setOrderStartTime] = useState<string>("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
+  const [orderStatusByKey, setOrderStatusByKey] = useState<
+    Record<string, string>
+  >({});
   const [confirming, setConfirming] = useState(false);
   const editingRef = useRef<ScheduleShopRequest | null>(null);
   const assignmentDraftRef = useRef<ShopAssignment | null>(null);
@@ -192,6 +195,37 @@ export default function Page() {
     () => orderCandidates.find((c) => c.id === selectedOrderId) ?? null,
     [orderCandidates, selectedOrderId],
   );
+
+  useEffect(() => {
+    let active = true;
+    const fetchStatuses = async () => {
+      try {
+        const [todayOrders, tomorrowOrders] = await Promise.all([
+          listShopOrders(todayKey()),
+          listShopOrders(tomorrowKey()),
+        ]);
+        const next: Record<string, string> = {};
+        for (const order of [...todayOrders, ...tomorrowOrders]) {
+          const shopId = order?.shopId ?? order?.shop?.id ?? "";
+          if (!shopId || !order?.id) continue;
+          next[`${shopId}:${order.id}`] = order?.status ?? "";
+          const time = order?.startTime ?? order?.start_time ?? "";
+          if (time) {
+            next[`${shopId}:time:${time}`] = order?.status ?? "";
+          }
+        }
+        if (!active) return;
+        setOrderStatusByKey(next);
+      } catch {
+        if (!active) return;
+        setOrderStatusByKey({});
+      }
+    };
+    void fetchStatuses();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handlePrint = () => {
     window.print();
@@ -1019,11 +1053,24 @@ export default function Page() {
                     const assignedNames = formatAssignedNames(assignedList);
                     const assignedCount = assignedList.length;
                     const orderLabel = formatOrderLabel(group);
+                    const shopKey = resolveShopKey(shop);
+                    const statusKey = group.orderId
+                      ? `${shopKey}:${group.orderId}`
+                      : group.orderStartTime
+                      ? `${shopKey}:time:${group.orderStartTime}`
+                      : "";
+                    const isConfirmed =
+                      statusKey &&
+                      orderStatusByKey[statusKey] === "confirmed";
 
                     return (
                       <tr
                         key={`${shop.id}-${group?.orderId ?? group?.orderStartTime ?? "default"}`}
-                        className="border-t border-gray-100 hover:bg-gray-50"
+                        className={`border-t border-gray-100 ${
+                          isConfirmed
+                            ? "bg-emerald-50/60 hover:bg-emerald-50"
+                            : "hover:bg-gray-50"
+                        }`}
                       >
                         <td className="px-3 py-2 font-mono">{shop.code}</td>
                         <td className="px-3 py-2">{shop.name}</td>

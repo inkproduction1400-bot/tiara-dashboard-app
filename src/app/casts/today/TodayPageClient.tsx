@@ -586,18 +586,18 @@ export default function Page() {
   }, [photoByCastId]);
 
   const shopTableColumns = [
-    { key: "code", label: "店舗番号", width: "60px" },
-    { key: "name", label: "店舗", width: "160px" },
-    { key: "tel", label: "TEL", width: "120px" },
-    { key: "hourly", label: "時給", width: "110px" },
-    { key: "genre", label: "ジャンル", width: "100px" },
-    { key: "drink", label: "お酒", width: "80px" },
-    { key: "body", label: "体系", width: "80px" },
-    { key: "hair", label: "ヘアセット", width: "90px" },
-    { key: "notes", label: "注意点", width: "120px" },
-    { key: "owner", label: "担当", width: "90px" },
-    { key: "contact", label: "連絡方法", width: "110px" },
-    { key: "contacted", label: "連絡済", width: "90px" },
+    { key: "code", label: "店舗番号", width: "50px" },
+    { key: "name", label: "店舗", width: "140px" },
+    { key: "tel", label: "TEL", width: "100px" },
+    { key: "hourly", label: "時給", width: "90px" },
+    { key: "genre", label: "ジャンル", width: "90px" },
+    { key: "drink", label: "お酒", width: "70px" },
+    { key: "body", label: "体系", width: "70px" },
+    { key: "hair", label: "ヘアセット", width: "80px" },
+    { key: "notes", label: "注意点", width: "100px" },
+    { key: "owner", label: "担当", width: "80px" },
+    { key: "contact", label: "連絡方法", width: "90px" },
+    { key: "contacted", label: "連絡済", width: "80px" },
   ] as const;
 
   const formatContactStatus = (status?: string | null) => {
@@ -1974,7 +1974,7 @@ export default function Page() {
               </div>
 
               <div className="border border-slate-200 bg-white text-xs overflow-auto">
-                <table className="min-w-[1400px] w-full border-collapse">
+                <table className="min-w-[1150px] w-full border-collapse">
                   <thead className="bg-slate-100">
                     <tr>
                       {shopTableColumns.map((col) => (

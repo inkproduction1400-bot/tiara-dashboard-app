@@ -187,19 +187,18 @@ const normalizeOrders = (res: any): any[] => {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.items)) {
     const items = res.items;
-    if (items.length && Array.isArray(items[0]?.orders)) {
+    const hasOrders = items.some((item: any) => Array.isArray(item?.orders));
+    if (hasOrders) {
       return items.flatMap((item: any) => {
-        const shopRequest = item?.shopRequest ?? {};
         const orders = Array.isArray(item?.orders) ? item.orders : [];
+        const shopRequest = item?.shopRequest ?? null;
+        const shop = shopRequest?.shop ?? item?.shop ?? null;
+        const shopId =
+          shopRequest?.shopId ?? item?.shopId ?? shop?.id ?? "";
         return orders.map((order: any) => ({
           ...order,
-          shopId:
-            order?.shopId ??
-            shopRequest?.shopId ??
-            shopRequest?.id ??
-            order?.shop?.id ??
-            "",
-          shop: order?.shop ?? shopRequest?.shop ?? order?.shopRequest?.shop,
+          shopId: order?.shopId ?? shopId,
+          shop: order?.shop ?? shop,
           shopRequest: order?.shopRequest ?? shopRequest,
         }));
       });

@@ -1,7 +1,7 @@
 // src/app/assignments/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   type ShopAssignment,
@@ -56,6 +56,23 @@ const resolveShopKey = (shop: ScheduleShopRequest) => shop.shopId ?? shop.id;
 type OrderCandidate = {
   id: string;
   orderNo: number;
+  startTime?: string | null;
+};
+
+type AssignmentGroup = {
+  orderId?: string;
+  orderNo?: number;
+  orderStartTime?: string;
+  assignments: ShopAssignment[];
+};
+
+const formatOrderLabel = (group?: AssignmentGroup) => {
+  if (!group) return "-";
+  const time = group.orderStartTime ?? "";
+  if (group.orderNo) {
+    return time ? `No.${group.orderNo} / ${time}` : `No.${group.orderNo}`;
+  }
+  return time || "-";
 };
 
 const resolveTargetOrdersForShop = async (
@@ -77,6 +94,7 @@ const resolveTargetOrdersForShop = async (
     return sorted.map((order) => ({
       id: order.id,
       orderNo: Number(order?.orderNo ?? order?.order_no ?? 0),
+      startTime: order?.startTime ?? order?.start_time ?? null,
     }));
   } catch {
     return [];
@@ -199,6 +217,35 @@ export default function Page() {
     return map;
   }, [assignments]);
 
+  const groupAssignmentsByOrder = useCallback(
+    (shop: ScheduleShopRequest): AssignmentGroup[] => {
+      const shopKey = resolveShopKey(shop);
+      const list = assignmentsByShop[shopKey] ?? [];
+      if (list.length === 0) return [];
+      const map: Record<string, AssignmentGroup> = {};
+      for (const a of list) {
+        const key = a.orderId ?? a.orderStartTime ?? "default";
+        const current = map[key] ?? {
+          orderId: a.orderId,
+          orderNo: a.orderNo,
+          orderStartTime: a.orderStartTime,
+          assignments: [],
+        };
+        current.assignments.push(a);
+        map[key] = current;
+      }
+      return Object.values(map).sort((a, b) => {
+        const an = a.orderNo ?? 0;
+        const bn = b.orderNo ?? 0;
+        if (an !== bn) return an - bn;
+        const at = a.orderStartTime ?? "";
+        const bt = b.orderStartTime ?? "";
+        return at.localeCompare(bt);
+      });
+    },
+    [assignmentsByShop],
+  );
+
   const filteredItems = useMemo(() => {
     let list = [...items];
 
@@ -226,6 +273,21 @@ export default function Page() {
     return list;
   }, [items, keyword, dateFilter]);
 
+  const rows = useMemo(() => {
+    const result: { shop: ScheduleShopRequest; group: AssignmentGroup }[] = [];
+    for (const shop of filteredItems) {
+      const groups = groupAssignmentsByOrder(shop);
+      if (!groups.length) {
+        result.push({ shop, group: { assignments: [] } });
+        continue;
+      }
+      for (const group of groups) {
+        result.push({ shop, group });
+      }
+    }
+    return result;
+  }, [filteredItems, groupAssignmentsByOrder]);
+
   // 集計（資料っぽいヘッダー用：件数・希望人数合計・割当人数合計）
   const summary = useMemo(() => {
     const totalShops = filteredItems.length;
@@ -247,7 +309,8 @@ export default function Page() {
   // 編集中店舗に紐づく割当（モーダル内表示用）
   const currentEditingAssignments = useMemo(() => {
     if (!editing) return [];
-    return assignments.filter((a) => a.shopId === resolveShopKey(editing));
+    const shopKey = resolveShopKey(editing);
+    return assignments.filter((a) => a.shopId === shopKey);
   }, [assignments, editing]);
 
   const openEdit = (shop: ScheduleShopRequest) => {
@@ -296,12 +359,14 @@ export default function Page() {
       return;
     }
 
+    const shopKey = resolveShopKey(shop);
+
     // スケジュール行を削除（ローカル state のみ）
     setItems((prev) => prev.filter((i) => i.id !== shop.id));
 
     // この店舗に紐づく割当キャストも削除（ローカルストア永続）
     setAssignments((prev) => {
-      const next = prev.filter((a) => a.shopId !== resolveShopKey(shop));
+      const next = prev.filter((a) => a.shopId !== shopKey);
       saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });
@@ -324,6 +389,9 @@ export default function Page() {
       );
       if (candidates.length === 1) {
         draft.id = `${candidates[0].id}-${Date.now()}`;
+        draft.orderId = candidates[0].id;
+        draft.orderNo = candidates[0].orderNo || undefined;
+        draft.orderStartTime = candidates[0].startTime ?? undefined;
         setOrderCandidates([]);
         setSelectedOrderId(null);
         setOrderSelectOpen(false);
@@ -400,8 +468,7 @@ export default function Page() {
     }
   };
 
-  const formatAssignedNames = (shopId: string) => {
-    const list = assignmentsByShop[shopId] ?? [];
+  const formatAssignedNames = (list: ShopAssignment[]) => {
     if (list.length === 0) return "—";
     const names = list.map((a) => a.castName);
     if (names.length <= 3) return names.join(" / ");
@@ -563,6 +630,9 @@ export default function Page() {
                   <th className="px-3 py-2 text-left">店舗名</th>
                   <th className="px-3 py-2 text-left w-[100px]">日付</th>
                   <th className="px-3 py-2 text-right w-[80px]">希望人数</th>
+                  <th className="px-3 py-2 text-left w-[120px]">
+                    オーダー時間
+                  </th>
                   <th className="px-3 py-2 text-right w-[120px]">
                     時給レンジ
                   </th>
@@ -578,25 +648,25 @@ export default function Page() {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.length === 0 ? (
+                {rows.length === 0 ? (
                   <tr>
                     <td
                       className="px-3 py-4 text-center text-[11px] text-muted"
-                      colSpan={10}
+                      colSpan={11}
                     >
                       条件に一致する店舗リクエストがありません。
                     </td>
                   </tr>
                 ) : (
-                  filteredItems.map((shop) => {
-                    const shopKey = resolveShopKey(shop);
-                    const assignedNames = formatAssignedNames(shopKey);
-                    const assignedCount =
-                      assignmentsByShop[resolveShopKey(shop)]?.length ?? 0;
+                  rows.map(({ shop, group }) => {
+                    const assignedList = group.assignments ?? [];
+                    const assignedNames = formatAssignedNames(assignedList);
+                    const assignedCount = assignedList.length;
+                    const orderLabel = formatOrderLabel(group);
 
                     return (
                       <tr
-                        key={shop.id}
+                        key={`${shop.id}-${group?.orderId ?? group?.orderStartTime ?? "default"}`}
                         className="border-t border-gray-100 hover:bg-gray-50"
                       >
                         <td className="px-3 py-2 font-mono">{shop.code}</td>
@@ -610,6 +680,7 @@ export default function Page() {
                         <td className="px-3 py-2 text-right">
                           {shop.requestedHeadcount} 名
                         </td>
+                        <td className="px-3 py-2">{orderLabel}</td>
                         <td className="px-3 py-2 text-right">
                           {shop.minHourly
                             ? `¥${shop.minHourly.toLocaleString()}`
@@ -1026,9 +1097,16 @@ export default function Page() {
                             disabled={!selectedOrderId}
                             onClick={() => {
                               if (!selectedOrderId) return;
+                              const selected = orderCandidates.find(
+                                (c) => c.id === selectedOrderId,
+                              );
                               setAssignmentDraft({
                                 ...assignmentDraft,
                                 id: `${selectedOrderId}-${Date.now()}`,
+                                orderId: selectedOrderId,
+                                orderNo: selected?.orderNo || undefined,
+                                orderStartTime:
+                                  selected?.startTime ?? undefined,
                               });
                               setOrderSelectOpen(false);
                             }}

@@ -728,7 +728,7 @@ export default function Page() {
       return match
         ? {
             ...shop,
-            contactStatus: match.contactStatus,
+            contactStatus: match.contactStatus ?? shop.contactStatus ?? null,
             requestId: match.requestId ?? shop.requestId,
           }
         : shop;
@@ -1345,6 +1345,17 @@ export default function Page() {
     requestId?: string | null,
   ) => {
     setTodayShops((prev) =>
+      prev.map((shop) =>
+        shop.id === shopId
+          ? {
+              ...shop,
+              requestId: requestId ?? shop.requestId,
+              contactStatus: status ?? null,
+            }
+          : shop,
+      ),
+    );
+    setFallbackShops((prev) =>
       prev.map((shop) =>
         shop.id === shopId
           ? {

@@ -47,10 +47,10 @@ export type ShopOrderAssignment = {
 
 export type ShopOrderAssignmentPayload = {
   castId?: string;
-  castCode?: string;
-  castName?: string;
-  agreedHourly?: number | null;
-  note?: string | null;
+  assignedFrom?: string;
+  assignedTo?: string | null;
+  priority?: number | null;
+  reasonOverride?: string | null;
   status?: CastWorkEventType | null;
 };
 

@@ -13,6 +13,7 @@ import {
 } from "@/store/assignmentsStore";
 import {
   listShopOrders,
+  getOrderAssignments,
   replaceOrderAssignments,
   updateShopOrder,
   confirmShopOrder,
@@ -693,15 +694,6 @@ export default function Page() {
     [editing, resolveEditingOrderId],
   );
 
-  const buildAssignmentPayloads = (list: ShopAssignment[]) =>
-    list.map((item) => ({
-      castId: item.castId ?? undefined,
-      castCode: item.castCode || undefined,
-      castName: item.castName || undefined,
-      agreedHourly: Number.isFinite(item.agreedHourly) ? item.agreedHourly : 0,
-      note: item.note ?? "",
-    }));
-
   const deleteAssignment = async (a: ShopAssignment) => {
     if (
       !window.confirm(
@@ -717,17 +709,23 @@ export default function Page() {
       return;
     }
 
-    const remaining = assignments.filter((item) => {
-      if (item.id === a.id) return false;
-      if (item.orderId) return item.orderId === orderId;
-      if (a.orderStartTime) {
-        return item.orderStartTime === a.orderStartTime;
-      }
-      return false;
-    });
-
     try {
-      await replaceOrderAssignments(orderId, buildAssignmentPayloads(remaining));
+      const current = await getOrderAssignments(orderId);
+      const remaining = current.filter((item) => item?.id !== a.id);
+      const payloads = remaining.map((item: any) => ({
+        castId:
+          item?.castId ??
+          item?.cast?.userId ??
+          item?.cast?.id ??
+          undefined,
+        assignedFrom: item?.assignedFrom ?? item?.assigned_from ?? undefined,
+        assignedTo: item?.assignedTo ?? item?.assigned_to ?? null,
+        priority: Number.isFinite(Number(item?.priority))
+          ? Number(item?.priority)
+          : 0,
+        reasonOverride: item?.reasonOverride ?? item?.reason_override ?? null,
+      }));
+      await replaceOrderAssignments(orderId, payloads);
     } catch (err) {
       console.warn("[assignments] deleteAssignment failed", err);
       alert("割当削除に失敗しました。時間をおいて再度お試しください。");

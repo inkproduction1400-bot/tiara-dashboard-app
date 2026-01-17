@@ -238,6 +238,12 @@ const mapOrderAssignmentsToLegacy = (
 const getOrderStartTime = (order: any): string | null =>
   order?.startTime ?? order?.start_time ?? null;
 
+const buildAssignedFrom = (date: string, time?: string | null): string => {
+  const safeTime =
+    typeof time === "string" && /^\d{2}:\d{2}$/.test(time) ? time : "00:00";
+  return `${date}T${safeTime}:00+09:00`;
+};
+
 const detectOrderIdFromAssignments = (
   ordersForShop: any[],
   assignments: ShopAssignment[],
@@ -328,14 +334,29 @@ async function mapLegacyToApi(
   const groups = groupByShopId(items);
   const result: { orderId: string; assignments: ShopOrderAssignmentPayload[] }[] = [];
 
-  const buildPayloads = (assigns: ShopAssignment[]) =>
-    assigns.map((a) => ({
+  const buildPayloads = (
+    assigns: ShopAssignment[],
+    order: any,
+  ): ShopOrderAssignmentPayload[] | null => {
+    const hasMissingCastId = assigns.some((a) => !a.castId);
+    if (hasMissingCastId) {
+      console.warn("[assignmentsStore] skip API save: castId missing", {
+        orderId: order?.id,
+      });
+      return null;
+    }
+    const orderTime = getOrderStartTime(order);
+    return assigns.map((a) => ({
       castId: a.castId ?? undefined,
-      castCode: a.castCode || undefined,
-      castName: a.castName || undefined,
-      agreedHourly: Number.isFinite(a.agreedHourly) ? a.agreedHourly : 0,
-      note: a.note ?? "",
+      assignedFrom: buildAssignedFrom(
+        date,
+        a.orderStartTime ?? orderTime,
+      ),
+      assignedTo: null,
+      priority: 0,
+      reasonOverride: null,
     }));
+  };
 
   for (const [shopId, assigns] of Object.entries(groups)) {
     const ordersForShop = ordersByShop[shopId] ?? [];
@@ -357,7 +378,9 @@ async function mapLegacyToApi(
       for (const [orderId, list] of byOrderId.entries()) {
         const matched = ordersForShop.find((order) => order.id === orderId);
         if (!matched) continue;
-        result.push({ orderId: matched.id, assignments: buildPayloads(list) });
+        const payloads = buildPayloads(list, matched);
+        if (!payloads) continue;
+        result.push({ orderId: matched.id, assignments: payloads });
       }
     }
 
@@ -388,9 +411,13 @@ async function mapLegacyToApi(
           continue;
         }
       }
+      const payloads = buildPayloads(withoutOrderId, targetOrder);
+      if (!payloads) {
+        continue;
+      }
       result.push({
         orderId: targetOrder.id,
-        assignments: buildPayloads(withoutOrderId),
+        assignments: payloads,
       });
     }
   }

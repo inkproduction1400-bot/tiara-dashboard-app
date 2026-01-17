@@ -832,7 +832,7 @@ export default function Page() {
                       日付
                     </label>
                     <select
-                      className="tiara-input h-8 w-full text-xs"
+                      className="tiara-input h-9 w-full py-1 text-xs leading-normal"
                       value={editing.date}
                       onChange={(e) =>
                         setEditing({
@@ -867,7 +867,7 @@ export default function Page() {
                       飲酒条件
                     </label>
                     <select
-                      className="tiara-input h-8 w-full text-xs"
+                      className="tiara-input h-9 w-full py-1 text-xs leading-normal"
                       value={editing.requireDrinkOk ? "require" : "any"}
                       onChange={(e) =>
                         setEditing({

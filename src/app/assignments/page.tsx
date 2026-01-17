@@ -791,12 +791,15 @@ export default function Page() {
                           <div className="inline-flex items-center gap-2">
                             <button
                               type="button"
-                              className="tiara-btn text-[11px] px-3 py-1"
+                              className="tiara-btn text-[11px] px-3 py-1 min-w-[72px] leading-tight"
                               onClick={() => openEdit(shop, group)}
                             >
-                              詳細
-                              <br />
-                              編集
+                              <span className="block whitespace-nowrap">
+                                詳細
+                              </span>
+                              <span className="block whitespace-nowrap">
+                                編集
+                              </span>
                             </button>
                             <button
                               type="button"

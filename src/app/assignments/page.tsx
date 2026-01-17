@@ -153,6 +153,20 @@ export default function Page() {
   const dateFilterRef = useRef<"all" | "today" | "tomorrow">("all");
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
+  const orderTimeOptions = useMemo(() => {
+    const fromOrders = orderCandidates
+      .map((c) => c.startTime)
+      .filter((t): t is string => !!t);
+    const base = ["00:00", "20:00", "21:00", "22:00", "23:00"];
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const t of [...fromOrders, ...base]) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      merged.push(t);
+    }
+    return merged;
+  }, [orderCandidates]);
 
   const handlePrint = () => {
     window.print();
@@ -205,6 +219,12 @@ export default function Page() {
   useEffect(() => {
     assignmentDraftRef.current = assignmentDraft;
   }, [assignmentDraft]);
+
+  useEffect(() => {
+    if (!orderStartTime && orderTimeOptions.length > 0) {
+      setOrderStartTime(orderTimeOptions[0]);
+    }
+  }, [orderStartTime, orderTimeOptions]);
 
   useEffect(() => {
     dateFilterRef.current = dateFilter;
@@ -345,8 +365,9 @@ export default function Page() {
           shop.date,
         );
         setOrderCandidates(candidates);
-        if (candidates.length === 1 && candidates[0].startTime) {
-          setOrderStartTime(candidates[0].startTime ?? "");
+        if (candidates.length >= 1) {
+          const first = candidates[0].startTime ?? "";
+          if (first) setOrderStartTime(first);
         }
       })();
     }
@@ -859,13 +880,11 @@ export default function Page() {
                       onChange={(e) => setOrderStartTime(e.target.value)}
                     >
                       <option value="">未指定</option>
-                      {["00:00", "20:00", "21:00", "22:00", "23:00"].map(
-                        (t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ),
-                      )}
+                      {orderTimeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>

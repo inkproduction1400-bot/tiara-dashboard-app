@@ -5,7 +5,6 @@
 
 import {
   listShopOrders,
-  getOrderAssignments,
   replaceOrderAssignments,
   type ShopOrderAssignmentPayload,
 } from "@/lib/api.shop-orders";
@@ -295,13 +294,10 @@ async function loadAssignmentsFromApi(date: string): Promise<ShopAssignment[]> {
   );
   if (list.length === 0) return [];
 
-  const assignmentsByOrder = await Promise.all(
-    list.map(async (order) => {
-      const inline = Array.isArray(order?.assignments) ? order.assignments : null;
-      const assignments = inline ?? (await getOrderAssignments(order.id));
-      return { order, assignments };
-    }),
-  );
+  const assignmentsByOrder = list.map((order) => {
+    const inline = Array.isArray(order?.assignments) ? order.assignments : [];
+    return { order, assignments: inline };
+  });
 
   return assignmentsByOrder.flatMap(({ order, assignments }) =>
     mapOrderAssignmentsToLegacy(order, assignments),

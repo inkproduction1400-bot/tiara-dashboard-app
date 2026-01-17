@@ -13,7 +13,6 @@ import {
 } from "@/store/assignmentsStore";
 import {
   listShopOrders,
-  getOrderAssignments,
   replaceOrderAssignments,
   updateShopOrder,
   confirmShopOrder,
@@ -710,8 +709,13 @@ export default function Page() {
     }
 
     try {
-      const current = await getOrderAssignments(orderId);
-      const remaining = current.filter((item) => item?.id !== a.id);
+      const date = editing?.date ?? todayKey();
+      const orders = await listShopOrders(date);
+      const target = orders.find((o) => o?.id === orderId);
+      const current = Array.isArray(target?.assignments)
+        ? target.assignments
+        : [];
+      const remaining = current.filter((item: any) => item?.id !== a.id);
       const payloads = remaining.map((item: any) => ({
         castId:
           item?.castId ??

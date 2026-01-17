@@ -33,6 +33,9 @@ export type ScheduleShopRequest = {
  */
 export function getTodayKey(): string {
   const d = new Date();
+  if (d.getHours() < 5) {
+    d.setDate(d.getDate() - 1);
+  }
   const y = d.getFullYear();
   const m = `${d.getMonth() + 1}`.padStart(2, "0");
   const day = `${d.getDate()}`.padStart(2, "0");

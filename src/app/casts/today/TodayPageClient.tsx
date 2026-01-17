@@ -1368,13 +1368,20 @@ export default function Page() {
     );
   };
 
+  const getContactStatus = (shopId: string): string | null => {
+    return (
+      todayShops.find((s) => s.id === shopId)?.contactStatus ??
+      fallbackShops.find((s) => s.id === shopId)?.contactStatus ??
+      null
+    );
+  };
+
   const setContactStatus = async (
     shopId: string,
     status: string | null,
     options?: { force?: boolean },
   ) => {
-    const current =
-      todayShops.find((s) => s.id === shopId)?.contactStatus ?? null;
+    const current = getContactStatus(shopId);
     if (!options?.force && current === status) return;
     if (!options?.force) {
       if (

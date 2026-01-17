@@ -2780,7 +2780,7 @@ export default function Page() {
             <div className="flex flex-col gap-2 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  className="tiara-input rounded-none h-8 !w-[110px] text-[11px] leading-snug flex-none"
+                  className="tiara-input rounded-none h-8 !w-[150px] text-[11px] leading-snug flex-none"
                   value={dispatchCount}
                   onChange={(e) => setDispatchCount(e.target.value)}
                 >
@@ -2791,7 +2791,7 @@ export default function Page() {
                   ))}
                 </select>
                 <select
-                  className="tiara-input rounded-none h-8 !w-[110px] text-[11px] leading-snug flex-none"
+                  className="tiara-input rounded-none h-8 !w-[150px] text-[11px] leading-snug flex-none"
                   value={entryTime}
                   onChange={(e) => setEntryTime(e.target.value)}
                 >

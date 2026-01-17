@@ -17,6 +17,7 @@ import {
   updateShopOrder,
   confirmShopOrder,
 } from "@/lib/api.shop-orders";
+import { getCast } from "@/lib/api.casts";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -164,6 +165,9 @@ export default function Page() {
   const editingRef = useRef<ScheduleShopRequest | null>(null);
   const assignmentDraftRef = useRef<ShopAssignment | null>(null);
   const dateFilterRef = useRef<"all" | "today" | "tomorrow">("all");
+  const [castHourlyById, setCastHourlyById] = useState<
+    Record<string, number | null>
+  >({});
 
   const buildStamp = useMemo(() => new Date().toLocaleString(), []);
   const orderTimeOptions = useMemo(() => {
@@ -362,6 +366,48 @@ export default function Page() {
     const shopKey = resolveShopKey(editing);
     return assignments.filter((a) => a.shopId === shopKey);
   }, [assignments, editing]);
+
+  useEffect(() => {
+    let active = true;
+    const ids = Array.from(
+      new Set(
+        currentEditingAssignments
+          .map((a) => a.castId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const missing = ids.filter(
+      (id) => !Object.prototype.hasOwnProperty.call(castHourlyById, id),
+    );
+    if (missing.length === 0) return;
+    (async () => {
+      const results = await Promise.all(
+        missing.map(async (id) => {
+          try {
+            const detail = await getCast(id);
+            const hourly =
+              detail?.preferences?.desiredHourly ??
+              (detail as any)?.desiredHourly ??
+              null;
+            return [id, hourly] as const;
+          } catch {
+            return [id, null] as const;
+          }
+        }),
+      );
+      if (!active) return;
+      setCastHourlyById((prev) => {
+        const next = { ...prev };
+        for (const [id, hourly] of results) {
+          next[id] = hourly;
+        }
+        return next;
+      });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [currentEditingAssignments, castHourlyById]);
 
   const openEdit = (shop: ScheduleShopRequest, group?: AssignmentGroup) => {
     setEditing(shop);
@@ -752,6 +798,15 @@ export default function Page() {
     const names = list.map((a) => a.castName);
     if (names.length <= 3) return names.join(" / ");
     return `${names.slice(0, 3).join(" / ")} ほか${names.length - 3}名`;
+  };
+
+  const formatAssignedHourly = (a: ShopAssignment) => {
+    const hourly =
+      (a.castId ? castHourlyById[a.castId] : null) ??
+      (Number.isFinite(a.agreedHourly) && a.agreedHourly > 0
+        ? a.agreedHourly
+        : null);
+    return hourly != null ? `¥${hourly.toLocaleString()}` : "—";
   };
 
   // ヘッダー右側に表示する基準日（フィルタと連動というより、「本日」の日付をメイン表示）
@@ -1275,7 +1330,7 @@ export default function Page() {
                             </td>
                             <td className="px-2 py-1.5">{a.castName}</td>
                             <td className="px-2 py-1.5 text-right">
-                              ¥{a.agreedHourly.toLocaleString()}
+                              {formatAssignedHourly(a)}
                             </td>
                             <td className="px-2 py-1.5 max-w-[220px]">
                               <span className="line-clamp-2 text-gray-700">

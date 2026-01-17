@@ -340,17 +340,14 @@ export default function Page() {
   // 集計（資料っぽいヘッダー用：件数・希望人数合計・割当人数合計）
   const summary = useMemo(() => {
     const totalShops = filteredItems.length;
-    let totalRequestedHeadcount = 0;
     let totalAssigned = 0;
 
     for (const shop of filteredItems) {
-      totalRequestedHeadcount += shop.requestedHeadcount ?? 0;
       totalAssigned += assignmentsByShop[resolveShopKey(shop)]?.length ?? 0;
     }
 
     return {
       totalShops,
-      totalRequestedHeadcount,
       totalAssigned,
     };
   }, [filteredItems, assignmentsByShop]);
@@ -604,12 +601,60 @@ export default function Page() {
     setAssignmentDraftIsNew(false);
   };
 
-  const deleteAssignment = (a: ShopAssignment) => {
+  const resolveOrderIdForAssignment = useCallback(
+    async (a: ShopAssignment): Promise<string | null> => {
+      if (a.orderId) return a.orderId;
+      if (!editing?.date) return null;
+      const shopKey = resolveShopKey(editing);
+      const candidates = await resolveTargetOrdersForShop(shopKey, editing.date);
+      if (candidates.length === 1) return candidates[0].id;
+      if (a.orderStartTime) {
+        const matched = candidates.find((c) => c.startTime === a.orderStartTime);
+        if (matched) return matched.id;
+      }
+      return resolveEditingOrderId();
+    },
+    [editing, resolveEditingOrderId],
+  );
+
+  const buildAssignmentPayloads = (list: ShopAssignment[]) =>
+    list.map((item) => ({
+      castId: item.castId ?? undefined,
+      castCode: item.castCode || undefined,
+      castName: item.castName || undefined,
+      agreedHourly: Number.isFinite(item.agreedHourly) ? item.agreedHourly : 0,
+      note: item.note ?? "",
+    }));
+
+  const deleteAssignment = async (a: ShopAssignment) => {
     if (
       !window.confirm(
         `この店舗からキャスト ${a.castCode} / ${a.castName} の割当を削除しますか？`,
       )
     ) {
+      return;
+    }
+
+    const orderId = await resolveOrderIdForAssignment(a);
+    if (!orderId) {
+      alert("対象オーダーが特定できません。入店時間を選択してください。");
+      return;
+    }
+
+    const remaining = assignments.filter((item) => {
+      if (item.id === a.id) return false;
+      if (item.orderId) return item.orderId === orderId;
+      if (a.orderStartTime) {
+        return item.orderStartTime === a.orderStartTime;
+      }
+      return false;
+    });
+
+    try {
+      await replaceOrderAssignments(orderId, buildAssignmentPayloads(remaining));
+    } catch (err) {
+      console.warn("[assignments] deleteAssignment failed", err);
+      alert("割当削除に失敗しました。時間をおいて再度お試しください。");
       return;
     }
 
@@ -676,20 +721,13 @@ export default function Page() {
           </header>
 
           {/* 集計バー（資料っぽい帯） */}
-          <div className="mt-1 grid grid-cols-3 gap-2 text-[11px]">
+          <div className="mt-1 grid grid-cols-2 gap-2 text-[11px]">
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
               <span className="text-muted whitespace-nowrap">対象店舗数</span>
               <span className="text-base font-semibold text-sky-900">
                 {summary.totalShops}
               </span>
               <span className="text-[10px] text-sky-900/80">件</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
-              <span className="text-muted whitespace-nowrap">希望人数合計</span>
-              <span className="text-base font-semibold text-emerald-900">
-                {summary.totalRequestedHeadcount}
-              </span>
-              <span className="text-[10px] text-emerald-900/80">名</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
               <span className="text-muted whitespace-nowrap">
@@ -763,11 +801,7 @@ export default function Page() {
               <span className="font-semibold text-gray-900">
                 {filteredItems.length}
               </span>{" "}
-              件（希望人数合計{" "}
-              <span className="font-semibold text-gray-900">
-                {summary.totalRequestedHeadcount}
-              </span>
-              名 / 割当済み{" "}
+              件（割当済み{" "}
               <span className="font-semibold text-gray-900">
                 {summary.totalAssigned}
               </span>

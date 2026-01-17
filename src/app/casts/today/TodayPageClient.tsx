@@ -1146,8 +1146,16 @@ export default function Page() {
         const date = todayKey();
         const orders = await listShopOrders(date);
         if (cancelled) return;
-        const count = orders.length;
-        const headcount = orders.reduce((sum, order) => {
+        const effectiveOrders = orders.filter((order) => {
+          const status = order?.status ?? order?.order_status ?? null;
+          if (status === "canceled") return false;
+          const assignedCount = Array.isArray(order?.assignments)
+            ? order.assignments.length
+            : 0;
+          return status === "confirmed" || assignedCount > 0;
+        });
+        const count = effectiveOrders.length;
+        const headcount = effectiveOrders.reduce((sum, order) => {
           const value = Number(
             order?.headcount ?? order?.head_count ?? order?.headCount ?? 0,
           );

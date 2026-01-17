@@ -352,12 +352,15 @@ export default function Page() {
     return assignments.filter((a) => a.shopId === shopKey);
   }, [assignments, editing]);
 
-  const openEdit = (shop: ScheduleShopRequest) => {
+  const openEdit = (shop: ScheduleShopRequest, group?: AssignmentGroup) => {
     setEditing(shop);
     setEditingIsNew(false);
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
-    setOrderStartTime("");
+    setOrderStartTime(group?.orderStartTime ?? "");
+    setSelectedOrderId(group?.orderId ?? null);
+    setOrderCandidates([]);
+    setOrderSelectOpen(false);
     if (shop.date) {
       void (async () => {
         const candidates = await resolveTargetOrdersForShop(
@@ -365,7 +368,14 @@ export default function Page() {
           shop.date,
         );
         setOrderCandidates(candidates);
-        if (candidates.length >= 1) {
+        if (group?.orderId) {
+          const selected = candidates.find((c) => c.id === group.orderId);
+          const time = selected?.startTime ?? group.orderStartTime ?? "";
+          if (time) setOrderStartTime(time);
+          setSelectedOrderId(group.orderId);
+          return;
+        }
+        if (candidates.length >= 1 && !group?.orderStartTime) {
           const first = candidates[0].startTime ?? "";
           if (first) setOrderStartTime(first);
         }
@@ -782,7 +792,7 @@ export default function Page() {
                             <button
                               type="button"
                               className="tiara-btn text-[11px] px-3 py-1"
-                              onClick={() => openEdit(shop)}
+                              onClick={() => openEdit(shop, group)}
                             >
                               詳細・編集
                             </button>

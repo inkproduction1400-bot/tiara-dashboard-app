@@ -12,10 +12,12 @@ import {
   listShopOrders,
   createShopOrder,
   replaceOrderAssignments,
+  updateShopOrder,
 } from "@/lib/api.shop-orders";
 import {
   listShopRequests,
   createShopRequest,
+  updateShopRequest,
 } from "@/lib/api.shop-requests";
 import { listShops } from "@/lib/api.shops";
 import {
@@ -77,6 +79,7 @@ type Cast = {
 
 type Shop = {
   id: string;
+  requestId?: string;
   code: string;
   name: string;
   nameKana?: string | null;
@@ -94,6 +97,8 @@ type Shop = {
   genre?: ShopGenre | null;
   /** 連絡方法（店舗管理の情報） */
   contactMethod?: string | null;
+  /** 連絡ステータス（入力中/済/確定など） */
+  contactStatus?: string | null;
   /** 時給ラベル（店舗管理の情報） */
   wageLabel?: string | null;
   /** 身分証要件（店舗管理の情報） */
@@ -522,6 +527,10 @@ export default function Page() {
   const [confirmOrderCandidates, setConfirmOrderCandidates] = useState<
     { id: string; name: string; detail: string; shopId?: string }[]
   >([]);
+  const [rejectOrderSelectOpen, setRejectOrderSelectOpen] = useState(false);
+  const [rejectOrderCandidates, setRejectOrderCandidates] = useState<
+    { id: string; name: string; detail: string; shopId?: string }[]
+  >([]);
   const [missingOrderConfirmOpen, setMissingOrderConfirmOpen] = useState(false);
   const [missingOrderTargetId, setMissingOrderTargetId] = useState<string | null>(
     null,
@@ -531,6 +540,7 @@ export default function Page() {
   const [orderShopOpen, setOrderShopOpen] = useState(false);
   const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
   const backgroundFetchIndexRef = useRef(0);
+  const lastEditingShopIdRef = useRef<string>("");
   const [shopFilterExclusive, setShopFilterExclusive] = useState<YesNoFilter>(
     "",
   );
@@ -592,7 +602,23 @@ export default function Page() {
     { key: "contacted", label: "連絡済", width: "90px" },
   ] as const;
 
-  const renderShopCell = (shop: Shop, key: (typeof shopTableColumns)[number]["key"]) => {
+  const formatContactStatus = (status?: string | null) => {
+    switch (status) {
+      case "editing":
+        return "入力中";
+      case "confirmed":
+        return "◯済";
+      case "rejected":
+        return "済";
+      default:
+        return "-";
+    }
+  };
+
+  const renderShopCell = (
+    shop: Shop,
+    key: (typeof shopTableColumns)[number]["key"],
+  ) => {
     switch (key) {
       case "code":
         return shop.code || "-";
@@ -608,6 +634,8 @@ export default function Page() {
       }
       case "genre":
         return shop.genre ? SHOP_GENRE_LABEL[shop.genre] : "-";
+      case "contacted":
+        return formatContactStatus(shop.contactStatus);
       default:
         return "-";
     }
@@ -616,6 +644,7 @@ export default function Page() {
   // ★ スケジュールで登録された「本日分の店舗」をロード（無ければ空配列）
   useEffect(() => {
     let cancelled = false;
+    let timer: number | null = null;
 
     const run = async () => {
       try {
@@ -627,6 +656,7 @@ export default function Page() {
 
         const shops: Shop[] = reqs.map((req) => ({
           id: req.shopId ?? req.id, // shopId(UUID) を優先
+          requestId: req.id,
           code: req.code,
           name: req.name,
           minHourly: req.minHourly,
@@ -634,6 +664,7 @@ export default function Page() {
           minAge: req.minAge,
           maxAge: req.maxAge,
           requireDrinkOk: req.requireDrinkOk,
+          contactStatus: req.contactStatus ?? null,
           // もしスケジュール側に genre があれば取り込む（無ければ undefined）
           genre: (req as any).genre ?? null,
         }));
@@ -647,9 +678,11 @@ export default function Page() {
     };
 
     void run();
+    timer = window.setInterval(run, 15000);
 
     return () => {
       cancelled = true;
+      if (timer) window.clearInterval(timer);
     };
   }, []);
 
@@ -684,12 +717,42 @@ export default function Page() {
     };
   }, []);
 
-  const effectiveShops = fallbackShops;
+  const effectiveShops = useMemo(() => {
+    if (todayShops.length === 0) return fallbackShops;
+    const statusByShop = new Map(
+      todayShops.map((shop) => [
+        shop.id,
+        { contactStatus: shop.contactStatus ?? null, requestId: shop.requestId },
+      ]),
+    );
+    return fallbackShops.map((shop) => {
+      const match = statusByShop.get(shop.id);
+      return match
+        ? {
+            ...shop,
+            contactStatus: match.contactStatus,
+            requestId: match.requestId ?? shop.requestId,
+          }
+        : shop;
+    });
+  }, [fallbackShops, todayShops]);
 
   const selectedShop = useMemo(
     () => effectiveShops.find((s: Shop) => s.id === selectedShopId) ?? null,
     [effectiveShops, selectedShopId],
   );
+
+  useEffect(() => {
+    const prev = lastEditingShopIdRef.current;
+    if (prev && prev !== selectedShopId) {
+      void setContactStatus(prev, null);
+    }
+    if (selectedShopId) {
+      void setContactStatus(selectedShopId, "editing");
+    }
+    lastEditingShopIdRef.current = selectedShopId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShopId]);
 
   // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
   useEffect(() => {
@@ -1259,6 +1322,79 @@ export default function Page() {
     return created.id;
   };
 
+  const resolveShopRequestId = async (
+    shopId: string,
+    date: string,
+  ): Promise<string | null> => {
+    const cached = todayShops.find((s) => s.id === shopId)?.requestId ?? null;
+    if (cached) return cached;
+    try {
+      const res = await listShopRequests({
+        date,
+        shopId,
+        take: 1,
+        offset: 0,
+      });
+      return res.items[0]?.id ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const updateLocalContactStatus = (
+    shopId: string,
+    status: string | null,
+    requestId?: string | null,
+  ) => {
+    setTodayShops((prev) =>
+      prev.map((shop) =>
+        shop.id === shopId
+          ? {
+              ...shop,
+              requestId: requestId ?? shop.requestId,
+              contactStatus: status ?? null,
+            }
+          : shop,
+      ),
+    );
+  };
+
+  const setContactStatus = async (
+    shopId: string,
+    status: string | null,
+    options?: { force?: boolean },
+  ) => {
+    const current =
+      todayShops.find((s) => s.id === shopId)?.contactStatus ?? null;
+    if (!options?.force && current === status) return;
+    if (!options?.force) {
+      if (
+        status === "editing" &&
+        (current === "confirmed" || current === "rejected")
+      ) {
+        return;
+      }
+      if (status === null && current && current !== "editing") {
+        return;
+      }
+    }
+
+    const date = todayKey();
+    const requestId = await resolveShopRequestId(shopId, date);
+    if (!requestId) return;
+
+    updateLocalContactStatus(shopId, status, requestId);
+    try {
+      await updateShopRequest(requestId, { contactStatus: status ?? null });
+    } catch (err) {
+      console.warn("[casts/today] update contactStatus failed", {
+        shopId,
+        status,
+        err,
+      });
+    }
+  };
+
   const ensureApiOrderId = async (
     orderId: string,
     allowCreate: boolean,
@@ -1387,6 +1523,22 @@ export default function Page() {
     return { ...newOrder, apiOrderId: created.id };
   };
 
+  const resetOrderState = () => {
+    setOrderAssignments({});
+    setOrderItems([]);
+    setStaged([]);
+    setSelectedShopId("");
+    setOrderShopQuery("");
+    setOrderShopOpen(false);
+    setOrderSelectOpen(false);
+    setPendingCast(null);
+    setConfirmOrderSelectOpen(false);
+    setConfirmOrderCandidates([]);
+    setRejectOrderSelectOpen(false);
+    setRejectOrderCandidates([]);
+    setFloatMinimized(true);
+  };
+
   const finalizeOrderConfirm = async (
     orderId: string,
     options?: { allowCreate?: boolean },
@@ -1457,17 +1609,31 @@ export default function Page() {
             .join("\n"),
       );
     }
-    setOrderAssignments({});
-    setOrderItems([]);
-    setStaged([]);
-    setSelectedShopId("");
-    setOrderShopQuery("");
-    setOrderShopOpen(false);
-    setOrderSelectOpen(false);
-    setPendingCast(null);
-    setConfirmOrderSelectOpen(false);
-    setConfirmOrderCandidates([]);
-    setFloatMinimized(true);
+    if (selectedShopId) {
+      await setContactStatus(selectedShopId, "confirmed", { force: true });
+    }
+    resetOrderState();
+  };
+
+  const rejectOrder = async (orderId: string) => {
+    console.warn("[casts/today] reject start", { orderId, selectedShopId });
+    const apiOrderId = await ensureApiOrderId(orderId, false);
+    if (!apiOrderId) {
+      alert("オーダーが見つかりませんでした。");
+      return;
+    }
+    try {
+      await replaceOrderAssignments(apiOrderId, []);
+      await updateShopOrder(apiOrderId, { status: "canceled" });
+    } catch (err) {
+      console.warn("[casts/today] reject failed", { apiOrderId, err });
+      alert("不承処理に失敗しました。時間をおいて再度お試しください。");
+      return;
+    }
+    if (selectedShopId) {
+      await setContactStatus(selectedShopId, "rejected", { force: true });
+    }
+    resetOrderState();
   };
 
   useEffect(() => {
@@ -1599,6 +1765,27 @@ export default function Page() {
       window.removeEventListener("mouseup", handleUp);
     };
   }, [dragging, dragOffset]);
+
+  const handleRejectClick = async () => {
+    if (!selectedShopId) {
+      alert("店舗が未選択です。");
+      return;
+    }
+    const shopOrders = orderItems.filter((o) => {
+      const shopId = (o as any)?.shopId ?? (o as any)?.shop?.id ?? "";
+      return shopId ? shopId === selectedShopId : true;
+    });
+    if (shopOrders.length === 0) {
+      alert("対象のオーダーが見つかりません。");
+      return;
+    }
+    if (shopOrders.length > 1) {
+      setRejectOrderCandidates(shopOrders);
+      setRejectOrderSelectOpen(true);
+      return;
+    }
+    await rejectOrder(shopOrders[0].id);
+  };
 
   return (
     <AppShell>
@@ -1844,18 +2031,22 @@ export default function Page() {
                               })
                             }
                           >
-                          {shopTableColumns.map((col, idx) => (
-                            <td
-                              key={col.key}
-                              className={`border border-slate-200 px-2 py-1 whitespace-nowrap ${
-                                isSelected && idx === 0
-                                  ? "border-l-4 border-l-sky-500"
-                                  : ""
-                              }`}
-                            >
-                              {renderShopCell(shop, col.key)}
-                            </td>
-                          ))}
+                          {shopTableColumns.map((col, idx) => {
+                            const isEditing = shop.contactStatus === "editing";
+                            const isNameCell = col.key === "name";
+                            return (
+                              <td
+                                key={col.key}
+                                className={`border border-slate-200 px-2 py-1 whitespace-nowrap ${
+                                  isSelected && idx === 0
+                                    ? "border-l-4 border-l-sky-500"
+                                    : ""
+                                } ${isEditing && isNameCell ? "bg-red-100 text-red-700" : ""}`}
+                              >
+                                {renderShopCell(shop, col.key)}
+                              </td>
+                            );
+                          })}
                         </tr>
                       )})
                     )}
@@ -2676,16 +2867,28 @@ export default function Page() {
             }}
           >
             <span>オーダー画面</span>
-            <button
-              type="button"
-              className="border border-gray-300 bg-white px-2 py-0.5 text-[10px]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setFloatMinimized(true);
-              }}
-            >
-              最小化
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="border border-gray-300 bg-white px-2 py-0.5 text-[10px]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleRejectClick();
+                }}
+              >
+                不承
+              </button>
+              <button
+                type="button"
+                className="border border-gray-300 bg-white px-2 py-0.5 text-[10px]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFloatMinimized(true);
+                }}
+              >
+                最小化
+              </button>
+            </div>
           </div>
           <div className="p-3 flex flex-col gap-3">
             <div className="flex flex-col gap-1 text-[11px] text-muted">
@@ -3054,6 +3257,52 @@ export default function Page() {
                 onClick={() => {
                   setConfirmOrderSelectOpen(false);
                   setConfirmOrderCandidates([]);
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectOrderSelectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setRejectOrderSelectOpen(false);
+              setRejectOrderCandidates([]);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm bg-white border border-gray-200 shadow-xl p-4">
+            <div className="text-sm font-semibold">オーダー選択（不承）</div>
+            <div className="mt-2 text-xs text-muted">
+              不承にするオーダーを選択してください。
+            </div>
+            <div className="mt-3 flex flex-col gap-2">
+              {rejectOrderCandidates.map((order) => (
+                <button
+                  key={order.id}
+                  type="button"
+                  className="border border-gray-300 bg-white text-left px-3 py-2 text-xs hover:bg-slate-50"
+                  onClick={() => {
+                    setRejectOrderSelectOpen(false);
+                    setRejectOrderCandidates([]);
+                    void rejectOrder(order.id);
+                  }}
+                >
+                  {order.name}（{order.detail}）
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="border border-gray-300 bg-white px-3 py-1 text-xs"
+                onClick={() => {
+                  setRejectOrderSelectOpen(false);
+                  setRejectOrderCandidates([]);
                 }}
               >
                 キャンセル

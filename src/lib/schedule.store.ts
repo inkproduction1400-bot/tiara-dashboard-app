@@ -24,6 +24,7 @@ export type ScheduleShopRequest = {
   minAge?: number;
   maxAge?: number;
   requireDrinkOk: boolean;
+  contactStatus?: string | null;
   note?: string;
 };
 
@@ -62,6 +63,7 @@ function mapRecordToScheduleShopRequest(
     minAge: record.minAge ?? undefined,
     maxAge: record.maxAge ?? undefined,
     requireDrinkOk: record.requireDrinkOk,
+    contactStatus: record.contactStatus ?? undefined,
     note: record.note ?? undefined,
   };
 }

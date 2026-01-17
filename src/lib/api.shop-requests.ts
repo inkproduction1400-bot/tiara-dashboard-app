@@ -31,6 +31,7 @@ export type ShopRequestRecord = {
   minAge: number | null;
   maxAge: number | null;
   requireDrinkOk: boolean;
+  contactStatus?: string | null;
   note: string | null;
   createdAt: string;
   updatedAt: string;
@@ -83,6 +84,7 @@ export type CreateShopRequestPayload = {
   minAge?: number;
   maxAge?: number;
   requireDrinkOk?: boolean;
+  contactStatus?: string | null;
   note?: string | null;
 };
 

@@ -3,9 +3,10 @@
 
 import { getToken } from "./device";
 
-// NEXT_PUBLIC_API_URL が未設定なら /api/v1 まで入ったデフォルトを使う
+// NEXT_PUBLIC_API_URL が未設定/空なら /api/v1 まで入ったデフォルトを使う
 const RAW_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1";
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  "https://www.tiara.yunari.wiki/api/v1";
 
 // 末尾スラッシュを除去しておく（結合時に二重 / を避ける）
 export const API_BASE = RAW_BASE.replace(/\/+$/, "");

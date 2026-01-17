@@ -47,6 +47,8 @@ type WageFilter =
   | "6000"
   | "6500";
 
+const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
+
 // 年齢レンジフィルタ
 type AgeRangeFilter =
   | ""
@@ -167,6 +169,28 @@ const castNumberKey = (cast: Cast): number => {
 /** キャストの「50音ソート用キー」（名前ベース） */
 const castKanaKey = (cast: Cast): string => {
   return cast.name ?? "";
+};
+
+const bucketWage = (value?: number | null): number | null => {
+  if (typeof value !== "number" || Number.isNaN(value)) return null;
+  const v = Math.max(0, value);
+  for (const bucket of WAGE_BUCKETS) {
+    if (v <= bucket) return bucket;
+  }
+  return WAGE_BUCKETS[WAGE_BUCKETS.length - 1] ?? null;
+};
+
+const buildWageCounts = (casts: Cast[]): Record<number, number> => {
+  const counts: Record<number, number> = {};
+  for (const bucket of WAGE_BUCKETS) {
+    counts[bucket] = 0;
+  }
+  for (const cast of casts) {
+    const bucket = bucketWage(cast.desiredHourly);
+    if (!bucket) continue;
+    counts[bucket] = (counts[bucket] ?? 0) + 1;
+  }
+  return counts;
 };
 
 /** 店舗の「番号ソート用キー」（codeから数字を抽出） */
@@ -810,7 +834,7 @@ export default function Page() {
             code: item.managementNumber ?? item.userId.slice(0, 8),
             name: item.displayName,
             age: item.age ?? 0,
-            desiredHourly: 0, // /casts 側では希望時給はまだ無いので 0 で補完
+            desiredHourly: item.desiredHourly ?? 0,
             drinkLevel: mapDrinkLevel(
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
@@ -1108,6 +1132,9 @@ export default function Page() {
   useEffect(() => {
     if (orderShopActiveIndex > 0) setOrderShopActiveIndex(0);
   }, [orderShopQuery]);
+
+  const todayWageCounts = useMemo(() => buildWageCounts(todayCasts), [todayCasts]);
+  const systemWageCounts = useMemo(() => buildWageCounts(allCasts), [allCasts]);
 
   // NG登録モーダル用 店舗リスト（ジャンル・名前・ID・並び替え）
   const ngCandidateShops = useMemo(() => {
@@ -1840,27 +1867,21 @@ export default function Page() {
             <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
               <div className="font-semibold">時給別（本日出勤予定）</div>
               <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
-                <span>・2500円　・名</span>
-                <span>・3000円　・名</span>
-                <span>・3500円　・名</span>
-                <span>・4500円　・名</span>
-                <span>・5000円　・名</span>
-                <span>・5500円　・名</span>
-                <span>・6000円　・名</span>
-                <span>・6500円　・名</span>
+                {WAGE_BUCKETS.map((wage) => (
+                  <span key={`today-${wage}`}>
+                    ・{wage}円　{todayWageCounts[wage] ?? 0}名
+                  </span>
+                ))}
               </div>
             </div>
             <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
               <div className="font-semibold">時給別（システム登録）</div>
               <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
-                <span>・2500円　・名</span>
-                <span>・3000円　・名</span>
-                <span>・3500円　・名</span>
-                <span>・4500円　・名</span>
-                <span>・5000円　・名</span>
-                <span>・5500円　・名</span>
-                <span>・6000円　・名</span>
-                <span>・6500円　・名</span>
+                {WAGE_BUCKETS.map((wage) => (
+                  <span key={`system-${wage}`}>
+                    ・{wage}円　{systemWageCounts[wage] ?? 0}名
+                  </span>
+                ))}
               </div>
             </div>
             {floatMinimized && (

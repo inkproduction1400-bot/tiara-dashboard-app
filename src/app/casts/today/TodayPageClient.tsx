@@ -460,6 +460,10 @@ export default function Page() {
   const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
   // 全キャスト（シフトに関係なく /casts から取得）
   const [allCasts, setAllCasts] = useState<Cast[]>([]);
+  const [orderSummary, setOrderSummary] = useState<{
+    count: number;
+    headcount: number;
+  }>({ count: 0, headcount: 0 });
 
   // 本日分の店舗（スケジュールAPI連携）
   const [todayShops, setTodayShops] = useState<Shop[]>([]);
@@ -1135,6 +1139,32 @@ export default function Page() {
 
   const todayWageCounts = useMemo(() => buildWageCounts(todayCasts), [todayCasts]);
   const systemWageCounts = useMemo(() => buildWageCounts(allCasts), [allCasts]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const date = todayKey();
+        const orders = await listShopOrders(date);
+        if (cancelled) return;
+        const count = orders.length;
+        const headcount = orders.reduce((sum, order) => {
+          const value = Number(
+            order?.headcount ?? order?.head_count ?? order?.headCount ?? 0,
+          );
+          return sum + (Number.isFinite(value) ? value : 0);
+        }, 0);
+        setOrderSummary({ count, headcount });
+      } catch (err) {
+        if (cancelled) return;
+        console.warn("[casts/today] load order summary failed", { err });
+        setOrderSummary({ count: 0, headcount: 0 });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderItems, orderAssignments, selectedShopId]);
 
   // NG登録モーダル用 店舗リスト（ジャンル・名前・ID・並び替え）
   const ngCandidateShops = useMemo(() => {
@@ -1858,11 +1888,11 @@ export default function Page() {
           <div className="flex flex-wrap items-start gap-3 text-xs">
             <div className="border border-slate-200 bg-white px-3 py-2">
               <div className="font-semibold">オーダー数</div>
-              <div className="mt-1 text-[11px]">0 件</div>
+              <div className="mt-1 text-[11px]">{orderSummary.count} 件</div>
             </div>
             <div className="border border-slate-200 bg-white px-3 py-2">
               <div className="font-semibold">オーダー人数</div>
-              <div className="mt-1 text-[11px]">0 人</div>
+              <div className="mt-1 text-[11px]">{orderSummary.headcount} 人</div>
             </div>
             <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
               <div className="font-semibold">時給別（本日出勤予定）</div>

@@ -145,6 +145,7 @@ export default function Page() {
     useState<ShopAssignment | null>(null);
   const [assignmentDraftIsNew, setAssignmentDraftIsNew] = useState(false);
   const [orderCandidates, setOrderCandidates] = useState<OrderCandidate[]>([]);
+  const [orderStartTime, setOrderStartTime] = useState<string>("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
   const editingRef = useRef<ScheduleShopRequest | null>(null);
@@ -336,6 +337,19 @@ export default function Page() {
     setEditingIsNew(false);
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
+    setOrderStartTime("");
+    if (shop.date) {
+      void (async () => {
+        const candidates = await resolveTargetOrdersForShop(
+          resolveShopKey(shop),
+          shop.date,
+        );
+        setOrderCandidates(candidates);
+        if (candidates.length === 1 && candidates[0].startTime) {
+          setOrderStartTime(candidates[0].startTime ?? "");
+        }
+      })();
+    }
   };
 
   const openNew = () => {
@@ -344,6 +358,10 @@ export default function Page() {
     setEditingIsNew(true);
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
+    setOrderStartTime("");
+    setOrderCandidates([]);
+    setSelectedOrderId(null);
+    setOrderSelectOpen(false);
   };
 
   const closeEdit = () => {
@@ -351,6 +369,10 @@ export default function Page() {
     setEditingIsNew(false);
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
+    setOrderStartTime("");
+    setOrderCandidates([]);
+    setSelectedOrderId(null);
+    setOrderSelectOpen(false);
   };
 
   const saveEdit = () => {
@@ -825,24 +847,25 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* 日付・人数・飲酒 */}
+                {/* 入店時間・人数・飲酒 */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[11px] text-muted mb-1">
-                      日付
+                      入店時間
                     </label>
                     <select
                       className="tiara-input h-9 w-full py-1 text-xs leading-normal"
-                      value={editing.date}
-                      onChange={(e) =>
-                        setEditing({
-                          ...editing,
-                          date: e.target.value,
-                        })
-                      }
+                      value={orderStartTime}
+                      onChange={(e) => setOrderStartTime(e.target.value)}
                     >
-                      <option value={todayKey()}>本日</option>
-                      <option value={tomorrowKey()}>明日</option>
+                      <option value="">未指定</option>
+                      {["00:00", "20:00", "21:00", "22:00", "23:00"].map(
+                        (t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ),
+                      )}
                     </select>
                   </div>
                   <div>

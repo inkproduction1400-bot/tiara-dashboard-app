@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { API_BASE } from "@/lib/api";
 
 type Staff = {
   id: string;
@@ -147,10 +148,7 @@ function getAuthToken(): string | null {
 }
 
 function getApiBase(): string {
-  const envBase =
-    (process.env.NEXT_PUBLIC_API_URL || "").trim() ||
-    "http://localhost:4000/api/v1";
-  return envBase.replace(/\/+$/, "");
+  return API_BASE;
 }
 
 async function apiFetch<T>(

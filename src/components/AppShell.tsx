@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/device";
+import { API_BASE } from "@/lib/api";
 import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
 
 type Props = {
@@ -19,10 +20,7 @@ type ApiSummaryResponse = {
 };
 
 function getApiBase(): string {
-  const envBase =
-    (process.env.NEXT_PUBLIC_API_URL || "").trim() ||
-    "http://localhost:4000/api/v1";
-  return envBase.replace(/\/+$/, "");
+  return API_BASE;
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

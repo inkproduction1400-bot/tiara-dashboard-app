@@ -1401,9 +1401,14 @@ export default function Page() {
 
     const date = todayKey();
     const requestId = await resolveShopRequestId(shopId, date);
-    if (!requestId) return;
-
     updateLocalContactStatus(shopId, status, requestId);
+    if (!requestId) {
+      console.warn("[casts/today] contactStatus pending (requestId not found)", {
+        shopId,
+        status,
+      });
+      return;
+    }
     try {
       await updateShopRequest(requestId, { contactStatus: status ?? null });
     } catch (err) {

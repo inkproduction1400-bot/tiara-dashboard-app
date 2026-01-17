@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import {
   listTodayCasts,
@@ -48,6 +49,7 @@ type WageFilter =
   | "6500";
 
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
+const assignmentPickStorageKey = "tiara:assignments:pick";
 
 // 年齢レンジフィルタ
 type AgeRangeFilter =
@@ -456,6 +458,14 @@ const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
 };
 
 export default function Page() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pickMode = searchParams?.get("pick") === "1";
+  const pickReturnTo = searchParams?.get("return") || "/assignments";
+  const pickShopId = searchParams?.get("shopId") || "";
+  const pickOrderId = searchParams?.get("orderId") || "";
+  const pickOrderStartTime = searchParams?.get("orderStartTime") || "";
+  const initialTab = searchParams?.get("tab");
   // 本日出勤キャスト一覧（/casts/today）
   const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
   // 全キャスト（シフトに関係なく /casts から取得）
@@ -521,6 +531,15 @@ export default function Page() {
   const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(
     null,
   );
+  useEffect(() => {
+    if (pickMode) {
+      setPanelTab("casts");
+      return;
+    }
+    if (initialTab === "casts" || initialTab === "shops") {
+      setPanelTab(initialTab);
+    }
+  }, [pickMode, initialTab]);
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
     x: 0,
@@ -2701,6 +2720,52 @@ export default function Page() {
                 className="tiara-btn text-xs"
                 onClick={async () => {
                   if (!selectedCast) return;
+                  if (pickMode) {
+                    if (!pickShopId) {
+                      alert("対象店舗が特定できません。");
+                      return;
+                    }
+                    const detail = castDetailById[selectedCast.id] ?? null;
+                    const castCode =
+                      detail?.castCode ??
+                      detail?.managementNumber ??
+                      selectedCast.code ??
+                      "";
+                    const castName =
+                      detail?.displayName ??
+                      detail?.name ??
+                      selectedCast.name ??
+                      "";
+                    const agreedHourlyRaw =
+                      detail?.preferences?.desiredHourly ??
+                      detail?.desiredHourly ??
+                      selectedCast.desiredHourly ??
+                      0;
+                    const payload = {
+                      shopId: pickShopId,
+                      orderId: pickOrderId || null,
+                      orderStartTime: pickOrderStartTime || null,
+                      castId: selectedCast.id,
+                      castCode,
+                      castName,
+                      agreedHourly: Number.isFinite(Number(agreedHourlyRaw))
+                        ? Number(agreedHourlyRaw)
+                        : 0,
+                    };
+                    try {
+                      window.localStorage.setItem(
+                        assignmentPickStorageKey,
+                        JSON.stringify(payload),
+                      );
+                    } catch {}
+                    const next =
+                      pickReturnTo +
+                      (pickReturnTo.includes("?") ? "&" : "?") +
+                      "pick=1";
+                    router.push(next);
+                    closeCastDetail();
+                    return;
+                  }
                   if (orderItems.length === 0) {
                     const headcount = Number(dispatchCount);
                     const safeHeadcount = Number.isFinite(headcount)

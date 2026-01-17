@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import {
   type ShopAssignment,
@@ -61,6 +62,7 @@ const formatDateYmdJa = (date: string) => {
 };
 
 const resolveShopKey = (shop: ScheduleShopRequest) => shop.shopId ?? shop.id;
+const assignmentPickStorageKey = "tiara:assignments:pick";
 
 type OrderCandidate = {
   id: string;
@@ -126,6 +128,7 @@ const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
 });
 
 export default function Page() {
+  const router = useRouter();
   // スケジュール（本日＋明日分）は API からロード
   const [items, setItems] = useState<ScheduleShopRequest[]>([]);
   // 割当キャストは従来どおりローカルストア
@@ -255,6 +258,7 @@ export default function Page() {
     });
     return unsubscribe;
   }, []);
+
 
   // 店舗ごとの割当リスト（一覧表示用）
   const assignmentsByShop = useMemo(() => {
@@ -389,6 +393,64 @@ export default function Page() {
       })();
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(assignmentPickStorageKey);
+    if (!raw) return;
+    let payload: any = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!payload?.shopId || !payload?.castId) return;
+
+    const shop = items.find((s) => resolveShopKey(s) === payload.shopId);
+    if (!shop) return;
+
+    window.localStorage.removeItem(assignmentPickStorageKey);
+    openEdit(shop, {
+      orderId: payload.orderId ?? undefined,
+      orderStartTime: payload.orderStartTime ?? undefined,
+      assignments: [],
+    });
+
+    setAssignments((prev) => {
+      const exists = prev.some(
+        (a) =>
+          a.castId === payload.castId &&
+          (payload.orderId
+            ? a.orderId === payload.orderId
+            : a.orderStartTime === payload.orderStartTime),
+      );
+      if (exists) return prev;
+      const next = [
+        ...prev,
+        {
+          id: `${payload.orderId ?? payload.shopId}-${payload.castId}-${Date.now()}`,
+          shopId: payload.shopId,
+          orderId: payload.orderId ?? undefined,
+          orderStartTime: payload.orderStartTime ?? undefined,
+          castId: payload.castId,
+          castCode: payload.castCode ?? "",
+          castName: payload.castName ?? "",
+          agreedHourly:
+            Number.isFinite(Number(payload.agreedHourly))
+              ? Number(payload.agreedHourly)
+              : 0,
+          note: "",
+        },
+      ];
+      saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
+      return next;
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pick") === "1") {
+      router.replace("/assignments");
+    }
+  }, [items, router, dateFilter]);
 
   const openNew = () => {
     const next = createEmptyScheduleRequest(todayKey());
@@ -531,6 +593,20 @@ export default function Page() {
   };
 
   // ===== 割当キャスト 編集系（モーダル内） =====
+  const openCastPicker = () => {
+    if (!editing) return;
+    const shopId = resolveShopKey(editing);
+    const params = new URLSearchParams({
+      pick: "1",
+      tab: "casts",
+      shopId,
+      return: "/assignments",
+    });
+    if (selectedOrderId) params.set("orderId", selectedOrderId);
+    if (orderStartTime) params.set("orderStartTime", orderStartTime);
+    router.push(`/casts/today?${params.toString()}`);
+  };
+
   const beginNewAssignment = async () => {
     if (!editing) return;
     const shopKey = resolveShopKey(editing);
@@ -1151,9 +1227,9 @@ export default function Page() {
                   <button
                     type="button"
                     className="tiara-btn text-[11px] px-3 py-1"
-                    onClick={beginNewAssignment}
+                    onClick={openCastPicker}
                   >
-                    ＋ 割当を追加（ローカル）
+                    ＋ 割当を追加
                   </button>
                 </div>
 

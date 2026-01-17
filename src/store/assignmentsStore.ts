@@ -232,18 +232,46 @@ const mapOrderAssignmentsToLegacy = (
   }));
 };
 
+const getOrderStartTime = (order: any): string | null =>
+  order?.startTime ?? order?.start_time ?? null;
+
 const detectOrderIdFromAssignments = (
   ordersForShop: any[],
   assignments: ShopAssignment[],
 ): string | null => {
-  const orderIds = ordersForShop.map((order) => order.id);
+  const orderIds = new Set(ordersForShop.map((order) => order.id));
+  const explicitIds = new Set(
+    assignments
+      .map((a) => a.orderId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  if (explicitIds.size === 1) {
+    const id = [...explicitIds][0];
+    return orderIds.has(id) ? id : null;
+  }
+  if (explicitIds.size > 1) return null;
+
+  const explicitTimes = new Set(
+    assignments
+      .map((a) => a.orderStartTime)
+      .filter((t): t is string => Boolean(t)),
+  );
+  if (explicitTimes.size === 1) {
+    const time = [...explicitTimes][0];
+    const matched = ordersForShop.filter(
+      (order) => getOrderStartTime(order) === time,
+    );
+    if (matched.length === 1) return matched[0].id;
+  }
+
   const matched = new Set<string>();
   for (const a of assignments) {
     if (!a.id) continue;
-    const found = orderIds.find(
-      (id) => a.id === id || a.id.startsWith(`${id}-`),
+    const found = ordersForShop.find(
+      (order) => a.id === order.id || a.id.startsWith(`${order.id}-`),
     );
-    if (found) matched.add(found);
+    if (found) matched.add(found.id);
   }
   if (matched.size === 1) return [...matched][0];
   if (matched.size > 1) return null;
@@ -253,7 +281,9 @@ const detectOrderIdFromAssignments = (
 async function loadAssignmentsFromApi(date: string): Promise<ShopAssignment[]> {
   console.warn("[assignmentsStore] loadAssignmentsFromApi", { date });
   const orders = await listShopOrders(date);
-  const list = normalizeOrders(orders);
+  const list = normalizeOrders(orders).filter(
+    (order) => order?.status !== "canceled",
+  );
   if (list.length === 0) return [];
 
   const assignmentsByOrder = await Promise.all(
@@ -295,45 +325,71 @@ async function mapLegacyToApi(
   const groups = groupByShopId(items);
   const result: { orderId: string; assignments: ShopOrderAssignmentPayload[] }[] = [];
 
-  for (const [shopId, assigns] of Object.entries(groups)) {
-    const ordersForShop = ordersByShop[shopId] ?? [];
-    if (ordersForShop.length === 0) continue;
-
-    let targetOrder = ordersForShop[0];
-    if (ordersForShop.length > 1) {
-      const detectedOrderId = detectOrderIdFromAssignments(
-        ordersForShop,
-        assigns,
-      );
-      if (detectedOrderId) {
-        const matched = ordersForShop.find(
-          (order) => order.id === detectedOrderId,
-        );
-        if (matched) {
-          targetOrder = matched;
-        }
-      } else {
-        const sorted = [...ordersForShop].sort((a, b) => {
-          const an = Number(a?.orderNo ?? a?.order_no ?? 0);
-          const bn = Number(b?.orderNo ?? b?.order_no ?? 0);
-          return an - bn;
-        });
-        console.warn(
-          "[assignmentsStore] skip API save: multiple orders without mapping hint",
-          { shopId, date, orderIds: sorted.map((o) => o.id) },
-        );
-        continue;
-      }
-    }
-
-    const payloads = assigns.map((a) => ({
+  const buildPayloads = (assigns: ShopAssignment[]) =>
+    assigns.map((a) => ({
       castId: a.castId ?? undefined,
       castCode: a.castCode || undefined,
       castName: a.castName || undefined,
       agreedHourly: Number.isFinite(a.agreedHourly) ? a.agreedHourly : 0,
       note: a.note ?? "",
     }));
-    result.push({ orderId: targetOrder.id, assignments: payloads });
+
+  for (const [shopId, assigns] of Object.entries(groups)) {
+    const ordersForShop = ordersByShop[shopId] ?? [];
+    if (ordersForShop.length === 0) continue;
+
+    const byOrderId = new Map<string, ShopAssignment[]>();
+    const withoutOrderId: ShopAssignment[] = [];
+    for (const a of assigns) {
+      if (a.orderId) {
+        const list = byOrderId.get(a.orderId) ?? [];
+        list.push(a);
+        byOrderId.set(a.orderId, list);
+      } else {
+        withoutOrderId.push(a);
+      }
+    }
+
+    if (byOrderId.size > 0) {
+      for (const [orderId, list] of byOrderId.entries()) {
+        const matched = ordersForShop.find((order) => order.id === orderId);
+        if (!matched) continue;
+        result.push({ orderId: matched.id, assignments: buildPayloads(list) });
+      }
+    }
+
+    if (withoutOrderId.length > 0) {
+      let targetOrder = ordersForShop[0];
+      if (ordersForShop.length > 1) {
+        const detectedOrderId = detectOrderIdFromAssignments(
+          ordersForShop,
+          withoutOrderId,
+        );
+        if (detectedOrderId) {
+          const matched = ordersForShop.find(
+            (order) => order.id === detectedOrderId,
+          );
+          if (matched) {
+            targetOrder = matched;
+          }
+        } else {
+          const sorted = [...ordersForShop].sort((a, b) => {
+            const an = Number(a?.orderNo ?? a?.order_no ?? 0);
+            const bn = Number(b?.orderNo ?? b?.order_no ?? 0);
+            return an - bn;
+          });
+          console.warn(
+            "[assignmentsStore] skip API save: multiple orders without mapping hint",
+            { shopId, date, orderIds: sorted.map((o) => o.id) },
+          );
+          continue;
+        }
+      }
+      result.push({
+        orderId: targetOrder.id,
+        assignments: buildPayloads(withoutOrderId),
+      });
+    }
   }
 
   return result;

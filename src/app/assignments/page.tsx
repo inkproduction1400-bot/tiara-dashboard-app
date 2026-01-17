@@ -12,6 +12,7 @@ import {
 } from "@/store/assignmentsStore";
 import {
   listShopOrders,
+  replaceOrderAssignments,
   updateShopOrder,
   confirmShopOrder,
 } from "@/lib/api.shop-orders";
@@ -494,6 +495,40 @@ export default function Page() {
     }
   };
 
+  const deleteOrder = async (
+    shop: ScheduleShopRequest,
+    group?: AssignmentGroup,
+  ) => {
+    if (!group?.orderId) {
+      deleteItem(shop);
+      return;
+    }
+
+    const orderLabel = formatOrderLabel(group);
+    if (
+      !window.confirm(
+        `${shop.name} のオーダー ${orderLabel || ""} を削除しますか？\n（このオーダーの割当キャストも削除されます）`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await replaceOrderAssignments(group.orderId, []);
+      await updateShopOrder(group.orderId, { status: "canceled" });
+    } catch (err) {
+      console.warn("[assignments] deleteOrder failed", err);
+      alert("オーダー削除に失敗しました。時間をおいて再度お試しください。");
+      return;
+    }
+
+    setAssignments((prev) => {
+      const next = prev.filter((a) => a.orderId !== group.orderId);
+      saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
+      return next;
+    });
+  };
+
   // ===== 割当キャスト 編集系（モーダル内） =====
   const beginNewAssignment = async () => {
     if (!editing) return;
@@ -850,7 +885,7 @@ export default function Page() {
                             <button
                               type="button"
                               className="rounded-xl border border-red-500 bg-white text-red-600 px-3 py-1 text-[11px] hover:bg-red-50"
-                              onClick={() => deleteItem(shop)}
+                              onClick={() => void deleteOrder(shop, group)}
                             >
                               削除
                             </button>

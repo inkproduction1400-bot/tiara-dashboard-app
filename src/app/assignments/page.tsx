@@ -10,7 +10,11 @@ import {
   createEmptyAssignment,
   subscribeAssignments,
 } from "@/store/assignmentsStore";
-import { listShopOrders } from "@/lib/api.shop-orders";
+import {
+  listShopOrders,
+  updateShopOrder,
+  confirmShopOrder,
+} from "@/lib/api.shop-orders";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -148,6 +152,7 @@ export default function Page() {
   const [orderStartTime, setOrderStartTime] = useState<string>("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const editingRef = useRef<ScheduleShopRequest | null>(null);
   const assignmentDraftRef = useRef<ShopAssignment | null>(null);
   const dateFilterRef = useRef<"all" | "today" | "tomorrow">("all");
@@ -419,6 +424,47 @@ export default function Page() {
     });
 
     closeEdit();
+  };
+
+  const resolveEditingOrderId = useCallback(() => {
+    if (selectedOrderId) return selectedOrderId;
+    if (orderCandidates.length === 1) return orderCandidates[0].id;
+    if (orderStartTime) {
+      const matched = orderCandidates.find(
+        (c) => c.startTime === orderStartTime,
+      );
+      if (matched) return matched.id;
+    }
+    return null;
+  }, [orderCandidates, orderStartTime, selectedOrderId]);
+
+  const confirmMatching = async () => {
+    if (!editing || editingIsNew) {
+      alert("既存の店舗リクエストを選択してください。");
+      return;
+    }
+    const orderId = resolveEditingOrderId();
+    if (!orderId) {
+      alert("対象オーダーが特定できません。入店時間を選択してください。");
+      return;
+    }
+
+    if (confirming) return;
+    setConfirming(true);
+
+    try {
+      if (orderStartTime) {
+        await updateShopOrder(orderId, { startTime: orderStartTime });
+      }
+      await confirmShopOrder(orderId);
+      alert("マッチングを確定しました。");
+      closeEdit();
+    } catch (err) {
+      console.warn("[assignments] confirmMatching failed", err);
+      alert("マッチング確定に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setConfirming(false);
+    }
   };
 
   const deleteItem = (shop: ScheduleShopRequest) => {
@@ -1293,11 +1339,10 @@ export default function Page() {
               <button
                 type="button"
                 className="tiara-btn text-xs"
-                onClick={saveEdit}
+                onClick={confirmMatching}
+                disabled={confirming}
               >
-                {editingIsNew
-                  ? "リクエストを追加（ローカル）"
-                  : "リクエストを保存（ローカル）"}
+                {confirming ? "確定中..." : "マッチング確定"}
               </button>
             </footer>
           </div>

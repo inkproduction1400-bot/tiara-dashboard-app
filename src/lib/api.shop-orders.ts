@@ -163,6 +163,27 @@ export async function replaceOrderAssignments(
   );
 }
 
+export async function updateShopOrder(
+  orderId: string,
+  payload: Partial<CreateShopOrderPayload>,
+): Promise<ShopOrderRecord> {
+  return apiFetch<ShopOrderRecord>(
+    `/shop-orders/${orderId}`,
+    withUser({
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export async function confirmShopOrder(orderId: string): Promise<void> {
+  await apiFetch<void>(
+    `/shop-orders/${orderId}/confirm`,
+    withUser({ method: "POST" }),
+  );
+}
+
 export async function upsertShopOrder(
   orderId: string,
   payload: Partial<ShopOrderRecord>,

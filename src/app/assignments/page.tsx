@@ -794,7 +794,7 @@ export default function Page() {
                               className="tiara-btn text-[11px] px-3 py-1"
                               onClick={() => openEdit(shop, group)}
                             >
-                              詳細・編集
+                              詳細/編集
                             </button>
                             <button
                               type="button"

@@ -158,26 +158,44 @@ export default function Page() {
   };
 
   // 初期ロード: 本日 + 明日の店舗リクエストを取得
+  const fetchSchedule = useCallback(async () => {
+    try {
+      const today = todayKey();
+      const tomorrow = tomorrowKey();
+      const [todayList, tomorrowList] = await Promise.all([
+        loadScheduleShopRequests(today),
+        loadScheduleShopRequests(tomorrow),
+      ]);
+      setItems([...todayList, ...tomorrowList]);
+    } catch (err) {
+      console.error(
+        "failed to load schedule shop requests for assignments page",
+        err,
+      );
+      setItems([]);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const today = todayKey();
-        const tomorrow = tomorrowKey();
-        const [todayList, tomorrowList] = await Promise.all([
-          loadScheduleShopRequests(today),
-          loadScheduleShopRequests(tomorrow),
-        ]);
-        setItems([...todayList, ...tomorrowList]);
-      } catch (err) {
-        console.error(
-          "failed to load schedule shop requests for assignments page",
-          err,
-        );
-        setItems([]);
+    void fetchSchedule();
+  }, [fetchSchedule]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (items.length === 0) void fetchSchedule();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && items.length === 0) {
+        void fetchSchedule();
       }
     };
-    void fetch();
-  }, []);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [items.length, fetchSchedule]);
 
   useEffect(() => {
     editingRef.current = editing;

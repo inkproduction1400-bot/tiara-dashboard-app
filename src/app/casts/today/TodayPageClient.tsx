@@ -586,7 +586,7 @@ export default function Page() {
   }, [photoByCastId]);
 
   const shopTableColumns = [
-    { key: "code", label: "店舗番号", width: "80px" },
+    { key: "code", label: "店舗番号", width: "60px" },
     { key: "name", label: "店舗", width: "160px" },
     { key: "tel", label: "TEL", width: "120px" },
     { key: "hourly", label: "時給", width: "110px" },

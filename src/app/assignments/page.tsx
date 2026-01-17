@@ -849,18 +849,22 @@ export default function Page() {
                     <label className="block text-[11px] text-muted mb-1">
                       希望人数
                     </label>
-                    <input
-                      type="number"
-                      className="tiara-input h-8 w-full text-xs text-right"
-                      min={0}
-                      value={editing.requestedHeadcount}
+                    <select
+                      className="tiara-input h-9 w-full py-1 text-xs leading-normal"
+                      value={String(editing.requestedHeadcount ?? 0)}
                       onChange={(e) =>
                         setEditing({
                           ...editing,
                           requestedHeadcount: Number(e.target.value || 0),
                         })
                       }
-                    />
+                    >
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <option key={n} value={n}>
+                          {n} 名
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] text-muted mb-1">
@@ -882,80 +886,62 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* 時給レンジ・年齢レンジ */}
+                {/* 時給・年齢 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[11px] text-muted mb-1">
-                      希望時給レンジ（円）
+                      希望時給
                     </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="tiara-input h-8 w-full text-xs text-right"
-                        placeholder="min"
-                        value={editing.minHourly ?? ""}
-                        onChange={(e) =>
-                          setEditing({
-                            ...editing,
-                            minHourly: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
-                          })
-                        }
-                      />
-                      <span className="text-muted">〜</span>
-                      <input
-                        type="number"
-                        className="tiara-input h-8 w-full text-xs text-right"
-                        placeholder="max"
-                        value={editing.maxHourly ?? ""}
-                        onChange={(e) =>
-                          setEditing({
-                            ...editing,
-                            maxHourly: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
-                          })
-                        }
-                      />
-                    </div>
+                    <select
+                      className="tiara-input h-9 w-full py-1 text-xs leading-normal"
+                      value={editing.minHourly ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          minHourly: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
+                          maxHourly: undefined,
+                        })
+                      }
+                    >
+                      <option value="">未指定</option>
+                      {[2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000].map(
+                        (n) => (
+                          <option key={n} value={n}>
+                            ¥{n.toLocaleString()}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-[11px] text-muted mb-1">
-                      希望年齢レンジ（歳）
+                      希望年齢
                     </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        className="tiara-input h-8 w-full text-xs text-right"
-                        placeholder="min"
-                        value={editing.minAge ?? ""}
-                        onChange={(e) =>
-                          setEditing({
-                            ...editing,
-                            minAge: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
-                          })
-                        }
-                      />
-                      <span className="text-muted">〜</span>
-                      <input
-                        type="number"
-                        className="tiara-input h-8 w-full text-xs text-right"
-                        placeholder="max"
-                        value={editing.maxAge ?? ""}
-                        onChange={(e) =>
-                          setEditing({
-                            ...editing,
-                            maxAge: e.target.value
-                              ? Number(e.target.value)
-                              : undefined,
-                          })
-                        }
-                      />
-                    </div>
+                    <select
+                      className="tiara-input h-9 w-full py-1 text-xs leading-normal"
+                      value={editing.minAge ?? ""}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          minAge: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
+                          maxAge: undefined,
+                        })
+                      }
+                    >
+                      <option value="">未指定</option>
+                      {Array.from({ length: 23 }, (_, i) => 18 + i).map(
+                        (n) => (
+                          <option key={n} value={n}>
+                            {n} 歳
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </div>
                 </div>
 

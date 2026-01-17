@@ -18,6 +18,7 @@ import {
   confirmShopOrder,
 } from "@/lib/api.shop-orders";
 import { getCast } from "@/lib/api.casts";
+import { updateShopRequest } from "@/lib/api.shop-requests";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -69,6 +70,7 @@ type OrderCandidate = {
   id: string;
   orderNo: number;
   startTime?: string | null;
+  status?: string | null;
 };
 
 type AssignmentGroup = {
@@ -107,6 +109,7 @@ const resolveTargetOrdersForShop = async (
       id: order.id,
       orderNo: Number(order?.orderNo ?? order?.order_no ?? 0),
       startTime: order?.startTime ?? order?.start_time ?? null,
+      status: order?.status ?? null,
     }));
   } catch {
     return [];
@@ -184,6 +187,11 @@ export default function Page() {
     }
     return merged;
   }, [orderCandidates]);
+
+  const selectedOrderCandidate = useMemo(
+    () => orderCandidates.find((c) => c.id === selectedOrderId) ?? null,
+    [orderCandidates, selectedOrderId],
+  );
 
   const handlePrint = () => {
     window.print();
@@ -563,10 +571,35 @@ export default function Page() {
     setConfirming(true);
 
     try {
+      const updatedRequest = await updateShopRequest(editing.id, {
+        requestedHeadcount: editing.requestedHeadcount ?? 0,
+        minHourly: editing.minHourly ?? undefined,
+        maxHourly: undefined,
+        minAge: editing.minAge ?? undefined,
+        maxAge: undefined,
+        requireDrinkOk: editing.requireDrinkOk,
+        note: editing.note ?? null,
+      });
       if (orderStartTime) {
         await updateShopOrder(orderId, { startTime: orderStartTime });
       }
       await confirmShopOrder(orderId);
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === editing.id
+            ? {
+                ...item,
+                requestedHeadcount: updatedRequest.requestedHeadcount,
+                minHourly: updatedRequest.minHourly ?? undefined,
+                maxHourly: updatedRequest.maxHourly ?? undefined,
+                minAge: updatedRequest.minAge ?? undefined,
+                maxAge: updatedRequest.maxAge ?? undefined,
+                requireDrinkOk: updatedRequest.requireDrinkOk,
+                note: updatedRequest.note ?? undefined,
+              }
+            : item,
+        ),
+      );
       alert("マッチングを確定しました。");
       closeEdit();
     } catch (err) {
@@ -957,10 +990,10 @@ export default function Page() {
                     オーダー時間
                   </th>
                   <th className="px-3 py-2 text-right w-[120px]">
-                    時給レンジ
+                    希望時給
                   </th>
                   <th className="px-3 py-2 text-right w-[120px]">
-                    年齢レンジ
+                    希望年齢
                   </th>
                   <th className="px-3 py-2 text-center w-[80px]">飲酒条件</th>
                   <th className="px-3 py-2 text-left w-[200px]">
@@ -1008,14 +1041,9 @@ export default function Page() {
                           {shop.minHourly
                             ? `¥${shop.minHourly.toLocaleString()}`
                             : "-"}
-                          {" 〜 "}
-                          {shop.maxHourly
-                            ? `¥${shop.maxHourly.toLocaleString()}`
-                            : "-"}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {shop.minAge ?? "-"}{" 〜 "}
-                          {shop.maxAge ?? "-"} 歳
+                          {shop.minAge != null ? `${shop.minAge} 歳` : "-"}
                         </td>
                         <td className="px-3 py-2 text-center">
                           {shop.requireDrinkOk ? "飲酒OK必須" : "不問"}
@@ -1385,7 +1413,13 @@ export default function Page() {
                     </div>
 
                     {orderSelectOpen && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+                      <div
+                        className={`rounded-lg border p-3 space-y-2 ${
+                          selectedOrderCandidate?.status === "confirmed"
+                            ? "border-emerald-300 bg-emerald-50"
+                            : "border-amber-200 bg-amber-50"
+                        }`}
+                      >
                         <div className="text-[11px] text-amber-900 font-semibold">
                           オーダー番号を選択してください
                         </div>
@@ -1400,7 +1434,11 @@ export default function Page() {
                             <option value="">オーダー番号を選択</option>
                             {orderCandidates.map((candidate, index) => (
                               <option key={candidate.id} value={candidate.id}>
-                                {`オーダー${candidate.orderNo || index + 1}`}
+                                {`オーダー${candidate.orderNo || index + 1}${
+                                  candidate.startTime
+                                    ? `（${candidate.startTime}）`
+                                    : ""
+                                }${candidate.status === "confirmed" ? "（確定）" : ""}`}
                               </option>
                             ))}
                           </select>

@@ -193,6 +193,7 @@ type ApiRoom = {
   castId?: string;
   cast_id?: string;
   castUserId?: string;
+  updatedAt?: string | null;
   cast?: {
     userId?: string;
     castCode?: string;

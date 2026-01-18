@@ -733,6 +733,7 @@ function ChatContent() {
           roomId,
           castId,
           signal: ac.signal,
+          scroll: false,
         });
       } finally {
         pollingInFlightRef.current = false;
@@ -764,8 +765,10 @@ function ChatContent() {
     roomId: string;
     castId: string;
     signal?: AbortSignal;
+    scroll?: boolean;
   }): Promise<void> {
     const { roomId, castId, signal } = params;
+    const shouldScroll = Boolean(params.scroll);
 
     try {
       const apiMsgs = await apiFetch<ApiMessagesResponse>(
@@ -789,8 +792,9 @@ function ChatContent() {
         setMessages(mapped);
         setMessagesLoaded(true);
 
-        // 再フェッチ後も最下部へ
-        requestAnimationFrame(() => scrollToBottom("auto"));
+        if (shouldScroll) {
+          requestAnimationFrame(() => scrollToBottom("auto", true));
+        }
       }
     } catch {
       // ignore
@@ -904,15 +908,23 @@ function ChatContent() {
       }
 
       // 送信後：右メッセージ再フェッチ & summary再フェッチ→dispatch
-      await refreshMessagesAndSummary({ roomId, castId, signal: ac.signal });
+      await refreshMessagesAndSummary({
+        roomId,
+        castId,
+        signal: ac.signal,
+        scroll: true,
+      });
 
       // 念押し：送信後も最下部へ（スムーズ）
       requestAnimationFrame(() => scrollToBottom("smooth", true));
     } catch (e) {
       // 失敗時：最新状態へ寄せる
-      await refreshMessagesAndSummary({ roomId, castId, signal: ac.signal }).catch(
-        () => {},
-      );
+      await refreshMessagesAndSummary({
+        roomId,
+        castId,
+        signal: ac.signal,
+        scroll: false,
+      }).catch(() => {});
     } finally {
       if (!ac.signal.aborted) {
         setSending(false);

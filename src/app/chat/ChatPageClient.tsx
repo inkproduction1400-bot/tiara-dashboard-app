@@ -871,16 +871,8 @@ function ChatContent() {
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-120px)]">
-      {/* 上部：新規チャット + 絞り込み（横並び） */}
+      {/* 上部：絞り込み（横並び） */}
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="tiara-btn h-9 px-3 text-xs"
-          onClick={handleNewChat}
-        >
-          新規チャット
-        </button>
-
         <input
           className="tiara-input rounded-none h-8 !w-[200px] text-[10px] leading-tight flex-none"
           placeholder="管理番号・名前・旧ID"
@@ -1127,7 +1119,7 @@ function ChatContent() {
                         className={clsx(
                           "max-w-[80%] rounded-2xl px-3 py-2 text-xs shadow-sm",
                           isStaff
-                            ? "bg-accent text-white rounded-br-sm"
+                            ? "bg-sky-600 text-white rounded-br-sm"
                             : "bg-white text-foreground rounded-bl-sm border border-ink/70",
                         )}
                       >

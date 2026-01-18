@@ -7,11 +7,14 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { clearAuth } from "@/lib/device";
+import { ListRides } from "@/lib/api.rides";
+import type { RideStatus } from "@/lib/types.rides";
 
 export default function Sidebar() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const [name, setName] = useState<string>("");
+  const [ridePendingCount, setRidePendingCount] = useState(0);
 
   // NotificationsContext の形が多少違っても落ちないように吸う
   const n = useNotifications() as any;
@@ -39,6 +42,38 @@ export default function Sidebar() {
           localStorage.getItem("tiara_login_id"))) ||
       "";
     setName(local && local.trim() ? local : "ゲスト");
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const getTodayKey = () => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = `${d.getMonth() + 1}`.padStart(2, "0");
+      const dd = `${d.getDate()}`.padStart(2, "0");
+      return `${y}-${m}-${dd}`;
+    };
+
+    const fetchPendingRides = async () => {
+      try {
+        const list = await ListRides({
+          status: "pending" as RideStatus,
+          date: getTodayKey(),
+        });
+        if (!mounted) return;
+        setRidePendingCount(list.length);
+      } catch {
+        if (!mounted) return;
+        setRidePendingCount(0);
+      }
+    };
+
+    void fetchPendingRides();
+    const timer = window.setInterval(fetchPendingRides, 5000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const onLogout = async () => {
@@ -141,6 +176,7 @@ export default function Sidebar() {
             <ul className="nav__list">
               {sec.items.map((it) => {
                 const isChat = it.href === "/chat";
+                const isRides = it.href === "/rides";
 
                 return (
                   <li key={it.href}>
@@ -158,6 +194,11 @@ export default function Sidebar() {
                         {isChat && talkUnread > 0 && (
                           <span className="inline-flex min-w-[14px] h-[14px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
                             {talkUnread > 99 ? "99+" : talkUnread}
+                          </span>
+                        )}
+                        {isRides && ridePendingCount > 0 && (
+                          <span className="inline-flex min-w-[14px] h-[14px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
+                            {ridePendingCount > 99 ? "99+" : ridePendingCount}
                           </span>
                         )}
                       </span>

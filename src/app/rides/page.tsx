@@ -83,6 +83,15 @@ export default function RidesPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void load();
+    }, 5000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [load]);
+
   // 日付ナビ
   const handlePrevDay = () => {
     const d = addDays(parseISO(selectedDate), -1);

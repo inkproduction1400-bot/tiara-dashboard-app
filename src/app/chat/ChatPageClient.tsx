@@ -319,6 +319,7 @@ function ChatContent() {
 
   // ====== スクロール追従（最下部） ======
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const pollingInFlightRef = useRef(false);
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     const el = messagesEndRef.current;
     if (!el) return;
@@ -698,6 +699,39 @@ function ChatContent() {
 
     return () => {
       ac.abort();
+    };
+  }, [selectedChat]);
+
+  // ポーリング（5秒ごとに最新メッセージ/サマリー取得）
+  useEffect(() => {
+    if (!selectedChat?.id || !selectedChat.castId) return;
+
+    const roomId = selectedChat.id;
+    const castId = selectedChat.castId;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (cancelled || pollingInFlightRef.current) return;
+      pollingInFlightRef.current = true;
+      try {
+        const ac = new AbortController();
+        await refreshMessagesAndSummary({
+          roomId,
+          castId,
+          signal: ac.signal,
+        });
+      } finally {
+        pollingInFlightRef.current = false;
+      }
+    };
+
+    // 初回即時
+    void tick();
+    const timer = setInterval(() => void tick(), 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
     };
   }, [selectedChat]);
 

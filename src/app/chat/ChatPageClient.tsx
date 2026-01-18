@@ -322,7 +322,7 @@ function ChatContent() {
     (async () => {
       try {
         const apiRooms = await apiFetch<ApiRoomsResponse>(
-          "/chat/rooms",
+          "/chat/staff/rooms",
           { method: "GET" },
           { signal: ac.signal },
         );
@@ -378,7 +378,7 @@ function ChatContent() {
         const results = await Promise.allSettled(
           targets.map((room) =>
             apiFetch<ApiUnreadResponse>(
-              `/chat/rooms/${room.id}/unread`,
+              `/chat/staff/rooms/${room.id}/unread`,
               { method: "GET" },
               { signal: ac.signal },
             ).then((counts) => ({
@@ -448,7 +448,7 @@ function ChatContent() {
         if (!castId) throw new Error("castId is missing");
 
         const apiMsgs = await apiFetch<ApiMessagesResponse>(
-          `/chat/rooms/${castId}/messages?limit=50`,
+          `/chat/staff/rooms/${castId}/messages?limit=50`,
           { method: "GET" },
           { signal: ac.signal },
         );
@@ -537,7 +537,7 @@ function ChatContent() {
 
     try {
       const apiMsgs = await apiFetch<ApiMessagesResponse>(
-        `/chat/rooms/${castId}/messages?limit=50`,
+        `/chat/staff/rooms/${castId}/messages?limit=50`,
         { method: "GET" },
         { signal },
       );
@@ -645,11 +645,11 @@ function ChatContent() {
 
     try {
       const res = await apiFetch<ApiSendMessageResponse>(
-        `/chat/rooms/${castId}/messages`,
+        `/chat/staff/messages`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ castId, text }),
         },
         { signal: ac.signal },
       );

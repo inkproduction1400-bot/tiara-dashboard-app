@@ -57,6 +57,7 @@ export default function Page() {
   const [createForm, setCreateForm] = useState<CreateStaffInput>(defaultCreate);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<UpdateStaffInput>({});
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const [vehicleItems, setVehicleItems] = useState<RideVehicle[]>([]);
   const [vehicleLoading, setVehicleLoading] = useState(true);
@@ -166,6 +167,7 @@ export default function Page() {
 
   const beginEdit = (u: StaffUser) => {
     setEditingId(u.id);
+    setShowEditPassword(false);
     setEditForm({
       loginId: u.loginId ?? "",
       email: u.email ?? "",
@@ -178,6 +180,7 @@ export default function Page() {
 
   const cancelEdit = () => {
     setEditingId(null);
+    setShowEditPassword(false);
     setEditForm({});
   };
 
@@ -536,6 +539,9 @@ export default function Page() {
                           スタッフ名
                         </th>
                         <th className="px-3 py-2 text-left">メール</th>
+                        <th className="px-3 py-2 text-left w-[160px]">
+                          パスワード
+                        </th>
                         <th className="px-3 py-2 text-center w-[90px]">
                           権限
                         </th>
@@ -543,7 +549,7 @@ export default function Page() {
                         <th className="px-3 py-2 text-center w-[140px]">
                           最終ログイン
                         </th>
-                        <th className="px-3 py-2 text-center w-[120px]">
+                        <th className="px-3 py-2 text-center w-[160px]">
                           操作
                         </th>
                       </tr>
@@ -552,7 +558,7 @@ export default function Page() {
                       {items.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={7}
                             className="px-3 py-4 text-center text-[11px] text-muted"
                           >
                             登録スタッフがありません。
@@ -564,34 +570,164 @@ export default function Page() {
                             key={u.id}
                             className="border-t border-gray-200"
                           >
-                            <td className="px-3 py-2">
-                              {u.loginId ?? "-"}
-                            </td>
-                            <td className="px-3 py-2">{u.email ?? "-"}</td>
-                            <td className="px-3 py-2 text-center">
-                              {u.userType === "admin" ? "管理" : "スタッフ"}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              {u.status === "active"
-                                ? "有効"
-                                : u.status === "suspended"
-                                  ? "停止"
-                                  : "仮登録"}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              {u.lastLoginAt
-                                ? new Date(u.lastLoginAt).toLocaleString()
-                                : "—"}
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <button
-                                type="button"
-                                className="tiara-btn h-8 px-3 text-[11px]"
-                                onClick={() => beginEdit(u)}
-                              >
-                                編集
-                              </button>
-                            </td>
+                            {editingId === u.id ? (
+                              <>
+                                <td className="px-3 py-2">
+                                  <input
+                                    className="tiara-input h-8 text-xs"
+                                    value={(editForm.loginId as string) ?? ""}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        loginId: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <input
+                                    className="tiara-input h-8 text-xs"
+                                    value={(editForm.email as string) ?? ""}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        email: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      className="tiara-input h-8 text-xs flex-1"
+                                      type={showEditPassword ? "text" : "password"}
+                                      value={(editForm.password as string) ?? ""}
+                                      onChange={(e) =>
+                                        setEditForm((prev) => ({
+                                          ...prev,
+                                          password: e.target.value,
+                                        }))
+                                      }
+                                      placeholder="変更時のみ入力"
+                                    />
+                                    <button
+                                      type="button"
+                                      className="text-[11px] text-ink"
+                                      onClick={() =>
+                                        setShowEditPassword((v) => !v)
+                                      }
+                                    >
+                                      {showEditPassword ? "🙈" : "👁️"}
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <select
+                                    className="tiara-input h-8 text-xs"
+                                    value={(editForm.userType as string) ?? "staff"}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        userType: e.target.value as
+                                          | "staff"
+                                          | "admin",
+                                      }))
+                                    }
+                                  >
+                                    <option value="staff">スタッフ</option>
+                                    <option value="admin">管理</option>
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <select
+                                    className="tiara-input h-8 text-xs"
+                                    value={(editForm.status as string) ?? "active"}
+                                    onChange={(e) =>
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        status: e.target.value as
+                                          | "active"
+                                          | "suspended"
+                                          | "preactive",
+                                      }))
+                                    }
+                                  >
+                                    <option value="active">有効</option>
+                                    <option value="suspended">停止</option>
+                                    <option value="preactive">仮登録</option>
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {u.lastLoginAt
+                                    ? new Date(u.lastLoginAt).toLocaleString()
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      type="button"
+                                      className="rounded-xl border border-gray-300 bg-white text-gray-700 px-2 h-8 text-[11px]"
+                                      onClick={cancelEdit}
+                                      disabled={saving}
+                                    >
+                                      キャンセル
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="tiara-btn h-8 px-3 text-[11px]"
+                                      onClick={handleUpdate}
+                                      disabled={saving}
+                                    >
+                                      {saving ? "保存中..." : "保存"}
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-3 py-2">
+                                  {u.loginId ?? "-"}
+                                </td>
+                                <td className="px-3 py-2">{u.email ?? "-"}</td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span>********</span>
+                                    <button
+                                      type="button"
+                                      className="text-[11px] text-ink/60"
+                                      onClick={() => beginEdit(u)}
+                                      title="編集モードで変更できます"
+                                    >
+                                      👁️
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {u.userType === "admin" ? "管理" : "スタッフ"}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {u.status === "active"
+                                    ? "有効"
+                                    : u.status === "suspended"
+                                      ? "停止"
+                                      : "仮登録"}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  {u.lastLoginAt
+                                    ? new Date(u.lastLoginAt).toLocaleString()
+                                    : "—"}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    className="tiara-btn h-8 px-3 text-[11px]"
+                                    onClick={() => beginEdit(u)}
+                                  >
+                                    編集
+                                  </button>
+                                </td>
+                              </>
+                            )}
                           </tr>
                         ))
                       )}
@@ -600,134 +736,6 @@ export default function Page() {
                 </div>
               )}
             </section>
-
-            {editing && (
-              <section className="rounded-xl border border-gray-200 bg-white p-4">
-                <h3 className="text-sm font-semibold">スタッフ情報の編集</h3>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted">
-                      スタッフ名（ログインID）
-                    </span>
-                    <input
-                      className="tiara-input h-9"
-                      value={(editForm.loginId as string) ?? ""}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          loginId: e.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted">
-                      メールアドレス（任意）
-                    </span>
-                    <input
-                      className="tiara-input h-9"
-                      value={(editForm.email as string) ?? ""}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          email: e.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted">権限</span>
-                    <select
-                      className="tiara-input h-9"
-                      value={(editForm.userType as string) ?? "staff"}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          userType: e.target.value as "staff" | "admin",
-                        }))
-                      }
-                    >
-                      <option value="staff">スタッフ</option>
-                      <option value="admin">管理</option>
-                    </select>
-                  </label>
-
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted">状態</span>
-                    <select
-                      className="tiara-input h-9"
-                      value={(editForm.status as string) ?? "active"}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          status: e.target.value as
-                            | "active"
-                            | "suspended"
-                            | "preactive",
-                        }))
-                      }
-                    >
-                      <option value="active">有効</option>
-                      <option value="suspended">停止</option>
-                      <option value="preactive">仮登録</option>
-                    </select>
-                  </label>
-
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted">
-                      新しいパスワード（任意）
-                    </span>
-                    <input
-                      className="tiara-input h-9"
-                      type="password"
-                      value={(editForm.password as string) ?? ""}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          password: e.target.value,
-                        }))
-                      }
-                      placeholder="変更時のみ入力"
-                    />
-                  </label>
-
-                  <label className="flex items-center gap-2 text-[11px] text-muted">
-                    <input
-                      type="checkbox"
-                      checked={editForm.mustChangePassword ?? false}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          mustChangePassword: e.target.checked,
-                        }))
-                      }
-                    />
-                    初回ログイン時にパスワード変更を要求する
-                  </label>
-                </div>
-
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border border-gray-300 bg-white text-gray-700 px-3 h-9 text-xs"
-                    onClick={cancelEdit}
-                    disabled={saving}
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="button"
-                    className="tiara-btn h-9 px-4 text-xs"
-                    onClick={handleUpdate}
-                    disabled={saving}
-                  >
-                    {saving ? "保存中..." : "更新"}
-                  </button>
-                </div>
-              </section>
-            )}
           </>
         )}
 

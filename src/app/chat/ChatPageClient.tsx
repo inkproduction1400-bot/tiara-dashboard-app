@@ -559,11 +559,25 @@ function ChatContent() {
           const desiredHourly =
             r.cast?.preferences?.[0]?.desiredHourly ?? undefined;
 
+          const fallbackMessages = Array.isArray(r.messages) ? r.messages : [];
+          const latestFallback = [...fallbackMessages]
+            .filter((m) => m?.createdAt)
+            .sort(
+              (a, b) =>
+                new Date(b.createdAt || 0).getTime() -
+                new Date(a.createdAt || 0).getTime(),
+            )[0];
+
           const lastMessageText =
-            r.lastMessage?.text?.toString().trim() || "（メッセージなし）";
+            r.lastMessage?.text?.toString().trim() ||
+            latestFallback?.text?.toString().trim() ||
+            "（メッセージなし）";
 
           const lastMessageAt =
-            r.lastMessage?.createdAt || new Date().toISOString();
+            r.lastMessage?.createdAt ||
+            latestFallback?.createdAt ||
+            r.updatedAt ||
+            new Date().toISOString();
 
           const staffName = r.cast?.ownerStaffName ?? "担当者";
 

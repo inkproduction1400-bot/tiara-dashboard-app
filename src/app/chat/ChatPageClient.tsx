@@ -319,21 +319,9 @@ function ChatContent() {
 
   // ====== スクロール追従（最下部） ======
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
   const pollingInFlightRef = useRef(false);
-  const isNearBottomRef = useRef(true);
-  const isNearBottom = () => {
-    const el = messagesScrollRef.current;
-    if (!el) return true;
-    const threshold = 120;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-  };
 
-  const scrollToBottom = (
-    behavior: ScrollBehavior = "auto",
-    force: boolean = false,
-  ) => {
-    if (!force && !isNearBottomRef.current) return;
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     const el = messagesEndRef.current;
     if (!el) return;
     el.scrollIntoView({ behavior, block: "end" });
@@ -637,8 +625,6 @@ function ChatContent() {
     const castId = selectedChat.castId;
 
     setMessagesLoaded(false);
-    isNearBottomRef.current = true;
-
     const ac = new AbortController();
 
     (async () => {
@@ -667,14 +653,14 @@ function ChatContent() {
           setMessagesLoaded(true);
 
           // 取得直後に最下部へ（LINEっぽさ）
-          requestAnimationFrame(() => scrollToBottom("auto", true));
+          requestAnimationFrame(() => scrollToBottom("auto"));
         }
       } catch (e) {
         if (!ac.signal.aborted) {
           setMessages(makeDummyMessages(selectedChat));
           setMessagesLoaded(true);
 
-          requestAnimationFrame(() => scrollToBottom("auto", true));
+          requestAnimationFrame(() => scrollToBottom("auto"));
         }
       }
     })();
@@ -793,7 +779,7 @@ function ChatContent() {
         setMessagesLoaded(true);
 
         if (shouldScroll) {
-          requestAnimationFrame(() => scrollToBottom("auto", true));
+          requestAnimationFrame(() => scrollToBottom("auto"));
         }
       }
     } catch {
@@ -862,7 +848,7 @@ function ChatContent() {
     ]);
 
     // 追加直後は最下部へ（送信感を出す）
-    requestAnimationFrame(() => scrollToBottom("smooth", true));
+    requestAnimationFrame(() => scrollToBottom("smooth"));
 
     // 左一覧の最終メッセージも先に更新（体感）
     setRooms((prev) =>
@@ -916,7 +902,7 @@ function ChatContent() {
       });
 
       // 念押し：送信後も最下部へ（スムーズ）
-      requestAnimationFrame(() => scrollToBottom("smooth", true));
+      requestAnimationFrame(() => scrollToBottom("smooth"));
     } catch (e) {
       // 失敗時：最新状態へ寄せる
       await refreshMessagesAndSummary({
@@ -1150,13 +1136,7 @@ function ChatContent() {
           </div>
 
           {/* メッセージリスト（LINE風 吹き出し） */}
-          <div
-            ref={messagesScrollRef}
-            onScroll={() => {
-              isNearBottomRef.current = isNearBottom();
-            }}
-            className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-gradient-to-b from-transparent to-white/40"
-          >
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-gradient-to-b from-transparent to-white/40">
             {selectedChat && messages.length > 0 ? (
               <>
                 {messages.map((msg) => {

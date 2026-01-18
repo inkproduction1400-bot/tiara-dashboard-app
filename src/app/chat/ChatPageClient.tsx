@@ -212,6 +212,7 @@ type ApiRoom = {
     text?: string | null;
     createdAt?: string | null;
   } | null;
+  messages?: ApiMessage[] | null;
 };
 
 type ApiRoomsResponse = ApiRoom[];

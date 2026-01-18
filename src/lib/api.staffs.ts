@@ -24,8 +24,13 @@ export type CreateStaffInput = {
   mustChangePassword?: boolean;
 };
 
-export type UpdateStaffInput = Partial<CreateStaffInput> & {
+export type UpdateStaffInput = {
+  loginId?: string;
   email?: string | null;
+  password?: string;
+  userType?: "staff" | "admin";
+  status?: "active" | "suspended" | "preactive";
+  mustChangePassword?: boolean;
 };
 
 export function listStaffs(): Promise<StaffUser[]> {

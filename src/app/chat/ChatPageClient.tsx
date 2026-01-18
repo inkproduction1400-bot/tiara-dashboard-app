@@ -493,12 +493,14 @@ function ChatContent() {
           const rawGenres = r.cast?.cast_background?.[0]?.genres ?? "";
           const genre = rawGenres.includes("キャバ")
             ? "キャバクラ"
-            : rawGenres.includes("スナック")
-              ? "スナック"
-              : rawGenres.includes("ガールズバー") ||
-                  rawGenres.includes("ガルバ")
-                ? "ガールズバー"
-                : "未設定";
+            : rawGenres.includes("クラブ")
+              ? "クラブ"
+              : rawGenres.includes("スナック")
+                ? "スナック"
+                : rawGenres.includes("ガールズバー") ||
+                    rawGenres.includes("ガルバ")
+                  ? "ガールズバー"
+                  : "未設定";
           const drinkLevelRaw =
             r.cast?.attributes?.[0]?.drinkLevel ??
             (r.cast?.drinkOk ? "ok" : "none");

@@ -409,6 +409,11 @@ function ChatContent() {
       drinkScore(a) - drinkScore(b);
 
     list = [...list].sort((a, b) => {
+      const aTime = new Date(a.lastMessageAt || 0).getTime();
+      const bTime = new Date(b.lastMessageAt || 0).getTime();
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
       if (sortNumberSmallFirst) {
         return numberValue(a) - numberValue(b);
       }

@@ -77,7 +77,11 @@ export function NotificationsProvider({ children }: Props) {
   }, [refresh]);
 
   const headerUnread = summary?.headerUnreadCount ?? 0;
-  const talkUnread = summary?.talkUnreadCount ?? 0;
+  const summaryCounts = (summary as any)?.counts;
+  const talkUnread =
+    (typeof summaryCounts?.staffTalk === "number"
+      ? summaryCounts.staffTalk
+      : null) ?? summary?.talkUnreadCount ?? 0;
 
   return (
     <NotificationsContext.Provider

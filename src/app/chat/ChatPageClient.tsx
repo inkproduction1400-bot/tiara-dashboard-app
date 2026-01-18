@@ -455,6 +455,38 @@ function ChatContent() {
     sortNumberLargeFirst,
   ]);
 
+  const markStaffRead = async (roomId: string, signal?: AbortSignal) => {
+    if (lastMarkedReadRoomIdRef.current === roomId) return;
+
+    try {
+      await apiFetch<ApiUnreadResponse>(
+        `/me/notifications/mark-staff-talk-read/${roomId}`,
+        { method: "POST" },
+        { signal },
+      );
+
+      lastMarkedReadRoomIdRef.current = roomId;
+
+      setRooms((prev) =>
+        prev.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
+      );
+
+      const summary = await apiFetch<ApiSummaryResponse>(
+        "/me/notifications/summary",
+        { method: "GET" },
+        { signal },
+      );
+
+      if (typeof window !== "undefined" && !signal?.aborted) {
+        window.dispatchEvent(
+          new CustomEvent("tiara:notification-summary", { detail: summary }),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const selectedChat: ChatPreview | null =
     useMemo(
       () => rooms.find((c) => c.id === selectedRoomId) ?? null,
@@ -670,37 +702,7 @@ function ChatContent() {
       }
     })();
 
-    (async () => {
-      try {
-        if (lastMarkedReadRoomIdRef.current === roomId) return;
-
-        await apiFetch<ApiUnreadResponse>(
-          `/me/notifications/mark-staff-talk-read/${roomId}`,
-          { method: "POST" },
-          { signal: ac.signal },
-        );
-
-        lastMarkedReadRoomIdRef.current = roomId;
-
-        setRooms((prev) =>
-          prev.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)),
-        );
-
-        const summary = await apiFetch<ApiSummaryResponse>(
-          "/me/notifications/summary",
-          { method: "GET" },
-          { signal: ac.signal },
-        );
-
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(
-            new CustomEvent("tiara:notification-summary", { detail: summary }),
-          );
-        }
-      } catch (e) {
-        // 通信失敗してもUIは止めない
-      }
-    })();
+    void markStaffRead(roomId, ac.signal);
 
     return () => {
       ac.abort();
@@ -721,6 +723,7 @@ function ChatContent() {
       pollingInFlightRef.current = true;
       try {
         const ac = new AbortController();
+        await markStaffRead(roomId, ac.signal);
         await refreshMessagesAndSummary({
           roomId,
           castId,

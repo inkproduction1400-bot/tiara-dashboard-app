@@ -196,6 +196,7 @@ type ApiRoom = {
     userId?: string;
     castCode?: string;
     managementNumber?: string;
+    ownerStaffName?: string | null;
     displayName?: string | null;
     age?: number | null;
     genre?: string | null;

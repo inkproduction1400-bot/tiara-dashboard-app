@@ -50,6 +50,8 @@ export async function ListRides(
       pickup_city: r.pickupCity ?? null,
       note: r.note ?? null,
       car_number: r.carNumber ?? null,
+      driver_id: r.driverId ?? null,
+      driver_name: r.driver?.name ?? null,
       boarding_time: r.boardingTime ?? null,
       arrival_time: r.arrivalTime ?? null,
       created_at: r.createdAt,

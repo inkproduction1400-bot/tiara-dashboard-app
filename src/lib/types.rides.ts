@@ -22,6 +22,7 @@ export type RideListItemFromApi = {
   direction: "from_shop" | "to_shop";
   pickupCity: string | null;
   carNumber: string | null;
+  driverId?: string | null;
   boardingTime: string | null;
   arrivalTime: string | null;
   note: string | null;
@@ -34,6 +35,10 @@ export type RideListItemFromApi = {
   shop?: {
     name: string;
   } | null;
+  driver?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 // UI 用にフラットにした型（テーブルで使う）
@@ -44,6 +49,8 @@ export type RideListItem = {
   pickup_city: string | null;
   note: string | null;
   car_number: string | null;
+  driver_id: string | null;
+  driver_name: string | null;
   boarding_time: string | null;
   arrival_time: string | null;
   created_at: string;
@@ -57,6 +64,7 @@ export type UpdateRidePayload = {
   status?: RideStatus;
   note?: string | null;
   carNumber?: string | null;
+  driverId?: string | null;
   boardingTime?: string | null;
   arrivalTime?: string | null;
 };

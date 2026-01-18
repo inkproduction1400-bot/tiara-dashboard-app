@@ -11,6 +11,14 @@ import {
 import AppShell from "@/components/AppShell";
 import { ListRides, updateRide } from "@/lib/api.rides";
 import {
+  listRideDrivers,
+  type RideDriver,
+} from "@/lib/api.ride-drivers";
+import {
+  listRideVehicles,
+  type RideVehicle,
+} from "@/lib/api.ride-vehicles";
+import {
   type RideListItem,
   type RideStatus,
   type UpdateRidePayload,
@@ -66,6 +74,8 @@ export default function RidesPage() {
     toDateString(new Date()),
   );
   const [rides, setRides] = useState<RideListItem[]>([]);
+  const [vehicles, setVehicles] = useState<RideVehicle[]>([]);
+  const [drivers, setDrivers] = useState<RideDriver[]>([]);
   const [loading, setLoading] = useState(false);
   const ridesKeyRef = useRef<string>("");
 
@@ -80,6 +90,7 @@ export default function RidesPage() {
             r.status,
             r.pickup_city ?? "",
             r.car_number ?? "",
+            r.driver_id ?? "",
             r.boarding_time ?? "",
             r.arrival_time ?? "",
             r.note ?? "",
@@ -110,6 +121,22 @@ export default function RidesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const loadMeta = async () => {
+      try {
+        const [vehiclesRes, driversRes] = await Promise.all([
+          listRideVehicles(),
+          listRideDrivers(),
+        ]);
+        setVehicles(vehiclesRes);
+        setDrivers(driversRes);
+      } catch {
+        // silently ignore; dropdowns can still be used manually
+      }
+    };
+    void loadMeta();
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -173,6 +200,14 @@ export default function RidesPage() {
     await patchField(id, "arrivalTime", v);
   }
 
+  async function handleDriverChange(
+    id: string,
+    e: ChangeEvent<HTMLSelectElement>,
+  ) {
+    const v = e.target.value || null;
+    await patchField(id, "driverId", v);
+  }
+
   async function handleStatusChange(
     id: string,
     e: ChangeEvent<HTMLSelectElement>,
@@ -224,6 +259,7 @@ export default function RidesPage() {
                 <th className="px-3 py-2 text-left">ID</th>
                 <th className="px-3 py-2 text-left">場所</th>
                 <th className="px-3 py-2 text-left">車番</th>
+                <th className="px-3 py-2 text-left">運転手</th>
                 <th className="px-3 py-2 text-left">受付時間</th>
                 <th className="px-3 py-2 text-left">乗車時間</th>
                 <th className="px-3 py-2 text-left">到着時間</th>
@@ -234,7 +270,7 @@ export default function RidesPage() {
               {loading && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     読み込み中…
@@ -245,7 +281,7 @@ export default function RidesPage() {
               {!loading && rides.length === 0 && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     この日の送迎情報はありません。
@@ -277,10 +313,30 @@ export default function RidesPage() {
                           }
                         >
                           <option value="">未設定</option>
-                          {/* 必要なら車番候補をここに列挙 */}
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
+                          {vehicles.map((v) => (
+                            <option
+                              key={v.id}
+                              value={String(v.carNumber)}
+                            >
+                              {v.carNumber}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          className="border rounded px-2 py-1 text-xs"
+                          value={ride.driver_id ?? ""}
+                          onChange={(e) =>
+                            handleDriverChange(ride.id, e)
+                          }
+                        >
+                          <option value="">未設定</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td className="px-3 py-2">

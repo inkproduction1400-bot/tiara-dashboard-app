@@ -38,6 +38,8 @@ type ChatPreview = {
   drinkLevel?: "none" | "weak" | "ok" | "unknown";
   hasTodayShift?: boolean;
   hasTodayApprovedShift?: boolean;
+  desiredHourly?: number;
+  managementNumber?: string;
 };
 
 type ChatMessage = {
@@ -201,6 +203,7 @@ type ApiRoom = {
     attributes?: { drinkLevel?: "none" | "weak" | "ok" | null }[] | null;
     cast_background?: { genres?: string | null }[] | null;
     shifts?: { status?: string | null }[] | null;
+    preferences?: { desiredHourly?: number | null }[] | null;
   } | null;
   lastMessage?: {
     text?: string | null;
@@ -225,6 +228,25 @@ type ApiUnreadResponse = {
   unreadForCast: number;
   unreadForStaff: number;
 };
+
+type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
+type DrinkSort = "none" | "okFirst" | "ngFirst";
+type CastGenre = "club" | "cabaret" | "snack" | "gb";
+type AgeRangeFilter =
+  | ""
+  | "18-19"
+  | "20-24"
+  | "25-29"
+  | "30-34"
+  | "35-39"
+  | "40-49"
+  | "50-";
+
+const STAFF_FILTERS = [
+  { id: "all", label: "担当者" },
+  { id: "nagai", label: "永井" },
+  { id: "kitamura", label: "北村" },
+];
 
 type ApiSummaryResponse = {
   unreadNotifications: number;
@@ -261,14 +283,19 @@ function ChatContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const [keyword, setKeyword] = useState<string>("");
   const [staffFilter, setStaffFilter] = useState<string>("all");
-  const [genreFilter, setGenreFilter] = useState<string>("all");
-  const [drinkFilter, setDrinkFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(50);
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
+  const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
+  const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
+  const [sortKana, setSortKana] = useState(false);
+  const [sortNumberSmallFirst, setSortNumberSmallFirst] = useState(false);
+  const [sortNumberLargeFirst, setSortNumberLargeFirst] = useState(false);
 
   const [rooms, setRooms] = useState<ChatPreview[]>(DUMMY_CHATS);
   const [roomsLoaded, setRoomsLoaded] = useState<boolean>(false);
-  const [staffOptions, setStaffOptions] = useState<Staff[]>(DUMMY_STAFFS);
 
   const selectedRoomIdFromUrl = searchParams.get("roomId");
 
@@ -297,37 +324,126 @@ function ChatContent() {
   const filteredChats = useMemo(() => {
     let list = rooms;
 
-    if (staffFilter !== "all") {
-      list = list.filter((c) => c.staffId === staffFilter);
-    }
-    if (genreFilter !== "all") {
-      list = list.filter((c) => c.genre === genreFilter);
-    }
-
-    if (drinkFilter !== "all") {
+    if (keyword.trim()) {
+      const q = keyword.trim();
       list = list.filter((c) => {
-        const level = c.drinkLevel ?? "unknown";
-        if (drinkFilter === "ng") return level === "none";
-        if (drinkFilter === "weak") return level === "weak";
-        if (drinkFilter === "normal") return level === "ok";
-        return false;
+        const code = c.castCode || "";
+        const name = c.castName || "";
+        const num = c.managementNumber || "";
+        return (
+          name.includes(q) ||
+          code.includes(q) ||
+          num.includes(q)
+        );
       });
     }
 
-    if (statusFilter !== "all") {
+    if (staffFilter !== "all") {
       list = list.filter((c) => {
-        const hasApproved = Boolean(c.hasTodayApprovedShift);
-        const hasAny = Boolean(c.hasTodayShift);
-        if (statusFilter === "today") return hasApproved;
-        if (statusFilter === "today-planned")
-          return hasAny && !hasApproved;
-        if (statusFilter === "absent") return !hasAny;
+        const staff = c.staffName || "";
+        if (staffFilter === "nagai") return staff.includes("永井");
+        if (staffFilter === "kitamura") return staff.includes("北村");
         return true;
       });
     }
 
-    return list;
-  }, [rooms, staffFilter, genreFilter, drinkFilter, statusFilter]);
+    if (castGenreFilter) {
+      list = list.filter((c) => {
+        const g = c.genre;
+        if (castGenreFilter === "club") return g.includes("クラブ");
+        if (castGenreFilter === "cabaret")
+          return g.includes("キャバ");
+        if (castGenreFilter === "snack") return g.includes("スナック");
+        if (castGenreFilter === "gb") return g.includes("ガルバ");
+        return false;
+      });
+    }
+
+    if (ageRangeFilter) {
+      list = list.filter((c) => {
+        const age = Number(c.age ?? 0);
+        if (ageRangeFilter === "18-19") return age >= 18 && age <= 19;
+        if (ageRangeFilter === "20-24") return age >= 20 && age <= 24;
+        if (ageRangeFilter === "25-29") return age >= 25 && age <= 29;
+        if (ageRangeFilter === "30-34") return age >= 30 && age <= 34;
+        if (ageRangeFilter === "35-39") return age >= 35 && age <= 39;
+        if (ageRangeFilter === "40-49") return age >= 40 && age <= 49;
+        if (ageRangeFilter === "50-") return age >= 50;
+        return true;
+      });
+    }
+
+    const drinkScore = (c: ChatPreview) => {
+      const level = c.drinkLevel ?? "unknown";
+      if (level === "ok") return 2;
+      if (level === "weak") return 1;
+      if (level === "none") return 0;
+      return -1;
+    };
+
+    const numberValue = (c: ChatPreview) => {
+      const raw =
+        c.managementNumber ||
+        c.castCode ||
+        "";
+      const m = raw.match(/\d+/);
+      return m ? Number(m[0]) : 0;
+    };
+
+    const byName = (a: ChatPreview, b: ChatPreview) =>
+      (a.castName || "").localeCompare(b.castName || "");
+
+    const byAge = (a: ChatPreview, b: ChatPreview) =>
+      Number(a.age ?? 0) - Number(b.age ?? 0);
+
+    const byHourly = (a: ChatPreview, b: ChatPreview) =>
+      Number(a.desiredHourly ?? 0) - Number(b.desiredHourly ?? 0);
+
+    const byDrink = (a: ChatPreview, b: ChatPreview) =>
+      drinkScore(a) - drinkScore(b);
+
+    list = [...list].sort((a, b) => {
+      if (sortNumberSmallFirst) {
+        return numberValue(a) - numberValue(b);
+      }
+      if (sortNumberLargeFirst) {
+        return numberValue(b) - numberValue(a);
+      }
+      if (sortKana) {
+        return byName(a, b);
+      }
+      if (sortKey === "hourlyDesc") {
+        return byHourly(b, a);
+      }
+      if (sortKey === "ageAsc") {
+        return byAge(a, b);
+      }
+      if (sortKey === "ageDesc") {
+        return byAge(b, a);
+      }
+      if (drinkSort === "okFirst") {
+        return byDrink(b, a);
+      }
+      if (drinkSort === "ngFirst") {
+        return byDrink(a, b);
+      }
+      return 0;
+    });
+
+    return list.slice(0, itemsPerPage);
+  }, [
+    rooms,
+    keyword,
+    staffFilter,
+    itemsPerPage,
+    sortKey,
+    drinkSort,
+    castGenreFilter,
+    ageRangeFilter,
+    sortKana,
+    sortNumberSmallFirst,
+    sortNumberLargeFirst,
+  ]);
 
   const selectedChat: ChatPreview | null =
     useMemo(
@@ -370,6 +486,7 @@ function ChatContent() {
                 : `キャスト${idx + 1}`);
 
           const castCode = r.cast?.castCode ?? "-";
+          const managementNumber = r.cast?.managementNumber ?? undefined;
           const age = typeof r.cast?.age === "number" ? r.cast.age ?? 0 : 0;
           const rawGenres = r.cast?.cast_background?.[0]?.genres ?? "";
           const genre = rawGenres.includes("キャバ")
@@ -395,6 +512,8 @@ function ChatContent() {
           const hasApprovedShift = shiftStatuses.includes("approved");
           const hasTodayShift =
             hasApprovedShift || shiftStatuses.includes("planned");
+          const desiredHourly =
+            r.cast?.preferences?.[0]?.desiredHourly ?? undefined;
 
           const lastMessageText =
             r.lastMessage?.text?.toString().trim() || "（メッセージなし）";
@@ -409,6 +528,7 @@ function ChatContent() {
             castId,
             castName: displayName,
             castCode,
+            managementNumber,
             age,
             genre,
             lastMessage: lastMessageText,
@@ -419,19 +539,12 @@ function ChatContent() {
             drinkLevel,
             hasTodayShift,
             hasTodayApprovedShift: hasApprovedShift,
+            desiredHourly,
           };
         });
 
         setRooms(mappedBase);
         setRoomsLoaded(true);
-        const staffMap = new Map<string, Staff>();
-        for (const room of mappedBase) {
-          if (!room.staffId) continue;
-          if (!staffMap.has(room.staffId)) {
-            staffMap.set(room.staffId, { id: room.staffId, name: room.staffName });
-          }
-        }
-        setStaffOptions(staffMap.size > 0 ? [...staffMap.values()] : DUMMY_STAFFS);
 
         if (!selectedRoomIdFromUrl && mappedBase[0]?.id) {
           const p = new URLSearchParams(Array.from(searchParams.entries()));
@@ -766,62 +879,114 @@ function ChatContent() {
           新規チャット
         </button>
 
-        <div className="w-32">
-          <select
-            className="tiara-input h-9 text-xs w-full"
-            value={staffFilter}
-            onChange={(e) => setStaffFilter(e.target.value)}
-          >
-            <option value="all">担当者: すべて</option>
-            {staffOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <input
+          className="tiara-input rounded-none h-8 !w-[200px] text-[10px] leading-tight flex-none"
+          placeholder="管理番号・名前・旧ID"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
 
-        <div className="w-32">
-          <select
-            className="tiara-input h-9 text-xs w-full"
-            value={genreFilter}
-            onChange={(e) => setGenreFilter(e.target.value)}
-          >
-            <option value="all">ジャンル: すべて</option>
-            {GENRES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+          value={staffFilter}
+          onChange={(e) => setStaffFilter(e.target.value)}
+        >
+          {STAFF_FILTERS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
 
-        <div className="w-32">
-          <select
-            className="tiara-input h-9 text-xs w-full"
-            value={drinkFilter}
-            onChange={(e) => setDrinkFilter(e.target.value)}
-          >
-            <option value="all">飲酒: すべて</option>
-            <option value="ng">NG</option>
-            <option value="weak">弱い</option>
-            <option value="normal">普通</option>
-            <option value="strong">強い</option>
-          </select>
-        </div>
+        <select
+          className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
+          value={itemsPerPage}
+          onChange={(e) =>
+            setItemsPerPage(Number(e.target.value) as 50 | 56 | 100)
+          }
+        >
+          <option value={50}>50件</option>
+          <option value={56}>56件</option>
+          <option value={100}>100件</option>
+        </select>
 
-        <div className="w-32">
-          <select
-            className="tiara-input h-9 text-xs w-full"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">出勤状態: すべて</option>
-            <option value="today">本日出勤</option>
-            <option value="today-planned">本日出勤予定</option>
-            <option value="absent">未出勤</option>
-          </select>
-        </div>
+        <select
+          className="tiara-input rounded-none h-9 !w-[180px] text-[11px] leading-snug flex-none"
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+        >
+          <option value="default">並び替え</option>
+          <option value="hourlyDesc">時給が高い順</option>
+          <option value="ageAsc">年齢が若い順</option>
+          <option value="ageDesc">年齢が高い順</option>
+        </select>
+
+        <select
+          className="tiara-input rounded-none h-9 !w-[170px] text-[11px] leading-snug flex-none"
+          value={drinkSort}
+          onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
+        >
+          <option value="none">飲酒</option>
+          <option value="okFirst">飲める順</option>
+          <option value="ngFirst">飲めない順</option>
+        </select>
+
+        <select
+          className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+          value={castGenreFilter}
+          onChange={(e) =>
+            setCastGenreFilter((e.target.value || "") as CastGenre | "")
+          }
+        >
+          <option value="">ジャンル</option>
+          <option value="club">クラブ</option>
+          <option value="cabaret">キャバ</option>
+          <option value="snack">スナック</option>
+          <option value="gb">ガルバ</option>
+        </select>
+
+        <select
+          className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+          value={ageRangeFilter}
+          onChange={(e) => setAgeRangeFilter(e.target.value as AgeRangeFilter)}
+        >
+          <option value="">年齢レンジ</option>
+          <option value="18-19">18〜19歳</option>
+          <option value="20-24">20〜24歳</option>
+          <option value="25-29">25〜29歳</option>
+          <option value="30-34">30〜34歳</option>
+          <option value="35-39">35〜39歳</option>
+          <option value="40-49">40〜49歳</option>
+          <option value="50-">50歳以上</option>
+        </select>
+
+        <label className="inline-flex items-center gap-1 text-[10px]">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={sortKana}
+            onChange={(e) => setSortKana(e.target.checked)}
+          />
+          50音
+        </label>
+        <label className="inline-flex items-center gap-1 text-[10px]">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={sortNumberSmallFirst}
+            onChange={(e) => setSortNumberSmallFirst(e.target.checked)}
+          />
+          番号↑
+        </label>
+        <label className="inline-flex items-center gap-1 text-[10px]">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={sortNumberLargeFirst}
+            onChange={(e) => setSortNumberLargeFirst(e.target.checked)}
+          />
+          番号↓
+        </label>
       </div>
 
       {/* 下部：一覧 + チャット本体（左右 1:1） */}

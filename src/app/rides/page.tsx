@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ChangeEvent,
 } from "react";
@@ -66,18 +67,45 @@ export default function RidesPage() {
   );
   const [rides, setRides] = useState<RideListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const ridesKeyRef = useRef<string>("");
 
   const times = generateTimes(); // "HH:mm" の配列
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await ListRides({ date: selectedDate });
-      setRides(data);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate]);
+  const buildRidesKey = (list: RideListItem[]) =>
+    list
+      .map(
+        (r) =>
+          [
+            r.id,
+            r.status,
+            r.pickup_city ?? "",
+            r.car_number ?? "",
+            r.boarding_time ?? "",
+            r.arrival_time ?? "",
+            r.note ?? "",
+            r.created_at ?? "",
+            r.request_date ?? "",
+          ].join("|"),
+      )
+      .join("::");
+
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = Boolean(opts?.silent);
+      if (!silent) setLoading(true);
+      try {
+        const data = await ListRides({ date: selectedDate });
+        const nextKey = buildRidesKey(data);
+        if (nextKey !== ridesKeyRef.current) {
+          ridesKeyRef.current = nextKey;
+          setRides(data);
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [selectedDate],
+  );
 
   useEffect(() => {
     void load();
@@ -85,7 +113,7 @@ export default function RidesPage() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      void load();
+      void load({ silent: true });
     }, 5000);
     return () => {
       window.clearInterval(timer);

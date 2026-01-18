@@ -1080,10 +1080,15 @@ function ChatContent() {
                         type="button"
                         onClick={() => handleSelectChat(chat.id)}
                         className={clsx(
-                          "w-full text-left rounded-lg border bg-white/70 px-3 py-2.5 flex items-start gap-3 hover:bg-ink/40 transition-colors",
+                          "relative w-full text-left rounded-lg border bg-white/70 px-3 py-2.5 flex items-start gap-3 hover:bg-ink/40 transition-colors",
                           isActive && "border-accent bg-ink/80",
                         )}
                       >
+                        {chat.unreadCount > 0 && (
+                          <span className="absolute top-2 right-2 inline-flex min-w-[16px] h-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
+                            {chat.unreadCount > 99 ? "99+" : chat.unreadCount}
+                          </span>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items=center justify-between gap-2">
                             <div className="min-w-0">
@@ -1098,13 +1103,6 @@ function ChatContent() {
                               <span className="text-[10px] text-muted">
                                 {formatTimeLabel(chat.lastMessageAt)}
                               </span>
-                              {chat.unreadCount > 0 && (
-                                <span className="inline-flex min-w-[16px] h-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white leading-none">
-                                  {chat.unreadCount > 99
-                                    ? "99+"
-                                    : chat.unreadCount}
-                                </span>
-                              )}
                             </div>
                           </div>
                           <div className="mt-1 text-[11px] text-muted/90 line-clamp-2">

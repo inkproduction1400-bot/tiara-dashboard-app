@@ -47,6 +47,7 @@ type ChatMessage = {
   from: "staff" | "cast";
   text: string;
   sentAt: string;
+  read?: boolean;
 };
 
 const DUMMY_STAFFS: Staff[] = [
@@ -221,6 +222,8 @@ type ApiMessage = {
   text: string;
   createdAt: string;
   sender?: { userType?: string } | null;
+  readByCast?: boolean;
+  readByStaff?: boolean;
 };
 
 type ApiMessagesResponse = ApiMessage[];
@@ -640,6 +643,7 @@ function ChatContent() {
             from,
             text: m.text,
             sentAt: m.createdAt,
+            read: from === "staff" ? Boolean(m.readByCast) : undefined,
           };
         });
 
@@ -729,6 +733,7 @@ function ChatContent() {
           from,
           text: m.text,
           sentAt: m.createdAt,
+          read: from === "staff" ? Boolean(m.readByCast) : undefined,
         };
       });
 
@@ -1116,7 +1121,7 @@ function ChatContent() {
                           )}
                         >
                           <span>{formatTimeLabel(msg.sentAt)}</span>
-                          {isStaff && <span>既読</span>}
+                          {isStaff && msg.read && <span>既読</span>}
                         </div>
                       </div>
                     </div>

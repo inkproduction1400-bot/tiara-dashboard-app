@@ -700,7 +700,8 @@ function ChatContent() {
     return () => {
       ac.abort();
     };
-  }, [selectedChat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id]);
 
   // ポーリング（5秒ごとに最新メッセージ/サマリー取得）
   useEffect(() => {
@@ -734,7 +735,8 @@ function ChatContent() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [selectedChat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id, selectedChat?.castId]);
 
   const handleSelectChat = (roomId: string) => {
     const p = new URLSearchParams(Array.from(searchParams.entries()));

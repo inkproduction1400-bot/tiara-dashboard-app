@@ -24,7 +24,9 @@ export type CreateStaffInput = {
   mustChangePassword?: boolean;
 };
 
-export type UpdateStaffInput = Partial<CreateStaffInput>;
+export type UpdateStaffInput = Partial<CreateStaffInput> & {
+  email?: string | null;
+};
 
 export function listStaffs(): Promise<StaffUser[]> {
   return apiFetch<StaffUser[]>("/staffs");

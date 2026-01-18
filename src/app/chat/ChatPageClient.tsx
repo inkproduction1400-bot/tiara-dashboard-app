@@ -287,7 +287,6 @@ function ChatContent() {
 
   const [keyword, setKeyword] = useState<string>("");
   const [staffFilter, setStaffFilter] = useState<string>("all");
-  const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(50);
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
@@ -432,12 +431,11 @@ function ChatContent() {
       return 0;
     });
 
-    return list.slice(0, itemsPerPage);
+    return list;
   }, [
     rooms,
     keyword,
     staffFilter,
-    itemsPerPage,
     sortKey,
     drinkSort,
     castGenreFilter,
@@ -892,18 +890,6 @@ function ChatContent() {
               {s.label}
             </option>
           ))}
-        </select>
-
-        <select
-          className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
-          value={itemsPerPage}
-          onChange={(e) =>
-            setItemsPerPage(Number(e.target.value) as 50 | 56 | 100)
-          }
-        >
-          <option value={50}>50件</option>
-          <option value={56}>56件</option>
-          <option value={100}>100件</option>
         </select>
 
         <select

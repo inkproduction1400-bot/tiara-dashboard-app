@@ -21,6 +21,7 @@ import {
   updateShopRequest,
 } from "@/lib/api.shop-requests";
 import { listShops } from "@/lib/api.shops";
+import { apiPost } from "@/lib/api";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -516,6 +517,8 @@ export default function Page() {
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatSending, setChatSending] = useState(false);
 
   // NG登録モーダル用
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -914,6 +917,33 @@ export default function Page() {
       setNgSelectedShopIds(selectedCast.ngShopIds ?? []);
     }
   }, [ngModalOpen, selectedCast]);
+
+  useEffect(() => {
+    setChatDraft("");
+  }, [selectedCast?.id]);
+
+  const handleSendChat = useCallback(async () => {
+    if (!selectedCast) return;
+    const text = chatDraft.trim();
+    if (!text) {
+      alert("チャット内容を入力してください。");
+      return;
+    }
+    try {
+      setChatSending(true);
+      await apiPost("/chat/staff/messages", {
+        castId: selectedCast.id,
+        text,
+      });
+      setChatDraft("");
+      alert("送信しました。");
+    } catch (err) {
+      console.warn("[casts/today] chat send failed", err);
+      alert("送信に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setChatSending(false);
+    }
+  }, [chatDraft, selectedCast]);
 
   const {
     items: filteredCasts,
@@ -2685,12 +2715,16 @@ export default function Page() {
                     <textarea
                       className="w-full h-28 px-3 py-2 border border-gray-200 text-xs resize-none"
                       placeholder="チャットを入力"
+                      value={chatDraft}
+                      onChange={(e) => setChatDraft(e.target.value)}
                     />
                     <button
                       type="button"
-                      className="absolute right-2 bottom-2 px-4 py-1.5 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50"
+                      className="absolute right-2 bottom-2 px-4 py-1.5 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      onClick={handleSendChat}
+                      disabled={chatSending || !chatDraft.trim()}
                     >
-                      送信
+                      {chatSending ? "送信中..." : "送信"}
                     </button>
                   </div>
                 </div>

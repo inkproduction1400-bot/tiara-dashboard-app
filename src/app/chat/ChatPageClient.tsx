@@ -1019,11 +1019,6 @@ function ChatContent() {
                           isActive && "border-accent bg-ink/80",
                         )}
                       >
-                        <div className="mt-0.5">
-                          <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-[11px] font-semibold text-accent">
-                            {chat.castName.slice(0, 2)}
-                          </div>
-                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items=center justify-between gap-2">
                             <div className="min-w-0">

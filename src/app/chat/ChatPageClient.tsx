@@ -193,7 +193,9 @@ type ApiRoom = {
   castId?: string;
   cast_id?: string;
   castUserId?: string;
+  createdAt?: string | null;
   updatedAt?: string | null;
+  staffLastReadAt?: string | null;
   cast?: {
     userId?: string;
     castCode?: string;
@@ -571,15 +573,24 @@ function ChatContent() {
             )[0];
 
           const lastMessageText =
-            r.lastMessage?.text?.toString().trim() ||
             latestFallback?.text?.toString().trim() ||
+            r.lastMessage?.text?.toString().trim() ||
             "（メッセージなし）";
 
           const lastMessageAt =
-            r.lastMessage?.createdAt ||
             latestFallback?.createdAt ||
+            r.lastMessage?.createdAt ||
             r.updatedAt ||
-            new Date().toISOString();
+            r.createdAt ||
+            "1970-01-01T00:00:00.000Z";
+
+          const hasUnreadFromCast =
+            latestFallback?.createdAt &&
+            latestFallback.sender?.userType === "cast" &&
+            (!r.staffLastReadAt ||
+              new Date(latestFallback.createdAt) >
+                new Date(r.staffLastReadAt));
+          const initialUnread = hasUnreadFromCast ? 1 : 0;
 
           const staffName = r.cast?.ownerStaffName ?? "担当者";
 
@@ -593,7 +604,7 @@ function ChatContent() {
             genre,
             lastMessage: lastMessageText,
             lastMessageAt,
-            unreadCount: 0,
+            unreadCount: initialUnread,
             staffId: staffName,
             staffName,
             drinkLevel,
@@ -612,7 +623,7 @@ function ChatContent() {
           router.replace(`${pathname}?${p.toString()}`);
         }
 
-        const targets = mappedBase.slice(0, 80);
+        const targets = mappedBase.slice(0, 200);
         const results = await Promise.allSettled(
           targets.map((room) =>
             apiFetch<ApiUnreadResponse>(

@@ -34,6 +34,10 @@ type ChatPreview = {
 
   staffId: string;
   staffName: string;
+
+  drinkLevel?: "none" | "weak" | "ok" | "unknown";
+  hasTodayShift?: boolean;
+  hasTodayApprovedShift?: boolean;
 };
 
 type ChatMessage = {
@@ -192,6 +196,11 @@ type ApiRoom = {
     displayName?: string | null;
     age?: number | null;
     genre?: string | null;
+    drinkOk?: boolean | null;
+    status?: string | null;
+    attributes?: { drinkLevel?: "none" | "weak" | "ok" | null }[] | null;
+    cast_background?: { genres?: string | null }[] | null;
+    shifts?: { status?: string | null }[] | null;
   } | null;
   lastMessage?: {
     text?: string | null;
@@ -259,6 +268,7 @@ function ChatContent() {
 
   const [rooms, setRooms] = useState<ChatPreview[]>(DUMMY_CHATS);
   const [roomsLoaded, setRoomsLoaded] = useState<boolean>(false);
+  const [staffOptions, setStaffOptions] = useState<Staff[]>(DUMMY_STAFFS);
 
   const selectedRoomIdFromUrl = searchParams.get("roomId");
 
@@ -294,8 +304,27 @@ function ChatContent() {
       list = list.filter((c) => c.genre === genreFilter);
     }
 
-    void drinkFilter;
-    void statusFilter;
+    if (drinkFilter !== "all") {
+      list = list.filter((c) => {
+        const level = c.drinkLevel ?? "unknown";
+        if (drinkFilter === "ng") return level === "none";
+        if (drinkFilter === "weak") return level === "weak";
+        if (drinkFilter === "normal") return level === "ok";
+        return false;
+      });
+    }
+
+    if (statusFilter !== "all") {
+      list = list.filter((c) => {
+        const hasApproved = Boolean(c.hasTodayApprovedShift);
+        const hasAny = Boolean(c.hasTodayShift);
+        if (statusFilter === "today") return hasApproved;
+        if (statusFilter === "today-planned")
+          return hasAny && !hasApproved;
+        if (statusFilter === "absent") return !hasAny;
+        return true;
+      });
+    }
 
     return list;
   }, [rooms, staffFilter, genreFilter, drinkFilter, statusFilter]);
@@ -342,13 +371,38 @@ function ChatContent() {
 
           const castCode = r.cast?.castCode ?? "-";
           const age = typeof r.cast?.age === "number" ? r.cast.age ?? 0 : 0;
-          const genre = r.cast?.genre ?? "未設定";
+          const rawGenres = r.cast?.cast_background?.[0]?.genres ?? "";
+          const genre = rawGenres.includes("キャバ")
+            ? "キャバクラ"
+            : rawGenres.includes("スナック")
+              ? "スナック"
+              : rawGenres.includes("ガールズバー") ||
+                  rawGenres.includes("ガルバ")
+                ? "ガールズバー"
+                : "未設定";
+          const drinkLevelRaw =
+            r.cast?.attributes?.[0]?.drinkLevel ??
+            (r.cast?.drinkOk ? "ok" : "none");
+          const drinkLevel =
+            drinkLevelRaw === "none" ||
+            drinkLevelRaw === "weak" ||
+            drinkLevelRaw === "ok"
+              ? drinkLevelRaw
+              : "unknown";
+          const shiftStatuses = (r.cast?.shifts ?? [])
+            .map((s) => s.status ?? "")
+            .filter(Boolean);
+          const hasApprovedShift = shiftStatuses.includes("approved");
+          const hasTodayShift =
+            hasApprovedShift || shiftStatuses.includes("planned");
 
           const lastMessageText =
             r.lastMessage?.text?.toString().trim() || "（メッセージなし）";
 
           const lastMessageAt =
             r.lastMessage?.createdAt || new Date().toISOString();
+
+          const staffName = r.cast?.ownerStaffName ?? "担当者";
 
           return {
             id: r.id,
@@ -360,13 +414,24 @@ function ChatContent() {
             lastMessage: lastMessageText,
             lastMessageAt,
             unreadCount: 0,
-            staffId: "staff",
-            staffName: "担当者",
+            staffId: staffName,
+            staffName,
+            drinkLevel,
+            hasTodayShift,
+            hasTodayApprovedShift: hasApprovedShift,
           };
         });
 
         setRooms(mappedBase);
         setRoomsLoaded(true);
+        const staffMap = new Map<string, Staff>();
+        for (const room of mappedBase) {
+          if (!room.staffId) continue;
+          if (!staffMap.has(room.staffId)) {
+            staffMap.set(room.staffId, { id: room.staffId, name: room.staffName });
+          }
+        }
+        setStaffOptions(staffMap.size > 0 ? [...staffMap.values()] : DUMMY_STAFFS);
 
         if (!selectedRoomIdFromUrl && mappedBase[0]?.id) {
           const p = new URLSearchParams(Array.from(searchParams.entries()));
@@ -708,7 +773,7 @@ function ChatContent() {
             onChange={(e) => setStaffFilter(e.target.value)}
           >
             <option value="all">担当者: すべて</option>
-            {DUMMY_STAFFS.map((s) => (
+            {staffOptions.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>

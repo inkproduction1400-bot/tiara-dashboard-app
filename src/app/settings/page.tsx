@@ -371,7 +371,7 @@ export default function Page() {
               type="button"
               className={`px-3 h-8 rounded-full border ${
                 activeTab === "staff"
-                  ? "bg-ink text-white border-ink"
+                  ? "bg-accent text-white border-accent"
                   : "bg-white text-ink border-gray-300"
               }`}
               onClick={() => setActiveTab("staff")}
@@ -382,7 +382,7 @@ export default function Page() {
               type="button"
               className={`px-3 h-8 rounded-full border ${
                 activeTab === "vehicles"
-                  ? "bg-ink text-white border-ink"
+                  ? "bg-accent text-white border-accent"
                   : "bg-white text-ink border-gray-300"
               }`}
               onClick={() => setActiveTab("vehicles")}
@@ -393,7 +393,7 @@ export default function Page() {
               type="button"
               className={`px-3 h-8 rounded-full border ${
                 activeTab === "drivers"
-                  ? "bg-ink text-white border-ink"
+                  ? "bg-accent text-white border-accent"
                   : "bg-white text-ink border-gray-300"
               }`}
               onClick={() => setActiveTab("drivers")}

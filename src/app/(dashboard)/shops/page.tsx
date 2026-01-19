@@ -1091,6 +1091,30 @@ function ShopDetailModal({
   const bodyTypeOptions = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"];
   const heightOptions = ["〜150", "151〜155", "156〜160", "161〜165", "166〜170", "171〜"];
 
+  const fixedCastLabel = useMemo(() => {
+    const items = fixedCasts.filter((row) => !row._deleted);
+    if (items.length === 0) return "";
+    return items
+      .map((row) => {
+        const name = row.cast?.displayName?.trim() || "名称未設定";
+        const code = row.cast?.managementNumber || row.cast?.castCode;
+        return code ? `${name}（${code}）` : name;
+      })
+      .join(" / ");
+  }, [fixedCasts]);
+
+  const ngCastLabel = useMemo(() => {
+    const items = ngCasts.filter((row) => !row._deleted);
+    if (items.length === 0) return "";
+    return items
+      .map((row) => {
+        const name = row.cast?.displayName?.trim() || "名称未設定";
+        const code = row.cast?.managementNumber || row.cast?.castCode;
+        return code ? `${name}（${code}）` : name;
+      })
+      .join(" / ");
+  }, [ngCasts]);
+
   // ★ 追加：base が切り替わったら「未反映」状態に戻す
   useEffect(() => {
     lastAppliedDetailRef.current = null;
@@ -1536,7 +1560,11 @@ function ShopDetailModal({
                       <div className="flex-1">
                         <ShopDetailField>
                           <div className="text-slate-500 text-sm">
-                            {fixedLoading ? "読み込み中…" : fixedCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
+                            {fixedLoading
+                              ? "読み込み中…"
+                              : fixedCastLabel
+                                ? fixedCastLabel
+                                : "登録なし"}
                           </div>
                         </ShopDetailField>
                       </div>
@@ -1557,7 +1585,11 @@ function ShopDetailModal({
                       <div className="flex-1">
                         <ShopDetailField>
                           <div className="text-slate-500 text-sm">
-                            {ngLoadingState ? "読み込み中…" : ngCasts.length ? "女の子情報から自動追加（表示のみ）" : "登録なし"}
+                            {ngLoadingState
+                              ? "読み込み中…"
+                              : ngCastLabel
+                                ? ngCastLabel
+                                : "登録なし"}
                           </div>
                         </ShopDetailField>
                       </div>

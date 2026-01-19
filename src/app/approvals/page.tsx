@@ -52,247 +52,180 @@ function ApplicationDetailModal({
 }: DetailModalProps) {
   const interviewDate =
     detail.registeredAt ?? detail.receivedAt ?? null;
+  const age = calcAge(detail.age, detail.birthdate);
+  const name = detail.fullName ?? "未設定";
   return (
-    <div className="tiara-modal-backdrop">
-      <div className="tiara-modal">
-        <div className="tiara-modal__head">
-          <div>
-            <h3 className="text-base font-semibold">面談申請 詳細</h3>
-            <p className="text-xs text-muted mt-1">
-              申請ID: {detail.id}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-7xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold">面談申請詳細（{name}）</h3>
+            {error && <span className="text-[10px] text-red-500">{error}</span>}
           </div>
-          <button
-            className="tiara-btn tiara-btn--ghost h-9"
-            onClick={onClose}
-          >
-            閉じる
-          </button>
-        </div>
-
-        {error && (
-          <div className="mt-3 text-xs text-red-600">{error}</div>
-        )}
-
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <div className="text-xs text-muted">名前</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.fullName ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">フリガナ</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.furigana ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">生年月日</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {formatDate(detail.birthdate) || "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">年齢</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {calcAge(detail.age, detail.birthdate) ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">電話</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.phone ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">メール</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.email ?? "未設定"}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs text-muted">住所</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.address ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">面談希望日</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {formatDate(interviewDate) || "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">希望エリア</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.desiredArea ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">飲酒可</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.drinkOk == null ? "未設定" : detail.drinkOk ? "OK" : "NG"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">ジャンル</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.genres?.length ? detail.genres.join(" / ") : "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">希望時給</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.hourlyExpectation != null
-                ? `${detail.hourlyExpectation}円`
-                : "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">身長</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.heightCm != null ? `${detail.heightCm}cm` : "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">服サイズ</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.clothingSize ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">靴サイズ</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.shoeSizeCm != null ? `${detail.shoeSizeCm}cm` : "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">タトゥー</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.tattoo == null ? "未設定" : detail.tattoo ? "有" : "無"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">送迎</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.needPickup == null
-                ? "未設定"
-                : detail.needPickup
-                  ? "要"
-                  : "不要"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">飲酒レベル</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.drinkLevel ?? "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">希望出勤日</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {detail.preferredDays?.length
-                ? detail.preferredDays.join(" / ")
-                : "未設定"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted">希望時間</div>
-            <div className="tiara-input h-9 flex items-center text-sm">
-              {(detail.preferredTimeFrom || detail.preferredTimeTo)
-                ? `${detail.preferredTimeFrom ?? ""}〜${detail.preferredTimeTo ?? ""}`
-                : "未設定"}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs text-muted">面談メモ</div>
-            <div className="tiara-input min-h-[70px] text-sm py-2">
-              {detail.interviewNotes ?? "未設定"}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs text-muted">職歴</div>
-            <div className="tiara-input min-h-[70px] text-sm py-2">
-              {detail.workHistories?.length
-                ? detail.workHistories
-                    .map((w) =>
-                      w.hourlyWage
-                        ? `${w.shopName}（${w.hourlyWage}円）`
-                        : w.shopName
-                    )
-                    .join(" / ")
-                : "未設定"}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs text-muted">NG店舗</div>
-            <div className="tiara-input min-h-[70px] text-sm py-2">
-              {detail.ngShops?.length
-                ? detail.ngShops.map((n) => n.shopName).join(" / ")
-                : "未設定"}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            className="tiara-btn tiara-btn--ghost h-9"
-            onClick={onClose}
-          >
-            キャンセル
-          </button>
-          {detail.status !== "approved" && (
+          <div className="flex items-center gap-2">
+            {detail.status !== "approved" && (
+              <button
+                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
+                onClick={onApprove}
+                disabled={approving}
+              >
+                {approving ? "承認中…" : "承認してキャスト化"}
+              </button>
+            )}
             <button
-              className="tiara-btn h-9"
-              onClick={onApprove}
-              disabled={approving}
+              className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white bg-[#f16d6d]"
+              onClick={onClose}
             >
-              {approving ? "承認中..." : "承認してキャスト化"}
+              終了
             </button>
-          )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          <div className="border-b border-black/30">
+            <div className="grid grid-cols-1 xl:grid-cols-2">
+              <div className="bg-[#efe2dd] p-4 border-r border-black/40">
+                <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
+                  登録情報①
+                </div>
+                <div className="mt-4 grid grid-cols-[120px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs text-ink font-semibold">ふりがな</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.furigana ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">氏名</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {name}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">生年月日</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                      {formatDate(detail.birthdate) || "未設定"}
+                    </div>
+                    <div className="h-8 px-2 bg-white border border-black/40 flex items-center justify-center">
+                      <div className="text-sm font-bold text-neutral-900 tabular-nums">
+                        {age ?? "-"}
+                      </div>
+                    </div>
+                    <div className="text-xs text-ink font-semibold">歳</div>
+                  </div>
+                  <div className="text-xs text-ink font-semibold">現住所</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.address ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">TEL</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.phone ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">アドレス</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.email ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">面談希望日</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {formatDate(interviewDate) || "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">希望エリア</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.desiredArea ?? "未設定"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#efe2dd] p-4">
+                <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
+                  登録情報②
+                </div>
+                <div className="mt-4 grid grid-cols-[120px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs text-ink font-semibold">飲酒</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.drinkOk == null ? "未設定" : detail.drinkOk ? "OK" : "NG"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">飲酒レベル</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.drinkLevel ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">ジャンル</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.genres?.length ? detail.genres.join(" / ") : "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">希望時給</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.hourlyExpectation != null
+                      ? `${detail.hourlyExpectation}円`
+                      : "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">身長</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.heightCm != null ? `${detail.heightCm}cm` : "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">服サイズ</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.clothingSize ?? "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">靴サイズ</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.shoeSizeCm != null ? `${detail.shoeSizeCm}cm` : "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">タトゥー</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.tattoo == null ? "未設定" : detail.tattoo ? "有" : "無"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">送迎</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.needPickup == null ? "未設定" : detail.needPickup ? "要" : "不要"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">希望出勤日</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {detail.preferredDays?.length ? detail.preferredDays.join(" / ") : "未設定"}
+                  </div>
+                  <div className="text-xs text-ink font-semibold">希望時間</div>
+                  <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center">
+                    {(detail.preferredTimeFrom || detail.preferredTimeTo)
+                      ? `${detail.preferredTimeFrom ?? ""}〜${detail.preferredTimeTo ?? ""}`
+                      : "未設定"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#f6efe9] p-4 border-b border-black/30">
+            <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
+              その他
+            </div>
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-ink font-semibold">面談メモ</div>
+                <div className="min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm">
+                  {detail.interviewNotes ?? "未設定"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-ink font-semibold">職歴</div>
+                <div className="min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm">
+                  {detail.workHistories?.length
+                    ? detail.workHistories
+                        .map((w) =>
+                          w.hourlyWage ? `${w.shopName}（${w.hourlyWage}円）` : w.shopName,
+                        )
+                        .join(" / ")
+                    : "未設定"}
+                </div>
+              </div>
+              <div className="lg:col-span-2">
+                <div className="text-xs text-ink font-semibold">NG店舗</div>
+                <div className="min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm">
+                  {detail.ngShops?.length
+                    ? detail.ngShops.map((n) => n.shopName).join(" / ")
+                    : "未設定"}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <style jsx global>{`
-        .tiara-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 60;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 12px;
-        }
-        .tiara-modal {
-          width: min(980px, 96vw);
-          max-height: 86vh;
-          overflow: auto;
-          background: #fff;
-          border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.25);
-          box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
-          display: flex;
-          flex-direction: column;
-          padding: 16px;
-        }
-        .tiara-modal__head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .tiara-btn--ghost {
-          background: #fff;
-          color: #2b78e4;
-        }
-        .tiara-input {
-          background: #fff;
-          border-radius: 10px;
-          border: 1px solid rgba(0, 0, 0, 0.15);
-          padding: 0 10px;
-        }
-      `}</style>
     </div>
   );
 }
@@ -388,38 +321,34 @@ export default function Page() {
 
         {err && <div className="text-xs text-red-600">{err}</div>}
 
-        <div className="tiara-table-wrap">
-          <table className="tiara-table">
-            <thead>
-              <tr>
-                <th>名前</th>
-                <th>年齢</th>
-                <th>住所</th>
-                <th>面談希望日</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((row) => (
-                <tr
-                  key={row.id}
-                  className="cursor-pointer hover:bg-slate-50"
-                  onClick={() => handleOpen(row.id)}
-                >
-                  <td>{row.fullName ?? "未設定"}</td>
-                  <td>{row.age ?? "未設定"}</td>
-                  <td>{row.address ?? "未設定"}</td>
-                  <td>{formatDate(row.interviewDate) || "未設定"}</td>
-                </tr>
-              ))}
-              {!list.length && !loading && (
-                <tr>
-                  <td colSpan={4} className="text-center text-xs text-muted">
-                    表示する申請がありません
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {list.map((row) => (
+            <button
+              key={row.id}
+              className="text-left bg-white border border-slate-200 rounded-2xl shadow-sm px-4 py-3 hover:shadow-md transition"
+              onClick={() => handleOpen(row.id)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900">
+                  {row.fullName ?? "未設定"}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {formatDate(row.interviewDate) || "未設定"}
+                </div>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                年齢: {row.age ?? "未設定"} / 住所: {row.address ?? "未設定"}
+              </div>
+              <div className="mt-2 inline-flex items-center gap-2 text-[11px] text-slate-500">
+                申請ID: {row.id}
+              </div>
+            </button>
+          ))}
+          {!list.length && !loading && (
+            <div className="col-span-full text-center text-xs text-muted py-10">
+              表示する申請がありません
+            </div>
+          )}
         </div>
 
         {detailLoading && (

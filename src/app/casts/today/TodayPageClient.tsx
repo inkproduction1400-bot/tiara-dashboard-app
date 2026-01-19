@@ -24,6 +24,7 @@ import {
   getShop,
   listShopFixedCasts,
   listShopNgCasts,
+  upsertShopFixedCast,
   listShops,
   type ShopDetail,
 } from "@/lib/api.shops";
@@ -87,6 +88,8 @@ type Cast = {
   photoUrl?: string;
   hasExclusive?: boolean;
   hasNominated?: boolean;
+  /** 専属店舗ID（キャスト側に紐付けがある場合） */
+  exclusiveShopId?: string | null;
   /** このキャストがNGの店舗ID一覧（将来APIから付与 or 更新） */
   ngShopIds?: string[];
   /** 旧ID（既存仕様：管理番号・名前・旧IDで検索できる想定） */
@@ -337,6 +340,16 @@ const getCastExclusiveFlag = (item: any): boolean => {
   if (item?.exclusiveShopId || item?.exclusive_shop_id) return true;
   if (item?.exclusiveShop) return true;
   return false;
+};
+
+const getCastExclusiveShopId = (item: any): string | null => {
+  const direct =
+    item?.exclusiveShopId ??
+    item?.exclusive_shop_id ??
+    item?.exclusiveShop?.shopId ??
+    null;
+  if (typeof direct === "string" && direct) return direct;
+  return null;
 };
 
 const getCastNominatedFlag = (item: any): boolean => {
@@ -731,6 +744,7 @@ export default function Page() {
   const [selectedShopFixedCastIds, setSelectedShopFixedCastIds] = useState<
     string[]
   >([]);
+  const exclusiveSyncRef = useRef<Set<string>>(new Set());
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(56);
@@ -1049,9 +1063,16 @@ export default function Page() {
     [selectedShopNgCastIds],
   );
 
+  const exclusiveFixedCastIds = useMemo(() => {
+    if (!selectedShopId) return [];
+    return allCasts
+      .filter((c) => c.exclusiveShopId === selectedShopId)
+      .map((c) => c.id);
+  }, [allCasts, selectedShopId]);
+
   const selectedShopFixedCastIdSet = useMemo(
-    () => new Set(selectedShopFixedCastIds),
-    [selectedShopFixedCastIds],
+    () => new Set([...selectedShopFixedCastIds, ...exclusiveFixedCastIds]),
+    [selectedShopFixedCastIds, exclusiveFixedCastIds],
   );
 
   const effectiveMatchingSettings =
@@ -1130,6 +1151,42 @@ export default function Page() {
     };
   }, [selectedShopId]);
 
+  useEffect(() => {
+    if (!selectedShopId) return;
+    if (exclusiveFixedCastIds.length === 0) return;
+
+    const missing = exclusiveFixedCastIds.filter(
+      (id) => !selectedShopFixedCastIdSet.has(id),
+    );
+    const toSync = missing.filter((id) => {
+      const key = `${selectedShopId}:${id}`;
+      if (exclusiveSyncRef.current.has(key)) return false;
+      exclusiveSyncRef.current.add(key);
+      return true;
+    });
+    if (toSync.length === 0) return;
+
+    void Promise.allSettled(
+      toSync.map((castId) =>
+        upsertShopFixedCast(selectedShopId, { castId }),
+      ),
+    ).then((results) => {
+      const succeeded = toSync.filter(
+        (_, idx) => results[idx]?.status === "fulfilled",
+      );
+      if (succeeded.length === 0) return;
+      setSelectedShopFixedCastIds((prev) => {
+        const merged = new Set(prev);
+        for (const id of succeeded) merged.add(id);
+        return Array.from(merged);
+      });
+    });
+  }, [
+    selectedShopId,
+    exclusiveFixedCastIds,
+    selectedShopFixedCastIdSet,
+  ]);
+
   // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
   useEffect(() => {
     let cancelled = false;
@@ -1169,6 +1226,7 @@ export default function Page() {
             resolvePhotoUrl(item) ?? allPhotoMap.get(item.castId) ?? undefined,
           hasExclusive: getCastExclusiveFlag(item),
           hasNominated: getCastNominatedFlag(item),
+          exclusiveShopId: getCastExclusiveShopId(item),
           ngShopIds: (item as any).ngShopIds ?? [],
           oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
           genres: getGenresFromDetail(item),
@@ -1195,6 +1253,7 @@ export default function Page() {
             photoUrl: resolvePhotoUrl(item) ?? undefined,
             hasExclusive: getCastExclusiveFlag(item),
             hasNominated: getCastNominatedFlag(item),
+            exclusiveShopId: getCastExclusiveShopId(item),
             ngShopIds: (item as any).ngShopIds ?? [],
             oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
             genres: getGenresFromDetail(item),

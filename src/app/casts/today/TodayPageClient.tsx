@@ -213,15 +213,27 @@ const hourlyMatchScore = (
 ): number => {
   if (typeof desiredHourly !== "number") return 0;
   if (minHourly == null && maxHourly == null) return 0;
-  let diff = 0;
-  if (minHourly != null && desiredHourly < minHourly) {
-    diff = minHourly - desiredHourly;
-  } else if (maxHourly != null && desiredHourly > maxHourly) {
-    diff = desiredHourly - maxHourly;
-  } else {
-    return 1;
+  const clampScore = (diff: number, span: number) =>
+    Math.max(0, 1 - diff / span);
+
+  if (minHourly != null && maxHourly != null) {
+    const center = (minHourly + maxHourly) / 2;
+    const halfSpan = Math.max(1, (maxHourly - minHourly) / 2);
+    const diff = Math.abs(desiredHourly - center);
+    return clampScore(diff, halfSpan);
   }
-  return Math.max(0, 1 - diff / 2000);
+
+  if (minHourly != null) {
+    const diff = Math.abs(desiredHourly - minHourly);
+    return clampScore(diff, 1000);
+  }
+
+  if (maxHourly != null) {
+    const diff = Math.abs(desiredHourly - maxHourly);
+    return clampScore(diff, 1000);
+  }
+
+  return 0;
 };
 
 /** キャストの「番号ソート用キー」（管理番号が優先 / 数字抽出） */
@@ -605,10 +617,13 @@ const matchesShopConditions = (
   cast: Cast,
   shop: Shop | null,
   shopNgSet?: Set<string>,
+  shopFixedSet?: Set<string>,
 ): boolean => {
   if (!shop) return true;
   if (cast.ngShopIds?.includes(shop.id)) return false;
   if (shopNgSet && shopNgSet.has(cast.id)) return false;
+  if (cast.hasExclusive && shopFixedSet && !shopFixedSet.has(cast.id))
+    return false;
   return true;
 };
 
@@ -649,12 +664,17 @@ const calcMatchScore = (
       hourlyMatchScore(cast.desiredHourly, shop.minHourly, shop.maxHourly);
   }
 
-  if (settings.enableDrink && shopDrink) {
-    const diff = Math.abs(
-      drinkScore(cast.drinkLevel) - drinkScore(shopDrink),
-    );
-    const score = Math.max(0, 1 - diff / 3);
-    total += settings.weightDrink * score;
+  if (settings.enableDrink) {
+    if (shop.requireDrinkOk) {
+      const rankScore = Math.max(0, drinkScore(cast.drinkLevel)) / 3;
+      total += settings.weightDrink * rankScore;
+    } else if (shopDrink) {
+      const diff = Math.abs(
+        drinkScore(cast.drinkLevel) - drinkScore(shopDrink),
+      );
+      const score = Math.max(0, 1 - diff / 3);
+      total += settings.weightDrink * score;
+    }
   }
 
   if (settings.enableHeight) {
@@ -1317,7 +1337,12 @@ export default function Page() {
     // ③ 店舗条件フィルタ
     if (selectedShop) {
       list = list.filter((c: Cast) =>
-        matchesShopConditions(c, selectedShop, selectedShopNgCastIdSet),
+        matchesShopConditions(
+          c,
+          selectedShop,
+          selectedShopNgCastIdSet,
+          selectedShopFixedCastIdSet,
+        ),
       );
     }
 
@@ -1412,11 +1437,23 @@ export default function Page() {
           ),
         );
       }
+      const shopGenre =
+        selectedShopDetail?.genre ?? selectedShop?.genre ?? null;
+      const requireDrinkOk = !!selectedShop?.requireDrinkOk;
       list.sort((a, b) => {
         if (effectiveMatchingSettings.fixedCastAlwaysTop) {
           const aFixed = selectedShopFixedCastIdSet.has(a.id);
           const bFixed = selectedShopFixedCastIdSet.has(b.id);
           if (aFixed !== bFixed) return aFixed ? -1 : 1;
+        }
+        if (shopGenre) {
+          const aGenre = a.genres?.includes(shopGenre) ?? false;
+          const bGenre = b.genres?.includes(shopGenre) ?? false;
+          if (aGenre !== bGenre) return aGenre ? -1 : 1;
+        }
+        if (requireDrinkOk) {
+          const diff = drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel);
+          if (diff !== 0) return diff;
         }
         const sa = scoreMap.get(a.id) ?? 0;
         const sb = scoreMap.get(b.id) ?? 0;
@@ -1636,7 +1673,12 @@ export default function Page() {
     // 割当候補は、選択した店舗条件に合わないものを除外
     setStaged((prev: Cast[]) =>
       prev.filter((c: Cast) =>
-        matchesShopConditions(c, shop, selectedShopNgCastIdSet),
+        matchesShopConditions(
+          c,
+          shop,
+          selectedShopNgCastIdSet,
+          selectedShopFixedCastIdSet,
+        ),
       ),
     );
   };
@@ -1645,7 +1687,12 @@ export default function Page() {
     if (!selectedShop) return;
     setStaged((prev: Cast[]) =>
       prev.filter((c: Cast) =>
-        matchesShopConditions(c, selectedShop, selectedShopNgCastIdSet),
+        matchesShopConditions(
+          c,
+          selectedShop,
+          selectedShopNgCastIdSet,
+          selectedShopFixedCastIdSet,
+        ),
       ),
     );
   }, [selectedShop, selectedShopNgCastIdSet]);
@@ -3654,6 +3701,7 @@ export default function Page() {
                 cast,
                 selectedShop,
                 selectedShopNgCastIdSet,
+                selectedShopFixedCastIdSet,
               )
             ) {
               alert(

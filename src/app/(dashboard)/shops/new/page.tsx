@@ -4,6 +4,13 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  createShop,
+  upsertShopFixedCast,
+  upsertShopNgCast,
+  type ShopDrinkPreference,
+  type ShopGenre,
+} from '@/lib/api.shops';
 
 const GENRES = [
   { value: 'club', label: 'クラブ' },
@@ -129,15 +136,68 @@ export default function NewShopPage() {
     },
   });
 
-  const onSubmit = async (data: FormValues) => {
+const onSubmit = async (data: FormValues) => {
     setSubmitting(true);
     try {
-      console.log('[SHOP FORM SUBMIT]', data);
-      alert('いったんコンソールへ出力しました。API連携に差し替えます。');
-      // TODO: API連携
-      // 1) POST /shops
-      // 2) POST /shops/requirements (upsert)
-      // 3) POST /shops/fixed-casts, /shops/ng-casts
+      const preferredAgeRange = (() => {
+        switch (data.ageBand) {
+          case '18-19':
+            return 'age_18_19';
+          case '20-24':
+            return 'age_20_24';
+          case '25-30':
+            return 'age_25_29';
+          case '30-50':
+            return 'age_30_34';
+          default:
+            return undefined;
+        }
+      })();
+
+      const idDocumentRequirement = (() => {
+        switch (data.idRequirement) {
+          case 'face_photo_only':
+            return 'photo_only';
+          case 'residence_only':
+            return 'address_only';
+          case 'both':
+            return 'both';
+          default:
+            return undefined;
+        }
+      })();
+
+      const shop = await createShop({
+        name: data.name,
+        shopNumber: data.shopNumber?.trim() || null,
+        prefecture: data.prefecture || null,
+        city: data.city || null,
+        addressLine: data.addressLine || null,
+        phone: data.phone || null,
+        genre: (data.genre as ShopGenre) || null,
+        drinkPreference:
+          (data.drinkLevelPolicy as ShopDrinkPreference) || null,
+        idDocumentRequirement,
+        preferredAgeRange,
+        wageLabel: `${data.hourlyBaseline}円〜`,
+      });
+
+      if (data.exclusiveCastId) {
+        await upsertShopFixedCast(shop.id, {
+          castId: data.exclusiveCastId,
+        });
+      }
+
+      const ngCastIds = Array.isArray(data.ngCastIds) ? data.ngCastIds : [];
+      if (ngCastIds.length > 0) {
+        await Promise.allSettled(
+          ngCastIds.map((castId) =>
+            upsertShopNgCast(shop.id, { castId }),
+          ),
+        );
+      }
+
+      alert('新規店舗を登録しました。');
     } finally {
       setSubmitting(false);
     }
@@ -146,7 +206,7 @@ export default function NewShopPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-semibold">新規店舗登録</h1>
-      <p className="text-sm text-gray-500 mt-2">まずはUIとバリデーションのみ。後ほどAPI接続します。</p>
+      <p className="text-sm text-gray-500 mt-2">店舗情報を入力して登録してください。</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-8">
         {/* 基本情報 */}
@@ -293,7 +353,7 @@ export default function NewShopPage() {
             disabled={submitting}
             className="rounded-md bg-blue-600 text-white px-5 py-2.5 disabled:opacity-50"
           >
-            {submitting ? '送信中…' : '登録内容を確認'}
+            {submitting ? '送信中…' : '登録確定'}
           </button>
         </div>
       </form>

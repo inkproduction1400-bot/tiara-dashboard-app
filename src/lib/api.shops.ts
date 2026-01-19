@@ -75,6 +75,39 @@ export type ShopListResponse = {
   total: number;
 };
 
+export type CreateShopPayload = Partial<{
+  name: string;
+  shopNumber: string | null;
+  nameKana: string | null;
+  prefecture: string | null;
+  city: string | null;
+  addressLine: string | null;
+  buildingName: string | null;
+  phone: string | null;
+  genre: ShopGenre | null;
+  rank: ShopRank | null;
+  drinkPreference: ShopDrinkPreference | null;
+  idDocumentRequirement: ShopIdRequirement | null;
+  preferredAgeRange: ShopPreferredAgeRange | null;
+  wageLabel: string | null;
+  reqKeywords: string[] | null;
+}>;
+
+export async function createShop(
+  payload: CreateShopPayload,
+): Promise<ShopDetail> {
+  return apiFetch<ShopDetail>(
+    "/shops",
+    withUser({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 /**
  * 店舗詳細用の型
  * - ベースは ShopListItem

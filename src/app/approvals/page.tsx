@@ -52,6 +52,12 @@ function toNumber(value: string): number | undefined {
   return num;
 }
 
+
+const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
+
+type WorkHistoryRow = { shopName: string; hourlyWage: string };
+
+type NgShopRow = { shopName: string };
 function ModalPortal({ children }: { children: ReactNode }) {
   if (typeof document === "undefined") return null;
   return createPortal(children, document.body);
@@ -82,6 +88,8 @@ function ApplicationDetailModal({
   error,
 }: DetailModalProps) {
   const [form, setForm] = useState<ApplicationDetail>(detail);
+  const [workHistoryRows, setWorkHistoryRows] = useState<WorkHistoryRow[]>([]);
+  const [ngShopRows, setNgShopRows] = useState<NgShopRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveDone, setSaveDone] = useState(false);
@@ -96,6 +104,19 @@ function ApplicationDetailModal({
 
   useEffect(() => {
     setForm(detail);
+    const nextWorkHistoryRows =
+      detail.workHistories?.map((w) => ({
+        shopName: w.shopName ?? "",
+        hourlyWage: w.hourlyWage != null ? String(w.hourlyWage) : "",
+      })) ?? [];
+    setWorkHistoryRows(
+      nextWorkHistoryRows.length ? nextWorkHistoryRows : [{ shopName: "", hourlyWage: "" }],
+    );
+    const nextNgShopRows =
+      detail.ngShops?.map((n) => ({
+        shopName: n.shopName ?? "",
+      })) ?? [];
+    setNgShopRows(nextNgShopRows.length ? nextNgShopRows : [{ shopName: "" }]);
     setSaveDone(false);
     setSaveError(null);
     setProfileFile(null);
@@ -166,6 +187,17 @@ function ApplicationDetailModal({
     reasonChoose: form.reasonChoose ?? undefined,
     shopSelectionPoints: form.shopSelectionPoints ?? undefined,
     otherNotes: form.otherNotes ?? undefined,
+    workHistories: workHistoryRows
+      .map((row) => ({
+        shopName: row.shopName.trim(),
+        hourlyWage: row.hourlyWage.trim()
+          ? Number(row.hourlyWage.trim())
+          : undefined,
+      }))
+      .filter((row) => row.shopName.length > 0),
+    ngShops: ngShopRows
+      .map((row) => ({ shopName: row.shopName.trim() }))
+      .filter((row) => row.shopName.length > 0),
   });
 
   const handleSave = async () => {
@@ -369,13 +401,23 @@ function ApplicationDetailModal({
                     <option value="strong">強い</option>
                   </select>
                   <div className="text-xs text-ink font-semibold">ジャンル</div>
-                  <input
+                  <select
                     className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.genres?.join(" / ") ?? ""}
+                    value={form.genres?.[0] ?? ""}
                     onChange={(e) =>
-                      setForm((p) => ({ ...p, genres: splitToArray(e.target.value) }))
+                      setForm((p) => ({
+                        ...p,
+                        genres: e.target.value ? [e.target.value] : [],
+                      }))
                     }
-                  />
+                  >
+                    <option value="">未設定</option>
+                    {CAST_GENRE_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
                   <div className="text-xs text-ink font-semibold">希望時給</div>
                   <input
                     type="number"
@@ -562,22 +604,107 @@ function ApplicationDetailModal({
               </div>
               <div>
                 <div className="text-xs text-ink font-semibold">職歴</div>
-                <div className="min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm">
-                  {form.workHistories?.length
-                    ? form.workHistories
-                        .map((w) =>
-                          w.hourlyWage ? `${w.shopName}（${w.hourlyWage}円）` : w.shopName,
-                        )
-                        .join(" / ")
-                    : "未設定"}
+                <div className="space-y-2">
+                  {workHistoryRows.map((row, index) => (
+                    <div key={`work-${index}`} className="flex items-center gap-2">
+                      <input
+                        className="flex-1 h-8 bg-white border border-black/40 px-2 text-sm"
+                        placeholder="店舗名"
+                        value={row.shopName}
+                        onChange={(e) =>
+                          setWorkHistoryRows((prev) =>
+                            prev.map((item, i) =>
+                              i == index
+                                ? { ...item, shopName: e.target.value }
+                                : item
+                            )
+                          )
+                        }
+                      />
+                      <input
+                        className="w-24 h-8 bg-white border border-black/40 px-2 text-sm"
+                        placeholder="時給"
+                        value={row.hourlyWage}
+                        onChange={(e) =>
+                          setWorkHistoryRows((prev) =>
+                            prev.map((item, i) =>
+                              i == index
+                                ? { ...item, hourlyWage: e.target.value }
+                                : item
+                            )
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="px-2 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
+                        onClick={() =>
+                          setWorkHistoryRows((prev) => {
+                            const next = prev.filter((_, i) => i != index);
+                            return next.length
+                              ? next
+                              : [{ shopName: "", hourlyWage: "" }];
+                          })
+                        }
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="px-3 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
+                    onClick={() =>
+                      setWorkHistoryRows((prev) => [
+                        ...prev,
+                        { shopName: "", hourlyWage: "" },
+                      ])
+                    }
+                  >
+                    追加
+                  </button>
                 </div>
               </div>
               <div className="lg:col-span-2">
                 <div className="text-xs text-ink font-semibold">NG店舗</div>
-                <div className="min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm">
-                  {form.ngShops?.length
-                    ? form.ngShops.map((n) => n.shopName).join(" / ")
-                    : "未設定"}
+                <div className="space-y-2">
+                  {ngShopRows.map((row, index) => (
+                    <div key={`ng-${index}`} className="flex items-center gap-2">
+                      <input
+                        className="flex-1 h-8 bg-white border border-black/40 px-2 text-sm"
+                        placeholder="店舗名"
+                        value={row.shopName}
+                        onChange={(e) =>
+                          setNgShopRows((prev) =>
+                            prev.map((item, i) =>
+                              i == index
+                                ? { ...item, shopName: e.target.value }
+                                : item
+                            )
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="px-2 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
+                        onClick={() =>
+                          setNgShopRows((prev) => {
+                            const next = prev.filter((_, i) => i != index);
+                            return next.length ? next : [{ shopName: "" }];
+                          })
+                        }
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="px-3 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
+                    onClick={() => setNgShopRows((prev) => [...prev, { shopName: "" }])}
+                  >
+                    追加
+                  </button>
                 </div>
               </div>
             </div>

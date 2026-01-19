@@ -83,3 +83,59 @@ export async function getMatchingCandidates(
   const raw = await apiFetch<MatchingResult>(path, withUser());
   return raw;
 }
+
+// =======================
+// Matching settings
+// =======================
+
+export type MatchingSettings = {
+  id: string;
+  scope: string;
+  enableGenre: boolean;
+  enableHourly: boolean;
+  enableDrink: boolean;
+  enableHeight: boolean;
+  enableBodyType: boolean;
+  weightGenre: number;
+  weightHourly: number;
+  weightDrink: number;
+  weightHeight: number;
+  weightBodyType: number;
+  fixedCastAlwaysTop: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateMatchingSettingsInput = Partial<
+  Pick<
+    MatchingSettings,
+    | "enableGenre"
+    | "enableHourly"
+    | "enableDrink"
+    | "enableHeight"
+    | "enableBodyType"
+    | "weightGenre"
+    | "weightHourly"
+    | "weightDrink"
+    | "weightHeight"
+    | "weightBodyType"
+    | "fixedCastAlwaysTop"
+  >
+>;
+
+export async function getMatchingSettings(): Promise<MatchingSettings> {
+  return apiFetch<MatchingSettings>("/matching/settings", withUser());
+}
+
+export async function updateMatchingSettings(
+  input: UpdateMatchingSettingsInput,
+): Promise<MatchingSettings> {
+  return apiFetch<MatchingSettings>(
+    "/matching/settings",
+    withUser({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}

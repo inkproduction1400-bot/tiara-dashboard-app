@@ -20,12 +20,23 @@ import {
   createShopRequest,
   updateShopRequest,
 } from "@/lib/api.shop-requests";
-import { listShops } from "@/lib/api.shops";
+import {
+  getShop,
+  listShopFixedCasts,
+  listShopNgCasts,
+  listShops,
+  type ShopDetail,
+} from "@/lib/api.shops";
 import { apiPost } from "@/lib/api";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
 } from "@/lib/schedule.store";
+import {
+  getMatchingSettings,
+  updateMatchingSettings,
+  type MatchingSettings,
+} from "@/lib/api.matching";
 
 // ====== 追加: 型定義 ======
 
@@ -69,6 +80,8 @@ type Cast = {
   name: string;
   age: number;
   desiredHourly: number;
+  heightCm?: number | null;
+  bodyType?: string | null;
   /** 飲酒レベル: NG / 弱い / 普通 / 強い / 未登録(null) */
   drinkLevel: DrinkLevel;
   photoUrl?: string;
@@ -108,7 +121,27 @@ type Shop = {
   wageLabel?: string | null;
   /** 身分証要件（店舗管理の情報） */
   idDocumentRequirement?: string | null;
+  /** 飲酒条件（店舗管理の情報） */
+  drinkPreference?: string | null;
   [key: string]: any;
+};
+
+const DEFAULT_MATCHING_SETTINGS: MatchingSettings = {
+  id: "local",
+  scope: "global",
+  enableGenre: true,
+  enableHourly: true,
+  enableDrink: true,
+  enableHeight: true,
+  enableBodyType: true,
+  weightGenre: 100,
+  weightHourly: 70,
+  weightDrink: 40,
+  weightHeight: 30,
+  weightBodyType: 20,
+  fixedCastAlwaysTop: true,
+  createdAt: new Date(0).toISOString(),
+  updatedAt: new Date(0).toISOString(),
 };
 
 // ===== スケジュール連携: 本日分の店舗を取得 =====
@@ -158,6 +191,37 @@ const drinkScore = (level: DrinkLevel): number => {
     default:
       return -1; // 未登録は最後寄せ
   }
+};
+
+const normalizeShopDrinkPreference = (raw: any): DrinkLevel | null => {
+  if (raw == null) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s === "none" || s.includes("指定なし")) return null;
+  if (s.includes("ng") || s.includes("不可") || s.includes("飲まない"))
+    return "ng";
+  if (s.includes("weak") || s.includes("弱")) return "weak";
+  if (s.includes("normal") || s.includes("普通")) return "normal";
+  if (s.includes("strong") || s.includes("強")) return "strong";
+  return mapDrinkLevel(raw);
+};
+
+const hourlyMatchScore = (
+  desiredHourly: number | null | undefined,
+  minHourly: number | null | undefined,
+  maxHourly: number | null | undefined,
+): number => {
+  if (typeof desiredHourly !== "number") return 0;
+  if (minHourly == null && maxHourly == null) return 0;
+  let diff = 0;
+  if (minHourly != null && desiredHourly < minHourly) {
+    diff = minHourly - desiredHourly;
+  } else if (maxHourly != null && desiredHourly > maxHourly) {
+    diff = desiredHourly - maxHourly;
+  } else {
+    return 1;
+  }
+  return Math.max(0, 1 - diff / 2000);
 };
 
 /** キャストの「番号ソート用キー」（管理番号が優先 / 数字抽出） */
@@ -407,6 +471,107 @@ const SHOP_GENRE_LABEL: Record<ShopGenre, string> = {
   gb: "ガルバ",
 };
 
+const normalizeCastGenre = (raw: string): CastGenre | null => {
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s === "club" || s.includes("クラブ")) return "club";
+  if (s === "cabaret" || s.includes("キャバ")) return "cabaret";
+  if (s === "snack" || s.includes("スナック")) return "snack";
+  if (s === "gb" || s.includes("ガルバ") || s.includes("ガールズ"))
+    return "gb";
+  return null;
+};
+
+const getGenresFromDetail = (detail: any): CastGenre[] => {
+  const raw =
+    detail?.background?.genres ??
+    detail?.cast_background?.[0]?.genres ??
+    detail?.genres ??
+    detail?.genre;
+  const list: string[] = [];
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      if (typeof v === "string" && v.trim()) list.push(v);
+    }
+  } else if (typeof raw === "string") {
+    list.push(...raw.split(/[、,]/g));
+  }
+  const normalized = list
+    .map((v) => normalizeCastGenre(v))
+    .filter(Boolean) as CastGenre[];
+  return Array.from(new Set(normalized));
+};
+
+const getHeightFromDetail = (detail: any): number | null => {
+  const raw =
+    detail?.attributes?.heightCm ??
+    detail?.heightCm ??
+    detail?.height_cm ??
+    null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) ? n : null;
+};
+
+const getBodyTypeFromDetail = (detail: any): string | null => {
+  const raw =
+    detail?.attributes?.bodyType ??
+    detail?.bodyType ??
+    detail?.body_type ??
+    null;
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  return s ? s : null;
+};
+
+const normalizeBodyType = (raw?: string | null): string => {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return "";
+  if (s.includes("細") || s.includes("スリム")) return "slim";
+  if (s.includes("標準") || s.includes("普通")) return "normal";
+  if (s.includes("ぽっちゃり") || s.includes("太") || s.includes("ふくよか"))
+    return "plus";
+  return s;
+};
+
+const parseHeightRange = (
+  raw?: string | null,
+): { min: number | null; max: number | null } => {
+  if (!raw) return { min: null, max: null };
+  const s = String(raw);
+  const nums = (s.match(/\d{2,3}/g) ?? [])
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+  if (nums.length === 0) return { min: null, max: null };
+  if (s.includes("以上")) return { min: nums[0], max: null };
+  if (s.includes("以下")) return { min: null, max: nums[0] };
+  if (nums.length === 1) return { min: nums[0], max: nums[0] };
+  return { min: Math.min(nums[0], nums[1]), max: Math.max(nums[0], nums[1]) };
+};
+
+const heightMatchScore = (
+  height: number | null | undefined,
+  range: { min: number | null; max: number | null },
+): number => {
+  if (!height || (!range.min && !range.max)) return 0;
+  if (
+    range.min != null &&
+    range.max != null &&
+    height >= range.min &&
+    height <= range.max
+  ) {
+    return 1;
+  }
+  let diff = 0;
+  if (range.min != null && height < range.min) {
+    diff = range.min - height;
+  } else if (range.max != null && height > range.max) {
+    diff = height - range.max;
+  } else {
+    return 0;
+  }
+  return Math.max(0, 1 - diff / 20);
+};
+
 /** 年齢レンジ判定 */
 const isInAgeRange = (age: number, range: AgeRangeFilter): boolean => {
   if (!range) return true;
@@ -434,28 +599,77 @@ const isInAgeRange = (age: number, range: AgeRangeFilter): boolean => {
 
 /**
  * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
+ * - 今回は NG のみで非表示にする
  */
-const matchesShopConditions = (cast: Cast, shop: Shop | null): boolean => {
+const matchesShopConditions = (
+  cast: Cast,
+  shop: Shop | null,
+  shopNgSet?: Set<string>,
+): boolean => {
   if (!shop) return true;
-
   if (cast.ngShopIds?.includes(shop.id)) return false;
+  if (shopNgSet && shopNgSet.has(cast.id)) return false;
+  return true;
+};
 
-  if (shop.minHourly != null && cast.desiredHourly < shop.minHourly) return false;
-  if (shop.maxHourly != null && cast.desiredHourly > shop.maxHourly) return false;
+const calcMatchScore = (
+  cast: Cast,
+  shop: Shop | null,
+  shopDetail: ShopDetail | null,
+  settings: MatchingSettings,
+): number => {
+  if (!shop) return 0;
 
-  if (shop.minAge != null && cast.age < shop.minAge) return false;
-  if (shop.maxAge != null && cast.age > shop.maxAge) return false;
+  const shopGenre = shopDetail?.genre ?? shop.genre ?? null;
+  const shopDrink = normalizeShopDrinkPreference(
+    shopDetail?.dailyOrder?.drink ??
+      shopDetail?.drinkPreference ??
+      shop.drinkPreference ??
+      null,
+  );
+  const shopHeightRaw =
+    shopDetail?.dailyOrder?.height ?? shopDetail?.height ?? null;
+  const shopBodyRaw =
+    shopDetail?.dailyOrder?.bodyType ?? shopDetail?.bodyType ?? null;
 
-  // 「飲酒OKのみ」は NG 以外（弱い / 普通 / 強い）を許可
-  if (shop.requireDrinkOk) {
-    const canDrink =
-      cast.drinkLevel === "weak" ||
-      cast.drinkLevel === "normal" ||
-      cast.drinkLevel === "strong";
-    if (!canDrink) return false;
+  if (settings.enableDrink && shop.requireDrinkOk) {
+    if (cast.drinkLevel === "ng") return -1_000_000;
   }
 
-  return true;
+  let total = 0;
+
+  if (settings.enableGenre && shopGenre) {
+    const match = cast.genres?.includes(shopGenre) ? 1 : 0;
+    total += settings.weightGenre * match;
+  }
+
+  if (settings.enableHourly) {
+    total +=
+      settings.weightHourly *
+      hourlyMatchScore(cast.desiredHourly, shop.minHourly, shop.maxHourly);
+  }
+
+  if (settings.enableDrink && shopDrink) {
+    const diff = Math.abs(
+      drinkScore(cast.drinkLevel) - drinkScore(shopDrink),
+    );
+    const score = Math.max(0, 1 - diff / 3);
+    total += settings.weightDrink * score;
+  }
+
+  if (settings.enableHeight) {
+    const range = parseHeightRange(shopHeightRaw);
+    total += settings.weightHeight * heightMatchScore(cast.heightCm, range);
+  }
+
+  if (settings.enableBodyType) {
+    const shopBody = normalizeBodyType(shopBodyRaw);
+    const castBody = normalizeBodyType(cast.bodyType ?? null);
+    const score = shopBody && castBody && shopBody === castBody ? 1 : 0;
+    total += settings.weightBodyType * score;
+  }
+
+  return total;
 };
 
 export default function Page() {
@@ -475,6 +689,13 @@ export default function Page() {
     count: number;
     headcount: number;
   }>({ count: 0, headcount: 0 });
+  const [matchingSettings, setMatchingSettings] =
+    useState<MatchingSettings | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsDraft, setSettingsDraft] =
+    useState<MatchingSettings | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   // 本日分の店舗（スケジュールAPI連携）
   const [todayShops, setTodayShops] = useState<Shop[]>([]);
@@ -482,6 +703,14 @@ export default function Page() {
 
   const [staged, setStaged] = useState<Cast[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<string>("");
+  const [selectedShopDetail, setSelectedShopDetail] =
+    useState<ShopDetail | null>(null);
+  const [selectedShopNgCastIds, setSelectedShopNgCastIds] = useState<string[]>(
+    [],
+  );
+  const [selectedShopFixedCastIds, setSelectedShopFixedCastIds] = useState<
+    string[]
+  >([]);
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(56);
@@ -752,6 +981,7 @@ export default function Page() {
           nameKana: shop.nameKana ?? shop.kana ?? null,
           genre: shop.genre ?? null,
           contactMethod: (shop as any).contactMethod ?? null,
+          drinkPreference: (shop as any).drinkPreference ?? null,
           wageLabel: (shop as any).wageLabel ?? (shop as any).wage_label ?? null,
           idDocumentRequirement:
             (shop as any).idDocumentRequirement ??
@@ -794,6 +1024,19 @@ export default function Page() {
     [effectiveShops, selectedShopId],
   );
 
+  const selectedShopNgCastIdSet = useMemo(
+    () => new Set(selectedShopNgCastIds),
+    [selectedShopNgCastIds],
+  );
+
+  const selectedShopFixedCastIdSet = useMemo(
+    () => new Set(selectedShopFixedCastIds),
+    [selectedShopFixedCastIds],
+  );
+
+  const effectiveMatchingSettings =
+    matchingSettings ?? DEFAULT_MATCHING_SETTINGS;
+
   useEffect(() => {
     const prev = lastEditingShopIdRef.current;
     if (prev && prev !== selectedShopId) {
@@ -804,6 +1047,67 @@ export default function Page() {
     }
     lastEditingShopIdRef.current = selectedShopId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedShopId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const settings = await getMatchingSettings();
+        if (!cancelled) setMatchingSettings(settings);
+      } catch (e) {
+        console.warn("[casts/today] matching settings load failed", e);
+        if (!cancelled) setMatchingSettings(DEFAULT_MATCHING_SETTINGS);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedShopId) {
+      setSelectedShopDetail(null);
+      setSelectedShopNgCastIds([]);
+      setSelectedShopFixedCastIds([]);
+      return;
+    }
+
+    const run = async () => {
+      try {
+        const [detail, ngCasts, fixedCasts] = await Promise.all([
+          getShop(selectedShopId),
+          listShopNgCasts(selectedShopId),
+          listShopFixedCasts(selectedShopId),
+        ]);
+        if (cancelled) return;
+        setSelectedShopDetail(detail);
+        setSelectedShopNgCastIds(
+          (ngCasts ?? [])
+            .map((row) => row.castId ?? row.cast?.userId ?? "")
+            .filter((id) => id),
+        );
+        setSelectedShopFixedCastIds(
+          (fixedCasts ?? [])
+            .map((row) => row.castId ?? row.cast?.userId ?? "")
+            .filter((id) => id),
+        );
+      } catch (e) {
+        console.warn("[casts/today] failed to load shop detail/ng/fixed", e);
+        if (!cancelled) {
+          setSelectedShopDetail(null);
+          setSelectedShopNgCastIds([]);
+          setSelectedShopFixedCastIds([]);
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedShopId]);
 
   // ★ 初回マウント時に /casts/today と /casts を叩いてキャスト一覧を取得
@@ -836,6 +1140,8 @@ export default function Page() {
           name: item.displayName,
           age: item.age ?? 0,
           desiredHourly: item.desiredHourly ?? 0,
+          heightCm: getHeightFromDetail(item),
+          bodyType: getBodyTypeFromDetail(item),
           drinkLevel: mapDrinkLevel(
             (item as any).drinkLevel ?? (item as any).drinkOk,
           ),
@@ -845,7 +1151,7 @@ export default function Page() {
           hasNominated: getCastNominatedFlag(item),
           ngShopIds: (item as any).ngShopIds ?? [],
           oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
-          genres: ((item as any).genres ?? []) as CastGenre[],
+          genres: getGenresFromDetail(item),
         }));
 
         const todayMap = new Map(todayList.map((c) => [c.id, c]));
@@ -861,6 +1167,8 @@ export default function Page() {
             name: item.displayName,
             age: item.age ?? 0,
             desiredHourly: item.desiredHourly ?? 0,
+            heightCm: getHeightFromDetail(item),
+            bodyType: getBodyTypeFromDetail(item),
             drinkLevel: mapDrinkLevel(
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
@@ -869,7 +1177,7 @@ export default function Page() {
             hasNominated: getCastNominatedFlag(item),
             ngShopIds: (item as any).ngShopIds ?? [],
             oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
-            genres: ((item as any).genres ?? []) as CastGenre[],
+            genres: getGenresFromDetail(item),
           };
         });
 
@@ -945,6 +1253,39 @@ export default function Page() {
     }
   }, [chatDraft, selectedCast]);
 
+  const handleSaveMatchingSettings = async () => {
+    if (!settingsDraft) return;
+    setSettingsSaving(true);
+    setSettingsError(null);
+    try {
+      const payload = {
+        enableGenre: settingsDraft.enableGenre,
+        enableHourly: settingsDraft.enableHourly,
+        enableDrink: settingsDraft.enableDrink,
+        enableHeight: settingsDraft.enableHeight,
+        enableBodyType: settingsDraft.enableBodyType,
+        weightGenre: settingsDraft.weightGenre,
+        weightHourly: settingsDraft.weightHourly,
+        weightDrink: settingsDraft.weightDrink,
+        weightHeight: settingsDraft.weightHeight,
+        weightBodyType: settingsDraft.weightBodyType,
+        fixedCastAlwaysTop: settingsDraft.fixedCastAlwaysTop,
+      };
+      const saved = await updateMatchingSettings(payload);
+      setMatchingSettings(saved);
+      setSettingsOpen(false);
+    } catch (e) {
+      console.warn("[casts/today] matching settings save failed", e);
+      setSettingsError("保存に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const updateSettingsDraft = (patch: Partial<MatchingSettings>) => {
+    setSettingsDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
   const {
     items: filteredCasts,
     total: filteredTotal,
@@ -974,8 +1315,10 @@ export default function Page() {
     let list: Cast[] = [...base];
 
     // ③ 店舗条件フィルタ
-    if (selectedShop && statusTab !== "all") {
-      list = list.filter((c: Cast) => matchesShopConditions(c, selectedShop));
+    if (selectedShop) {
+      list = list.filter((c: Cast) =>
+        matchesShopConditions(c, selectedShop, selectedShopNgCastIdSet),
+      );
     }
 
     // ④ キーワード（管理番号・名前・旧ID）
@@ -1052,7 +1395,37 @@ export default function Page() {
       );
     }
 
-    // ⑩ ページネーション
+    // ⑩ マッチング優先度（選択店舗がある場合のみ）
+    if (selectedShop) {
+      const baseOrder = new Map(
+        list.map((c: Cast, idx: number) => [c.id, idx]),
+      );
+      const scoreMap = new Map<string, number>();
+      for (const c of list) {
+        scoreMap.set(
+          c.id,
+          calcMatchScore(
+            c,
+            selectedShop,
+            selectedShopDetail,
+            effectiveMatchingSettings,
+          ),
+        );
+      }
+      list.sort((a, b) => {
+        if (effectiveMatchingSettings.fixedCastAlwaysTop) {
+          const aFixed = selectedShopFixedCastIdSet.has(a.id);
+          const bFixed = selectedShopFixedCastIdSet.has(b.id);
+          if (aFixed !== bFixed) return aFixed ? -1 : 1;
+        }
+        const sa = scoreMap.get(a.id) ?? 0;
+        const sb = scoreMap.get(b.id) ?? 0;
+        if (sa !== sb) return sb - sa;
+        return (baseOrder.get(a.id) ?? 0) - (baseOrder.get(b.id) ?? 0);
+      });
+    }
+
+    // ⑪ ページネーション
     const total = list.length;
     const perPage = itemsPerPage || 50;
     const tp = Math.max(1, Math.ceil(total / perPage));
@@ -1072,6 +1445,10 @@ export default function Page() {
     todayCasts,
     staged,
     selectedShop,
+    selectedShopDetail,
+    selectedShopNgCastIds,
+    selectedShopFixedCastIds,
+    effectiveMatchingSettings,
     keyword,
     sortKey,
     drinkSort,
@@ -1258,9 +1635,20 @@ export default function Page() {
 
     // 割当候補は、選択した店舗条件に合わないものを除外
     setStaged((prev: Cast[]) =>
-      prev.filter((c: Cast) => matchesShopConditions(c, shop)),
+      prev.filter((c: Cast) =>
+        matchesShopConditions(c, shop, selectedShopNgCastIdSet),
+      ),
     );
   };
+
+  useEffect(() => {
+    if (!selectedShop) return;
+    setStaged((prev: Cast[]) =>
+      prev.filter((c: Cast) =>
+        matchesShopConditions(c, selectedShop, selectedShopNgCastIdSet),
+      ),
+    );
+  }, [selectedShop, selectedShopNgCastIdSet]);
 
   const ensureCastDetail = useCallback(
     async (castId: string) => {
@@ -1281,23 +1669,50 @@ export default function Page() {
         const drinkLevel = getDrinkLevelFromDetail(detail);
         const hasExclusive = getCastExclusiveFlag(detail);
         const hasNominated = getCastNominatedFlag(detail);
+        const heightCm = getHeightFromDetail(detail);
+        const bodyType = getBodyTypeFromDetail(detail);
+        const genres = getGenresFromDetail(detail);
         setAllCasts((prev) =>
           prev.map((c) =>
             c.id === castId
-              ? { ...c, drinkLevel, hasExclusive, hasNominated }
+              ? {
+                  ...c,
+                  drinkLevel,
+                  hasExclusive,
+                  hasNominated,
+                  heightCm,
+                  bodyType,
+                  genres,
+                }
               : c,
           ),
         );
         setTodayCasts((prev) =>
           prev.map((c) =>
             c.id === castId
-              ? { ...c, drinkLevel, hasExclusive, hasNominated }
+              ? {
+                  ...c,
+                  drinkLevel,
+                  hasExclusive,
+                  hasNominated,
+                  heightCm,
+                  bodyType,
+                  genres,
+                }
               : c,
           ),
         );
         setSelectedCast((prev) =>
           prev && prev.id === castId
-            ? { ...prev, drinkLevel, hasExclusive, hasNominated }
+            ? {
+                ...prev,
+                drinkLevel,
+                hasExclusive,
+                hasNominated,
+                heightCm,
+                bodyType,
+                genres,
+              }
             : prev,
         );
       } catch {
@@ -1937,9 +2352,17 @@ export default function Page() {
         <section className="tiara-panel rounded-none p-3 flex flex-col gap-2" style={{ borderRadius: 0 }}>
           <header className="flex items-center justify-between">
             <div />
-            <span className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600">
+            <button
+              type="button"
+              className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+              onClick={() => {
+                setSettingsDraft(effectiveMatchingSettings);
+                setSettingsError(null);
+                setSettingsOpen(true);
+              }}
+            >
               build: {buildStamp}
-            </span>
+            </button>
           </header>
 
           <div className="flex flex-wrap items-start gap-3 text-xs">
@@ -2381,10 +2804,17 @@ export default function Page() {
                 filteredCasts.map((cast: Cast) => {
                   const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl;
                   const badgeIcons = getCastBadgeIcons(cast);
+                  const isFixed =
+                    !!selectedShop &&
+                    selectedShopFixedCastIdSet.has(cast.id);
                   return (
                     <div
                       key={cast.id}
-                      className="bg-white shadow-sm border border-slate-200 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none"
+                      className={`shadow-sm border overflow-hidden flex flex-col cursor-grab active:cursor-grabbing select-none ${
+                        isFixed
+                          ? "bg-amber-50 border-amber-300"
+                          : "bg-white border-slate-200"
+                      }`}
                       draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", cast.id);
@@ -2449,6 +2879,193 @@ export default function Page() {
         )}
         </section>
       </div>
+
+      {settingsOpen && settingsDraft && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSettingsOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-2xl bg-white border border-gray-200 shadow-2xl flex flex-col">
+            <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="font-semibold text-sm">マッチング設定（全体）</div>
+              <button
+                type="button"
+                className="text-xs border border-gray-300 px-2 py-1"
+                onClick={() => setSettingsOpen(false)}
+              >
+                閉じる
+              </button>
+            </header>
+
+            <div className="p-4 space-y-4 text-xs">
+              <div className="text-[11px] text-muted">
+                ※ 変更内容は全員に即時反映されます。
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.enableGenre}
+                      onChange={(e) =>
+                        updateSettingsDraft({ enableGenre: e.target.checked })
+                      }
+                    />
+                    ジャンル一致
+                  </label>
+                  <input
+                    type="number"
+                    className="tiara-input h-8 w-20 text-xs"
+                    value={settingsDraft.weightGenre}
+                    onChange={(e) =>
+                      updateSettingsDraft({
+                        weightGenre: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.enableHourly}
+                      onChange={(e) =>
+                        updateSettingsDraft({ enableHourly: e.target.checked })
+                      }
+                    />
+                    時給レンジ
+                  </label>
+                  <input
+                    type="number"
+                    className="tiara-input h-8 w-20 text-xs"
+                    value={settingsDraft.weightHourly}
+                    onChange={(e) =>
+                      updateSettingsDraft({
+                        weightHourly: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.enableDrink}
+                      onChange={(e) =>
+                        updateSettingsDraft({ enableDrink: e.target.checked })
+                      }
+                    />
+                    飲酒条件
+                  </label>
+                  <input
+                    type="number"
+                    className="tiara-input h-8 w-20 text-xs"
+                    value={settingsDraft.weightDrink}
+                    onChange={(e) =>
+                      updateSettingsDraft({
+                        weightDrink: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.enableHeight}
+                      onChange={(e) =>
+                        updateSettingsDraft({ enableHeight: e.target.checked })
+                      }
+                    />
+                    身長
+                  </label>
+                  <input
+                    type="number"
+                    className="tiara-input h-8 w-20 text-xs"
+                    value={settingsDraft.weightHeight}
+                    onChange={(e) =>
+                      updateSettingsDraft({
+                        weightHeight: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.enableBodyType}
+                      onChange={(e) =>
+                        updateSettingsDraft({
+                          enableBodyType: e.target.checked,
+                        })
+                      }
+                    />
+                    体型
+                  </label>
+                  <input
+                    type="number"
+                    className="tiara-input h-8 w-20 text-xs"
+                    value={settingsDraft.weightBodyType}
+                    onChange={(e) =>
+                      updateSettingsDraft({
+                        weightBodyType: Number(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between border border-gray-200 px-3 py-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.fixedCastAlwaysTop}
+                      onChange={(e) =>
+                        updateSettingsDraft({
+                          fixedCastAlwaysTop: e.target.checked,
+                        })
+                      }
+                    />
+                    専属は常に最上位
+                  </label>
+                  <span className="text-[11px] text-muted">
+                    ※重みなし
+                  </span>
+                </div>
+              </div>
+
+              {settingsError && (
+                <div className="text-xs text-red-500">{settingsError}</div>
+              )}
+            </div>
+
+            <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-gray-300 bg-white text-gray-800"
+                onClick={() => setSettingsOpen(false)}
+                disabled={settingsSaving}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="px-4 py-1.5 bg-ink text-white disabled:opacity-60"
+                onClick={() => void handleSaveMatchingSettings()}
+                disabled={settingsSaving}
+              >
+                {settingsSaving ? "保存中..." : "保存"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
 
       {/* 店舗選択モーダル */}
       {shopModalOpen && (
@@ -3031,7 +3648,14 @@ export default function Page() {
               allCasts.find((c: Cast) => c.id === castId) ?? null;
             if (!cast) return;
 
-            if (selectedShop && !matchesShopConditions(cast, selectedShop)) {
+            if (
+              selectedShop &&
+              !matchesShopConditions(
+                cast,
+                selectedShop,
+                selectedShopNgCastIdSet,
+              )
+            ) {
               alert(
                 "このキャストは、選択中の店舗条件／NGにより割当不可です。",
               );

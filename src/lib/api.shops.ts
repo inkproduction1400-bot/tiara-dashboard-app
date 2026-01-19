@@ -167,6 +167,47 @@ export async function getShop(id: string): Promise<ShopDetail> {
 }
 
 // =======================
+// NGキャスト / 専属キャスト
+// =======================
+
+export type ShopNgCast = {
+  id: string;
+  shopId: string;
+  castId: string;
+  source?: string | null;
+  reason?: string | null;
+  cast?: {
+    userId: string;
+    displayName: string;
+    managementNumber: string | null;
+    castCode?: string | null;
+  };
+};
+
+export type ShopFixedCast = {
+  id: string;
+  shopId: string;
+  castId: string;
+  note?: string | null;
+  cast?: {
+    userId: string;
+    displayName: string;
+    managementNumber: string | null;
+    castCode?: string | null;
+  };
+};
+
+export async function listShopNgCasts(shopId: string): Promise<ShopNgCast[]> {
+  return apiFetch<ShopNgCast[]>(`/shops/${shopId}/ng-casts`, withUser());
+}
+
+export async function listShopFixedCasts(
+  shopId: string,
+): Promise<ShopFixedCast[]> {
+  return apiFetch<ShopFixedCast[]>(`/shops/${shopId}/fixed-casts`, withUser());
+}
+
+// =======================
 // PATCH 用 payload 型（DTO/Prisma に合わせる）
 // =======================
 

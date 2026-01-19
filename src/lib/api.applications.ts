@@ -96,6 +96,13 @@ export type UpdateApplicationFormInput = Partial<{
   reasonChoose: string;
   shopSelectionPoints: string;
   otherNotes: string;
+  workHistories: {
+    shopName: string;
+    hourlyWage?: number;
+  }[];
+  ngShops: {
+    shopName: string;
+  }[];
 }>;
 
 export type ListApplicationsParams = {

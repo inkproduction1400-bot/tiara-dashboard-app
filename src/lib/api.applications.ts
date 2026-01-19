@@ -67,6 +67,37 @@ export type ApplicationDetail = ApplicationListItem & {
   docs?: ApplicationDoc[];
 };
 
+export type UpdateApplicationFormInput = Partial<{
+  fullName: string;
+  furigana: string;
+  birthdate: string;
+  age: number;
+  phone: string;
+  email: string;
+  desiredArea: string;
+  drinkOk: boolean;
+  genres: string[];
+  hourlyExpectation: number;
+  registeredAt: string;
+  address: string;
+  heightCm: number;
+  clothingSize: string;
+  shoeSizeCm: number;
+  preferredDays: string[];
+  preferredTimeFrom: string;
+  preferredTimeTo: string;
+  desiredMonthly: number;
+  tattoo: boolean;
+  needPickup: boolean;
+  drinkLevel: string;
+  howFound: string;
+  motivation: string;
+  competitorCount: string;
+  reasonChoose: string;
+  shopSelectionPoints: string;
+  otherNotes: string;
+}>;
+
 export type ListApplicationsParams = {
   status?: ApplicationStatus;
   q?: string;
@@ -92,4 +123,14 @@ export function getApplication(id: string): Promise<ApplicationDetail> {
 
 export function approveApplication(id: string) {
   return apiFetch(`/applications/${id}/approve`, { method: "PATCH" });
+}
+
+export function updateApplicationForm(
+  id: string,
+  payload: UpdateApplicationFormInput
+): Promise<ApplicationDetail> {
+  return apiFetch<ApplicationDetail>(`/applications/${id}/form`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }

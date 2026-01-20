@@ -778,7 +778,34 @@ export default function Page() {
     shop: ScheduleShopRequest,
     group?: AssignmentGroup,
   ) => {
-    if (!group?.orderId) {
+    let orderId = group?.orderId ?? null;
+    if (!orderId) {
+      const shopId = resolveShopKey(shop);
+      const date = shop.date ?? editing?.date ?? todayKey();
+      try {
+        const orders = await listShopOrders(date);
+        const candidates = orders.filter(
+          (order) => order?.shopId === shopId || order?.shop?.id === shopId,
+        );
+        if (group?.orderStartTime) {
+          const matched = candidates.filter(
+            (order) =>
+              (order?.startTime ?? order?.start_time ?? "") ===
+              group.orderStartTime,
+          );
+          if (matched.length === 1) {
+            orderId = matched[0].id ?? null;
+          }
+        }
+        if (!orderId && candidates.length === 1) {
+          orderId = candidates[0].id ?? null;
+        }
+      } catch (err) {
+        console.warn("[assignments] deleteOrder lookup failed", err);
+      }
+    }
+
+    if (!orderId) {
       deleteItem(shop);
       return;
     }
@@ -793,8 +820,8 @@ export default function Page() {
     }
 
     try {
-      await replaceOrderAssignments(group.orderId, []);
-      await updateShopOrder(group.orderId, { status: "canceled" });
+      await replaceOrderAssignments(orderId, []);
+      await updateShopOrder(orderId, { status: "canceled" });
     } catch (err) {
       console.warn("[assignments] deleteOrder failed", err);
       alert("オーダー削除に失敗しました。時間をおいて再度お試しください。");
@@ -802,7 +829,7 @@ export default function Page() {
     }
 
     setAssignments((prev) => {
-      const next = prev.filter((a) => a.orderId !== group.orderId);
+      const next = prev.filter((a) => a.orderId !== orderId);
       saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });

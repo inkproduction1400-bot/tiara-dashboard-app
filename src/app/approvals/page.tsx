@@ -1377,6 +1377,123 @@ export default function Page() {
           />
         </ModalPortal>
       )}
+
+      <style jsx global>{`
+        .tiara-atmo {
+          width: 100%;
+          position: relative;
+          Zpx; /* 親(h-8)に追従させて中央に収める */;
+          display: flex;
+          align-items: center; /* スクショの細さ寄せ */}
+        .tiara-atmo__track {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 2px;
+          background: rgba(0, 0, 0, 0.65);
+        }
+        .tiara-atmo__ticks {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 12px;
+          pointer-events: none;
+        }
+        .tiara-atmo__tick {
+          position: absolute;
+          top: 0;
+          width: 1px;
+          height: 10px;
+          background: rgba(0, 0, 0, 0.65);
+          transform: translateX(-0.5px);
+        }
+        .tiara-atmo__tick--center {
+          width: 2px; /* 中央基準を太く */
+          height: 12px;
+          background: rgba(0, 0, 0, 0.9);
+          transform: translateX(-1px);
+        }
+        .tiara-atmo__input {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 100%;
+          Zpx;
+          background: transparent;
+          -webkit-appearance: none;
+          appearance: none;
+          outline: none;
+        }
+        .tiara-atmo__input::-webkit-slider-runnable-track {
+          height: 2px;
+          background: transparent; /* 下に描いたtrackを使う */}
+        .tiara-atmo__input::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 8px; /* ノブ小さく */
+          height: 8px;
+          border-radius: 9999px;
+          background: #2b78e4; /* シンプル */
+          border: 1px solid rgba(0, 0, 0, 0.75);
+          margin-top: -3px; /* track(2px)中心に合わせる */}
+        .tiara-atmo__input::-moz-range-track {
+          height: 2px;
+          background: transparent;
+        }
+        .tiara-atmo__input::-moz-range-thumb {
+          width: 8px;
+          height: 8px;
+          border-radius: 9999px;
+          background: #2b78e4;
+          border: 1px solid rgba(0, 0, 0, 0.75);
+        }
+        .tiara-atmo__input::-ms-track {
+          height: 2px;
+          background: transparent;
+          border-color: transparent;
+          color: transparent;
+        }
+        .tiara-atmo__input::-ms-thumb {
+          width: 8px;
+          height: 8px;
+          border-radius: 9999px;
+          background: #2b78e4;
+          border: 1px solid rgba(0, 0, 0, 0.75);
+        }
+
+        /* ===== tiara-atmo: ラベルがスライダーに被る対策 ===== */
+        .tiara-atmo {
+          position: relative;
+          /* ラベル用の下余白を確保（被り解消） */
+          padding-bottom: 16px;
+          /* 念のため最低高さも確保 */
+          min-height: 26px;
+        }
+
+        /* track/ticks/input は中央に配置して白枠中央に合わせる */
+        .tiara-atmo__track,
+        .tiara-atmo__ticks,
+        .tiara-atmo__input {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+
+        .tiara-atmo__labels {
+          /* padding-bottom で確保した領域に表示 */
+          position: relative;
+          margin-top: 12px;
+          line-height: 1;
+        }
+      `}</style>
     </AppShell>
   );
 }

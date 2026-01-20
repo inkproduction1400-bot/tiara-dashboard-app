@@ -829,7 +829,20 @@ export default function Page() {
     }
 
     setAssignments((prev) => {
-      const next = prev.filter((a) => a.orderId !== orderId);
+      const shopKey = resolveShopKey(shop);
+      const orderStart = group?.orderStartTime ?? null;
+      const orderNo = group?.orderNo ?? null;
+      const next = prev.filter((a) => {
+        if (a.orderId && a.orderId === orderId) return false;
+        if (a.shopId !== shopKey) return true;
+        if (!a.orderId && orderStart && a.orderStartTime === orderStart) {
+          return false;
+        }
+        if (!a.orderId && orderNo != null && a.orderNo === orderNo) {
+          return false;
+        }
+        return true;
+      });
       saveAssignments(next, resolveAssignmentsDateKey(dateFilter));
       return next;
     });

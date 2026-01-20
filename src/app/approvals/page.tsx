@@ -477,8 +477,11 @@ function ApplicationDetailModal({
   const [staffOptions, setStaffOptions] = useState<string[]>([]);
 
   useEffect(() => {
+    const fallbackInterviewDate =
+      detail.interviewDate ?? detail.registeredAt ?? detail.receivedAt ?? null;
     setForm({
       ...detail,
+      interviewDate: fallbackInterviewDate,
       drinkLevel: toDrinkLevelLabel(detail.drinkLevel ?? null),
       genres: detail.genres ?? [],
       preferredDays: detail.preferredDays ?? [],
@@ -754,9 +757,17 @@ function ApplicationDetailModal({
                       <div className="flex items-center gap-2">
                         <input
                           className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                          value={form.birthdate ?? ""}
+                          value={formatDate(form.birthdate) || ""}
                           onChange={(e) =>
-                            setForm((p) => ({ ...p, birthdate: e.target.value || null }))
+                            setForm((p) => {
+                              const nextBirthdate = e.target.value || null;
+                              const nextAge = calcAge(undefined, nextBirthdate ?? undefined);
+                              return {
+                                ...p,
+                                birthdate: nextBirthdate,
+                                age: typeof nextAge === "number" ? nextAge : p.age ?? null,
+                              };
+                            })
                           }
                         />
                         <div className="h-8 px-2 bg-white border border-black/40 flex items-center justify-center">

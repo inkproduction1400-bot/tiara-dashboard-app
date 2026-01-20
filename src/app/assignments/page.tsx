@@ -131,6 +131,105 @@ const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
   note: "",
 });
 
+type IdDocImage = {
+  url: string;
+  label: string;
+};
+
+type IdDocPrintItem = {
+  castName: string;
+  castCode?: string | null;
+  images: IdDocImage[];
+};
+
+const resolveCastIdForAssignment = (assignment: ShopAssignment) =>
+  assignment.castId ?? null;
+
+const pickIdDocImages = (cast: any): IdDocImage[] => {
+  const images: IdDocImage[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (url?: string | null, label?: string) => {
+    if (!url) return;
+    if (seen.has(url)) return;
+    seen.add(url);
+    images.push({ url, label: label ?? "身分証" });
+  };
+
+  pushUnique(cast?.idDocWithFaceUrl, "身分証（顔あり）");
+  pushUnique(cast?.idDocWithoutFaceUrl, "身分証（本籍地）");
+
+  if (Array.isArray(cast?.idPhotosWithFace)) {
+    cast.idPhotosWithFace.forEach((url: string) =>
+      pushUnique(url, "身分証（顔あり）"),
+    );
+  }
+  if (Array.isArray(cast?.idPhotosWithoutFace)) {
+    cast.idPhotosWithoutFace.forEach((url: string) =>
+      pushUnique(url, "身分証（本籍地）"),
+    );
+  }
+
+  return images;
+};
+
+const buildIdDocPrintHtml = (items: IdDocPrintItem[]) => {
+  const body = items
+    .map((item) => {
+      const header = `${item.castName || "キャスト"}${
+        item.castCode ? `（${item.castCode}）` : ""
+      }`;
+      const images = item.images.length
+        ? item.images
+            .map(
+              (img) => `
+            <figure class="doc">
+              <figcaption>${img.label}</figcaption>
+              <img src="${img.url}" alt="${img.label}" />
+            </figure>`,
+            )
+            .join("")
+        : `<p class="empty">身分証画像が未登録です</p>`;
+      return `
+        <section class="card">
+          <h2>${header}</h2>
+          <div class="grid">${images}</div>
+        </section>
+      `;
+    })
+    .join("");
+
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>身分証印刷</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          body { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; color: #111827; }
+          h2 { font-size: 14px; margin: 0 0 8px; }
+          .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+          .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+          .doc { margin: 0; }
+          figcaption { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+          img { width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+          .empty { font-size: 12px; color: #9ca3af; }
+        </style>
+      </head>
+      <body>
+        ${body}
+        <script>
+          window.addEventListener("load", () => {
+            setTimeout(() => {
+              window.print();
+            }, 100);
+          });
+        </script>
+      </body>
+    </html>
+  `;
+};
+
 export default function Page() {
   const router = useRouter();
   // スケジュール（本日＋明日分）は API からロード
@@ -168,6 +267,7 @@ export default function Page() {
     Record<string, string>
   >({});
   const [confirming, setConfirming] = useState(false);
+  const [printingIdDocs, setPrintingIdDocs] = useState(false);
   const editingRef = useRef<ScheduleShopRequest | null>(null);
   const assignmentDraftRef = useRef<ShopAssignment | null>(null);
   const dateFilterRef = useRef<"all" | "today" | "tomorrow">("all");
@@ -634,6 +734,9 @@ export default function Page() {
             : item,
         ),
       );
+      await printIdDocsForAssignments(currentEditingAssignments, {
+        silent: true,
+      });
       alert("マッチングを確定しました。");
       closeEdit();
     } catch (err) {
@@ -789,6 +892,72 @@ export default function Page() {
     setAssignmentDraft(null);
     setAssignmentDraftIsNew(false);
   };
+
+  const printIdDocsForAssignments = useCallback(
+    async (
+      targetAssignments: ShopAssignment[],
+      options: { silent?: boolean } = {},
+    ) => {
+      const castIds = Array.from(
+        new Set(
+          targetAssignments
+            .map((a) => resolveCastIdForAssignment(a))
+            .filter((id): id is string => !!id),
+        ),
+      );
+
+      if (castIds.length === 0) {
+        if (!options.silent) {
+          alert("キャストIDが未設定のため印刷できません。");
+        }
+        return;
+      }
+
+      setPrintingIdDocs(true);
+      try {
+        const results = await Promise.all(
+          castIds.map(async (castId) => {
+            try {
+              const cast = await getCast(castId);
+              const images = pickIdDocImages(cast);
+              return {
+                castName: cast?.displayName ?? "キャスト",
+                castCode: cast?.castCode ?? null,
+                images,
+              } as IdDocPrintItem;
+            } catch (err) {
+              console.warn("[assignments] failed to load cast for print", err);
+              return null;
+            }
+          }),
+        );
+
+        const items = results.filter(
+          (item): item is IdDocPrintItem => !!item,
+        );
+        if (items.length === 0) {
+          if (!options.silent) {
+            alert("印刷対象のキャスト情報が取得できませんでした。");
+          }
+          return;
+        }
+
+        const win = window.open("", "_blank", "noopener,noreferrer");
+        if (!win) {
+          if (!options.silent) {
+            alert("印刷ウィンドウを開けませんでした（ポップアップ許可をご確認ください）。");
+          }
+          return;
+        }
+        win.document.open();
+        win.document.write(buildIdDocPrintHtml(items));
+        win.document.close();
+      } finally {
+        setPrintingIdDocs(false);
+      }
+    },
+    [],
+  );
 
   const resolveOrderIdForAssignment = useCallback(
     async (a: ShopAssignment): Promise<string | null> => {
@@ -1594,6 +1763,17 @@ export default function Page() {
                     </div>
 
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-xl border border-sky-400 bg-white text-sky-700 px-4 py-1.5 text-[11px] hover:bg-sky-50"
+                        onClick={() => {
+                          if (!assignmentDraft) return;
+                          void printIdDocsForAssignments([assignmentDraft]);
+                        }}
+                        disabled={printingIdDocs}
+                      >
+                        {printingIdDocs ? "印刷準備中..." : "身分証印刷"}
+                      </button>
                       <button
                         type="button"
                         className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-[11px]"

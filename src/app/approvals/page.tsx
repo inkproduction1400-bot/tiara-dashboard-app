@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode, useRef, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import AppShell from "@/components/AppShell";
 import {
@@ -12,6 +12,7 @@ import {
   type ApplicationStatus,
   type UpdateApplicationFormInput,
 } from "@/lib/api.applications";
+import { listStaffs } from "@/lib/api.staffs";
 import {
   uploadCastIdDocWithFace,
   uploadCastIdDocWithoutFace,
@@ -52,8 +53,379 @@ function toNumber(value: string): number | undefined {
   return num;
 }
 
+function toDrinkLevelLabel(value?: string | null) {
+  if (!value) return "";
+  if (value === "ng" || value === "NG") return "NG";
+  if (value === "weak" || value === "弱い") return "弱い";
+  if (value === "normal" || value === "普通") return "普通";
+  if (value === "strong" || value === "強い") return "強い";
+  return value;
+}
+
+function toDrinkLevelApi(value?: string | null) {
+  if (!value) return undefined;
+  if (value === "NG") return "ng";
+  if (value === "弱い") return "weak";
+  if (value === "普通") return "normal";
+  if (value === "強い") return "strong";
+  if (value === "ng" || value === "weak" || value === "normal" || value === "strong") {
+    return value;
+  }
+  return undefined;
+}
+
 
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
+const CAST_RANK_OPTIONS = ["S", "A", "B", "C"] as const;
+const TIARA_HOURLY_OPTIONS = [
+  2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000, 8500,
+  9000, 9500, 10000,
+] as const;
+const BODY_TYPE_OPTIONS = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"] as const;
+
+type CastRank = (typeof CAST_RANK_OPTIONS)[number];
+type BodyType = (typeof BODY_TYPE_OPTIONS)[number];
+
+type PhotoSliderProps = {
+  urls: string[];
+  onOpen?: (index: number) => void;
+  className?: string;
+};
+
+function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
+  const [active, setActive] = useState(0);
+  const touchRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const SWIPE_MIN_X = 40;
+  const SWIPE_MAX_Y = 60;
+  const SWIPE_MAX_MS = 700;
+
+  const goPrev = useCallback(() => {
+    setActive((v) => (v - 1 + urls.length) % urls.length);
+  }, [urls.length]);
+
+  const goNext = useCallback(() => {
+    setActive((v) => (v + 1) % urls.length);
+  }, [urls.length]);
+
+  useEffect(() => {
+    if (active >= urls.length) setActive(0);
+  }, [active, urls.length]);
+
+  if (!urls || urls.length === 0) {
+    return (
+      <div
+        className={
+          "w-full aspect-[3/4] rounded-2xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-400 " +
+          (className ?? "")
+        }
+      >
+        写真なし
+      </div>
+    );
+  }
+
+  const current = urls[active];
+
+  return (
+    <div className={"w-full " + (className ?? "")}>
+      <div
+        className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 select-none"
+        onTouchStart={(e) => {
+          if (!e.touches?.[0]) return;
+          touchRef.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            at: Date.now(),
+          };
+        }}
+        onTouchMove={(e) => {
+          if (!touchRef.current || !e.touches?.[0]) return;
+          const dx = e.touches[0].clientX - touchRef.current.x;
+          const dy = e.touches[0].clientY - touchRef.current.y;
+          if (Math.abs(dx) > 10 && Math.abs(dy) < SWIPE_MAX_Y) {
+            e.preventDefault?.();
+          }
+        }}
+        onTouchEnd={(e) => {
+          const t = touchRef.current;
+          touchRef.current = null;
+          if (!t || !e.changedTouches?.[0]) return;
+          const dx = e.changedTouches[0].clientX - t.x;
+          const dy = e.changedTouches[0].clientY - t.y;
+          const dt = Date.now() - t.at;
+          if (dt > SWIPE_MAX_MS) return;
+          if (Math.abs(dy) > SWIPE_MAX_Y) return;
+          if (Math.abs(dx) < SWIPE_MIN_X) return;
+          if (dx > 0) {
+            goPrev();
+          } else {
+            goNext();
+          }
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={current} alt="profile" className="w-full h-full object-cover" />
+        {urls.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 border border-black/30 text-xs"
+              onClick={goPrev}
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 border border-black/30 text-xs"
+              onClick={goNext}
+            >
+              ▶
+            </button>
+          </>
+        )}
+        {onOpen && (
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => onOpen(active)}
+            aria-label="open"
+          />
+        )}
+      </div>
+      {urls.length > 1 && (
+        <div className="mt-2 flex items-center justify-center gap-1">
+          {urls.map((_, i) => (
+            <span
+              key={i}
+              className={`w-1.5 h-1.5 rounded-full ${
+                i === active ? "bg-slate-700" : "bg-slate-300"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AtmosphereSlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const v = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 50;
+  const ticks = [0, 25, 50, 75, 100];
+
+  return (
+    <div className="tiara-atmo h-8 w-full" aria-label="雰囲気">
+      <div className="tiara-atmo__track" />
+      <div className="tiara-atmo__ticks" aria-hidden="true">
+        {ticks.map((t) => (
+          <span
+            key={t}
+            className={`tiara-atmo__tick ${t === 50 ? "tiara-atmo__tick--center" : ""}`}
+            style={{ left: `${t}%` }}
+          />
+        ))}
+      </div>
+      <input
+        className="tiara-atmo__input"
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={v}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+      />
+    </div>
+  );
+}
+
+function RegisterInfo2({
+  form,
+  setForm,
+}: {
+  form: ApplicationDetail | null;
+  setForm: Dispatch<SetStateAction<ApplicationDetail>>;
+}) {
+  const HOW_FOUND_OPTIONS = [
+    "Google検索",
+    "Yahoo検索",
+    "SNS",
+    "Instagram",
+    "TikTok",
+    "紹介",
+    "口コミ",
+  ] as const;
+
+  const currentHowFound: string[] = (form?.howFound ?? "")
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const toggleHowFound = (label: string) => {
+    const checked = currentHowFound.includes(label);
+    const next = checked
+      ? currentHowFound.filter((x) => x !== label)
+      : [...currentHowFound, label];
+
+    setForm((p) => ({ ...p, howFound: next.join(" / ") }));
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-3 items-start">
+        <div className="space-y-2">
+          <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
+            登録情報②
+          </div>
+          <div className="text-xs text-ink font-semibold">どのように応募しましたか？</div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-x-6 gap-y-2 pt-1 text-xs text-ink">
+          {HOW_FOUND_OPTIONS.map((label) => {
+            const checked = currentHowFound.includes(label);
+            return (
+              <label key={label} className="flex items-center gap-2 select-none">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={checked}
+                  onChange={() => toggleHowFound(label)}
+                />
+                <span>{label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2">
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-ink font-semibold">検索したワードを教えてください</div>
+          <input
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.referrerName ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, referrerName: e.target.value }))}
+            placeholder="自由入力（キーワードとキーワードの間は,で区切る）"
+          />
+        </div>
+
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-ink font-semibold">他派遣会社への登録</div>
+          <select
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.compareOtherAgencies ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, compareOtherAgencies: e.target.value }))}
+          >
+            <option value=""></option>
+            <option value="あり">あり</option>
+            <option value="なし">なし</option>
+            <option value="不明">不明</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-ink font-semibold">不満だった点を教えてください</div>
+          <input
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.dissatisfaction ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, dissatisfaction: e.target.value }))}
+          />
+        </div>
+
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-ink font-semibold">求める接客の経験を教えてください</div>
+          <select
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.customerExperience ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, customerExperience: e.target.value }))}
+          >
+            <option value=""></option>
+            <option value="ある">ある</option>
+            <option value="少しある">少しある</option>
+            <option value="なし">なし</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+          <div className="text-xs text-ink font-semibold">TBマナーの講習が必要ですか？</div>
+          <select
+            className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+            value={form?.tbManner ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, tbManner: e.target.value }))}
+          >
+            <option value=""></option>
+            <option value="必要">必要</option>
+            <option value="不要">不要</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-3 items-start pt-1">
+          <div className="text-xs text-ink font-semibold pt-2">その他（備考）</div>
+          <textarea
+            className="w-full h-40 bg-white border border-black/40 px-2 py-2 text-sm resize-none"
+            value={form?.otherNotes ?? ""}
+            onChange={(e) => setForm((p) => ({ ...p, otherNotes: e.target.value }))}
+          />
+        </div>
+
+        <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-ink font-semibold">希望勤務地</div>
+            <input
+              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+              value={form?.desiredLocation ?? ""}
+              onChange={(e) => setForm((p) => ({ ...p, desiredLocation: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-ink font-semibold">希望時間帯</div>
+            <input
+              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+              value={form?.desiredTimeBand ?? ""}
+              onChange={(e) => setForm((p) => ({ ...p, desiredTimeBand: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-ink font-semibold">希望エリア</div>
+            <input
+              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+              value={form?.preferredArea ?? ""}
+              onChange={(e) => setForm((p) => ({ ...p, preferredArea: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-ink font-semibold">希望出勤日数</div>
+            <input
+              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+              value={(form?.preferredDays ?? []).join(" / ")}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, preferredDays: splitToArray(e.target.value) }))
+              }
+            />
+          </div>
+          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
+            <div className="text-xs text-ink/90 font-semibold">面談日</div>
+            <div>
+              <input
+                type="date"
+                value={formatDate(form?.interviewDate ?? "") || ""}
+                onChange={(e) => setForm((p) => ({ ...p, interviewDate: e.target.value }))}
+                className="w-full h-10 rounded-xl px-3 text-sm bg-white/90 border border-white/40 text-slate-900 disabled:opacity-100"
+              />
+              <div className="mt-1 text-[10px] text-ink/70">
+                ※基本は面接申込フォームの自動反映。必要時のみこの画面で上書きできます。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type WorkHistoryRow = { shopName: string; hourlyWage: string };
 
@@ -101,9 +473,18 @@ function ApplicationDetailModal({
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [idWithFacePreview, setIdWithFacePreview] = useState<string | null>(null);
   const [idWithoutFacePreview, setIdWithoutFacePreview] = useState<string | null>(null);
+  const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<string[]>([]);
 
   useEffect(() => {
-    setForm(detail);
+    setForm({
+      ...detail,
+      drinkLevel: toDrinkLevelLabel(detail.drinkLevel ?? null),
+      genres: detail.genres ?? [],
+      preferredDays: detail.preferredDays ?? [],
+      workHistories: detail.workHistories ?? [],
+      ngShops: detail.ngShops ?? [],
+    });
     const nextWorkHistoryRows =
       detail.workHistories?.map((w) => ({
         shopName: w.shopName ?? "",
@@ -125,6 +506,7 @@ function ApplicationDetailModal({
     setProfilePreview(null);
     setIdWithFacePreview(null);
     setIdWithoutFacePreview(null);
+    setShowHonsekiDocs(false);
   }, [detail]);
 
   useEffect(() => {
@@ -133,6 +515,26 @@ function ApplicationDetailModal({
     setProfilePreview(url);
     return () => URL.revokeObjectURL(url);
   }, [profileFile]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const list = await listStaffs();
+        const names = list
+          .map((s) => s.loginId || s.email || "")
+          .filter(Boolean);
+        if (mounted) {
+          setStaffOptions(Array.from(new Set(names)));
+        }
+      } catch {
+        if (mounted) setStaffOptions([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!idWithFaceFile) return;
@@ -148,7 +550,6 @@ function ApplicationDetailModal({
     return () => URL.revokeObjectURL(url);
   }, [idWithoutFaceFile]);
 
-  const interviewDate = form.registeredAt ?? form.receivedAt ?? null;
   const age = calcAge(form.age, form.birthdate);
   const name = form.fullName ?? "未設定";
 
@@ -166,6 +567,40 @@ function ApplicationDetailModal({
       typeof form.hourlyExpectation === "number"
         ? form.hourlyExpectation
         : undefined,
+    tiaraHourly: typeof form.tiaraHourly === "number" ? form.tiaraHourly : undefined,
+    tiaraRank: form.tiaraRank ?? undefined,
+    ownerStaffName: form.ownerStaffName ?? undefined,
+    lastWorkDate: form.lastWorkDate ?? undefined,
+    interviewDate: form.interviewDate ?? undefined,
+    preferredArea: form.preferredArea ?? undefined,
+    salaryNote: form.salaryNote ?? undefined,
+    otherAgencies: form.otherAgencies ?? undefined,
+    hasExperience: typeof form.hasExperience === "boolean" ? form.hasExperience : undefined,
+    workHistory: form.workHistory ?? undefined,
+    referrerName: form.referrerName ?? undefined,
+    compareOtherAgencies: form.compareOtherAgencies ?? undefined,
+    otherAgencyName: form.otherAgencyName ?? undefined,
+    thirtyKComment: form.thirtyKComment ?? undefined,
+    idDocType: form.idDocType ?? undefined,
+    residencyProof: form.residencyProof ?? undefined,
+    idDocWithFaceUrl: form.idDocWithFaceUrl ?? undefined,
+    idDocWithoutFaceUrl: form.idDocWithoutFaceUrl ?? undefined,
+    oathStatus: form.oathStatus ?? undefined,
+    idMemo: form.idMemo ?? undefined,
+    ngShopMemo: form.ngShopMemo ?? undefined,
+    exclusiveShopMemo: form.exclusiveShopMemo ?? undefined,
+    exclusiveShopId: form.exclusiveShopId ?? undefined,
+    exclusiveShopName: form.exclusiveShopName ?? undefined,
+    pickupDestination: form.pickupDestination ?? undefined,
+    pickupDestinationExtra: form.pickupDestinationExtra ?? undefined,
+    bodyType: form.bodyType ?? undefined,
+    atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : undefined,
+    dissatisfaction: form.dissatisfaction ?? undefined,
+    customerExperience: form.customerExperience ?? undefined,
+    tbManner: form.tbManner ?? undefined,
+    desiredLocation: form.desiredLocation ?? undefined,
+    desiredTimeBand: form.desiredTimeBand ?? undefined,
+    interviewNotes: form.interviewNotes ?? undefined,
     registeredAt: form.registeredAt ?? undefined,
     address: form.address ?? undefined,
     heightCm: typeof form.heightCm === "number" ? form.heightCm : undefined,
@@ -180,7 +615,7 @@ function ApplicationDetailModal({
     tattoo: typeof form.tattoo === "boolean" ? form.tattoo : undefined,
     needPickup:
       typeof form.needPickup === "boolean" ? form.needPickup : undefined,
-    drinkLevel: form.drinkLevel ?? undefined,
+    drinkLevel: toDrinkLevelApi(form.drinkLevel ?? null),
     howFound: form.howFound ?? undefined,
     motivation: form.motivation ?? undefined,
     competitorCount: form.competitorCount ?? undefined,
@@ -224,13 +659,21 @@ function ApplicationDetailModal({
     });
   };
 
+  const handleRegister = async () => {
+    if (detail.status === "approved") {
+      await handleSave();
+      return;
+    }
+    await handleApprove();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-full max-w-7xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-1.5 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold">面談申請詳細（{name}）</h3>
+            <h3 className="text-sm font-semibold">キャスト詳細（{name}）</h3>
             {error && <span className="text-[10px] text-red-500">{error}</span>}
             {saveDone && !saveError && (
               <span className="text-[10px] text-emerald-600">保存しました</span>
@@ -241,21 +684,18 @@ function ApplicationDetailModal({
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50 disabled:opacity-60"
-              onClick={handleSave}
-              disabled={saving}
+              onClick={() => setShowHonsekiDocs((v) => !v)}
+              className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50"
             >
-              {saving ? "保存中…" : "保存"}
+              チャットで連絡
             </button>
-            {detail.status !== "approved" && (
-              <button
-                className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
-                onClick={handleApprove}
-                disabled={approving}
-              >
-                {approving ? "承認中…" : "承認してキャスト化"}
-              </button>
-            )}
+            <button
+              className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
+              onClick={handleRegister}
+              disabled={saving || approving}
+            >
+              {saving || approving ? "登録中…" : "登録"}
+            </button>
             <button
               className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white bg-[#f16d6d]"
               onClick={onClose}
@@ -272,439 +712,504 @@ function ApplicationDetailModal({
                 <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
                   登録情報①
                 </div>
-                <div className="mt-4 grid grid-cols-[120px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs text-ink font-semibold">プロフィール写真</div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-20 h-20 rounded-lg border border-black/30 bg-white overflow-hidden flex items-center justify-center">
-                      {profilePreview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={profilePreview} alt="profile" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[11px] text-muted">未設定</span>
-                      )}
-                    </div>
-                    <label className="px-3 py-1.5 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer">
-                      アップロード＋
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          e.currentTarget.value = "";
-                          setProfileFile(file);
-                        }}
-                      />
-                    </label>
-                  </div>
 
-                  <div className="text-xs text-ink font-semibold">ふりがな</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.furigana ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, furigana: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">氏名</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.fullName ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">生年月日</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      value={formatDate(form.birthdate) || ""}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, birthdate: e.target.value || null }))
-                      }
-                    />
-                    <div className="h-8 px-2 bg-white border border-black/40 flex items-center justify-center">
-                      <div className="text-sm font-bold text-neutral-900 tabular-nums">
-                        {age ?? "-"}
+                <div className="mt-4 grid grid-cols-[170px_minmax(0,1fr)] gap-4">
+                  <div className="space-y-2">
+                    <PhotoSlider urls={profilePreview ? [profilePreview] : []} />
+                    <div className="mt-2 w-full rounded-xl bg-white/90 border border-black/40 px-2 py-1 text-[11px] leading-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">管理番号</div>
+                        <div className="font-mono text-neutral-900">-</div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">キャストID</div>
+                        <div className="font-mono text-neutral-900">-</div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[10px] text-neutral-600">旧スタッフID</div>
+                        <div className="font-mono text-neutral-900">-</div>
                       </div>
                     </div>
-                    <div className="text-xs text-ink font-semibold">歳</div>
                   </div>
-                  <div className="text-xs text-ink font-semibold">現住所</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.address ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">TEL</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.phone ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">アドレス</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.email ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">面談希望日</div>
-                  <input
-                    type="date"
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={formatDate(interviewDate) || ""}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, registeredAt: e.target.value || null }))
-                    }
-                  />
-                  <div className="text-xs text-ink font-semibold">希望エリア</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.desiredArea ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, desiredArea: e.target.value }))}
-                  />
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">ふりがな</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.furigana ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, furigana: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">氏名</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.fullName ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">生年月日</div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                          value={form.birthdate ?? ""}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, birthdate: e.target.value || null }))
+                          }
+                        />
+                        <div className="h-8 px-2 bg-white border border-black/40 flex items-center justify-center">
+                          <div className="text-sm font-bold text-neutral-900 tabular-nums">
+                            {age ?? "-"}
+                          </div>
+                        </div>
+                        <div className="text-xs text-ink font-semibold">歳</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">現住所</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.address ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">TEL</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.phone ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">アドレス</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.email ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-start gap-2">
+                      <div className="text-xs text-ink font-semibold pt-1">ジャンル</div>
+                      <div className="flex flex-wrap gap-2">
+                        {CAST_GENRE_OPTIONS.map((g) => {
+                          const active = form.genres?.includes(g) ?? false;
+                          return (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  genres: prev.genres?.includes(g)
+                                    ? prev.genres.filter((x) => x !== g)
+                                    : [...(prev.genres ?? []), g],
+                                }))
+                              }
+                              className={`h-8 px-3 text-xs border border-black/40 ${
+                                active ? "bg-[#2b78e4] text-white" : "bg-white text-black"
+                              }`}
+                            >
+                              {g}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">希望時給</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.salaryNote ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, salaryNote: e.target.value }))}
+                        placeholder="フォームで自由入力を反映"
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">キャストからの店舗NG</div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-full h-8 bg-white border border-black/40 px-2 text-sm flex items-center gap-1 overflow-x-auto">
+                          {ngShopRows.filter((x) => x.shopName.trim()).length === 0 ? (
+                            <span className="text-gray-400">未登録</span>
+                          ) : (
+                            ngShopRows
+                              .filter((x) => x.shopName.trim())
+                              .map((row, idx) => (
+                                <span
+                                  key={`${row.shopName}-${idx}`}
+                                  className="flex items-center gap-1 px-2 h-6 rounded-full border border-black/30 bg-gray-50 whitespace-nowrap"
+                                >
+                                  <span className="text-[11px]">{row.shopName}</span>
+                                  <button
+                                    type="button"
+                                    className="ml-0.5 w-4 h-4 rounded-full border border-black/30 bg-white text-[10px] leading-none flex items-center justify-center"
+                                    onClick={() =>
+                                      setNgShopRows((prev) => prev.filter((_, i) => i !== idx))
+                                    }
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="h-8 w-10 bg-[#2b78e4] text-white border border-black/40"
+                          onClick={() => setNgShopRows((prev) => [...prev, { shopName: "" }])}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">シフト情報</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-8 bg-white border border-black/40 px-2 text-xs flex items-center">
+                          未設定
+                        </div>
+                        <button type="button" className="h-8 px-3 text-xs bg-white border border-black/40">
+                          編集
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">身長</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.heightCm ?? ""}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, heightCm: toNumber(e.target.value) ?? null }))
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">服のサイズ</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.clothingSize ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, clothingSize: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">靴のサイズ</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.shoeSizeCm ?? ""}
+                        onChange={(e) =>
+                          setForm((p) => ({ ...p, shoeSizeCm: toNumber(e.target.value) ?? null }))
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">タトゥー</div>
+                      <select
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.tattoo == null ? "" : form.tattoo ? "有" : "無"}
+                        onChange={(e) =>
+                          setForm((p) => ({
+                            ...p,
+                            tattoo:
+                              e.target.value === ""
+                                ? null
+                                : e.target.value === "有",
+                          }))
+                        }
+                      >
+                        <option value=""></option>
+                        <option value="有">有</option>
+                        <option value="無">無</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">飲酒</div>
+                      <select
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.drinkLevel ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, drinkLevel: e.target.value }))}
+                      >
+                        <option value=""></option>
+                        <option value="NG">NG</option>
+                        <option value="弱い">弱い</option>
+                        <option value="普通">普通</option>
+                        <option value="強い">強い</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">最終出勤日</div>
+                      <input
+                        type="date"
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={formatDate(form.lastWorkDate) || ""}
+                        onChange={(e) => setForm((p) => ({ ...p, lastWorkDate: e.target.value }))}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="bg-[#efe2dd] p-4">
-                <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
-                  登録情報②
-                </div>
-                <div className="mt-4 grid grid-cols-[120px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs text-ink font-semibold">飲酒</div>
-                  <select
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={
-                      form.drinkOk == null ? "" : form.drinkOk ? "ok" : "ng"
-                    }
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        drinkOk:
-                          e.target.value === ""
-                            ? null
-                            : e.target.value === "ok",
-                      }))
-                    }
-                  >
-                    <option value="">未設定</option>
-                    <option value="ok">OK</option>
-                    <option value="ng">NG</option>
-                  </select>
-                  <div className="text-xs text-ink font-semibold">飲酒レベル</div>
-                  <select
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.drinkLevel ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, drinkLevel: e.target.value }))}
-                  >
-                    <option value="">未設定</option>
-                    <option value="ng">NG</option>
-                    <option value="weak">弱い</option>
-                    <option value="normal">普通</option>
-                    <option value="strong">強い</option>
-                  </select>
-                  <div className="text-xs text-ink font-semibold">ジャンル</div>
-                  <select
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.genres?.[0] ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        genres: e.target.value ? [e.target.value] : [],
-                      }))
-                    }
-                  >
-                    <option value="">未設定</option>
-                    {CAST_GENRE_OPTIONS.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="text-xs text-ink font-semibold">希望時給</div>
-                  <input
-                    type="number"
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.hourlyExpectation ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        hourlyExpectation: toNumber(e.target.value) ?? null,
-                      }))
-                    }
-                  />
-                  <div className="text-xs text-ink font-semibold">身長</div>
-                  <input
-                    type="number"
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.heightCm ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        heightCm: toNumber(e.target.value) ?? null,
-                      }))
-                    }
-                  />
-                  <div className="text-xs text-ink font-semibold">服サイズ</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.clothingSize ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, clothingSize: e.target.value }))}
-                  />
-                  <div className="text-xs text-ink font-semibold">靴サイズ</div>
-                  <input
-                    type="number"
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.shoeSizeCm ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        shoeSizeCm: toNumber(e.target.value) ?? null,
-                      }))
-                    }
-                  />
-                  <div className="text-xs text-ink font-semibold">タトゥー</div>
-                  <select
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={
-                      form.tattoo == null ? "" : form.tattoo ? "yes" : "no"
-                    }
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        tattoo:
-                          e.target.value === ""
-                            ? null
-                            : e.target.value === "yes",
-                      }))
-                    }
-                  >
-                    <option value="">未設定</option>
-                    <option value="yes">有</option>
-                    <option value="no">無</option>
-                  </select>
-                  <div className="text-xs text-ink font-semibold">送迎</div>
-                  <select
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={
-                      form.needPickup == null
-                        ? ""
-                        : form.needPickup
-                          ? "yes"
-                          : "no"
-                    }
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        needPickup:
-                          e.target.value === ""
-                            ? null
-                            : e.target.value === "yes",
-                      }))
-                    }
-                  >
-                    <option value="">未設定</option>
-                    <option value="yes">要</option>
-                    <option value="no">不要</option>
-                  </select>
-                  <div className="text-xs text-ink font-semibold">希望出勤日</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.preferredDays?.join(" / ") ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        preferredDays: splitToArray(e.target.value),
-                      }))
-                    }
-                  />
-                  <div className="text-xs text-ink font-semibold">希望時間</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      placeholder="開始"
-                      value={form.preferredTimeFrom ?? ""}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, preferredTimeFrom: e.target.value }))
-                      }
-                    />
-                    <span className="text-xs text-ink">〜</span>
-                    <input
-                      className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                      placeholder="終了"
-                      value={form.preferredTimeTo ?? ""}
-                      onChange={(e) =>
-                        setForm((p) => ({ ...p, preferredTimeTo: e.target.value }))
-                      }
-                    />
-                  </div>
-                  <div className="text-xs text-ink font-semibold">身分証（顔写真あり）</div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-20 h-24 rounded-lg border border-black/30 bg-white overflow-hidden flex items-center justify-center">
-                      {idWithFacePreview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={idWithFacePreview} alt="id_with_face" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[11px] text-muted">未設定</span>
-                      )}
-                    </div>
-                    <label className="px-3 py-1.5 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer">
-                      アップロード＋
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          e.currentTarget.value = "";
-                          setIdWithFaceFile(file);
-                        }}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="text-xs text-ink font-semibold">身分証（本籍地記載）</div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-20 h-24 rounded-lg border border-black/30 bg-white overflow-hidden flex items-center justify-center">
-                      {idWithoutFacePreview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={idWithoutFacePreview} alt="id_without_face" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[11px] text-muted">未設定</span>
-                      )}
-                    </div>
-                    <label className="px-3 py-1.5 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer">
-                      アップロード＋
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          e.currentTarget.value = "";
-                          setIdWithoutFaceFile(file);
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
+                <RegisterInfo2 form={form} setForm={setForm} />
               </div>
             </div>
           </div>
 
-          <div className="bg-[#f6efe9] p-4 border-b border-black/30">
+          <div className="bg-[#a87e7e] p-4">
             <div className="inline-flex items-center px-3 py-1 text-xs font-semibold bg-white/90 border border-black/40 rounded">
-              その他
+              スタッフ入力項目
             </div>
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-ink font-semibold">面談メモ</div>
-                <textarea
-                  className="w-full min-h-[70px] bg-white border border-black/40 px-2 py-2 text-sm"
-                  value={form.interviewNotes ?? ""}
-                  onChange={(e) => setForm((p) => ({ ...p, interviewNotes: e.target.value }))}
-                />
-              </div>
-              <div>
-                <div className="text-xs text-ink font-semibold">職歴</div>
-                <div className="space-y-2">
-                  {workHistoryRows.map((row, index) => (
-                    <div key={`work-${index}`} className="flex items-center gap-2">
-                      <input
-                        className="flex-1 h-8 bg-white border border-black/40 px-2 text-sm"
-                        placeholder="店舗名"
-                        value={row.shopName}
-                        onChange={(e) =>
-                          setWorkHistoryRows((prev) =>
-                            prev.map((item, i) =>
-                              i == index
-                                ? { ...item, shopName: e.target.value }
-                                : item
-                            )
-                          )
-                        }
-                      />
-                      <input
-                        className="w-24 h-8 bg-white border border-black/40 px-2 text-sm"
-                        placeholder="時給"
-                        value={row.hourlyWage}
-                        onChange={(e) =>
-                          setWorkHistoryRows((prev) =>
-                            prev.map((item, i) =>
-                              i == index
-                                ? { ...item, hourlyWage: e.target.value }
-                                : item
-                            )
-                          )
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="px-2 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
-                        onClick={() =>
-                          setWorkHistoryRows((prev) => {
-                            const next = prev.filter((_, i) => i != index);
-                            return next.length
-                              ? next
-                              : [{ shopName: "", hourlyWage: "" }];
-                          })
-                        }
-                      >
-                        削除
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="px-3 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
-                    onClick={() =>
-                      setWorkHistoryRows((prev) => [
-                        ...prev,
-                        { shopName: "", hourlyWage: "" },
-                      ])
+
+            <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">ティアラ査定給</div>
+                  <select
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.tiaraHourly != null ? String(form.tiaraHourly) : ""}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        tiaraHourly: toNumber(e.target.value) ?? null,
+                      }))
                     }
                   >
-                    追加
-                  </button>
+                    <option value=""></option>
+                    {TIARA_HOURLY_OPTIONS.map((n) => (
+                      <option key={n} value={String(n)}>
+                        ¥{n.toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-              <div className="lg:col-span-2">
-                <div className="text-xs text-ink font-semibold">NG店舗</div>
-                <div className="space-y-2">
-                  {ngShopRows.map((row, index) => (
-                    <div key={`ng-${index}`} className="flex items-center gap-2">
-                      <input
-                        className="flex-1 h-8 bg-white border border-black/40 px-2 text-sm"
-                        placeholder="店舗名"
-                        value={row.shopName}
-                        onChange={(e) =>
-                          setNgShopRows((prev) =>
-                            prev.map((item, i) =>
-                              i == index
-                                ? { ...item, shopName: e.target.value }
-                                : item
-                            )
-                          )
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="px-2 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
-                        onClick={() =>
-                          setNgShopRows((prev) => {
-                            const next = prev.filter((_, i) => i != index);
-                            return next.length ? next : [{ shopName: "" }];
-                          })
-                        }
-                      >
-                        削除
-                      </button>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">送迎先</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.pickupDestination ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, pickupDestination: e.target.value }))
+                    }
+                    placeholder="自動入力"
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">送迎先追加</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.pickupDestinationExtra ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, pickupDestinationExtra: e.target.value }))
+                    }
+                    placeholder="アプリから反映"
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">担当</div>
+                  <select
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.ownerStaffName ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, ownerStaffName: e.target.value }))}
+                  >
+                    <option value=""></option>
+                    {staffOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">体型</div>
+                  <select
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.bodyType ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, bodyType: e.target.value }))}
+                  >
+                    <option value=""></option>
+                    {BODY_TYPE_OPTIONS.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">身長</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.heightCm ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, heightCm: toNumber(e.target.value) ?? null }))
+                    }
+                    placeholder="自動反映"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <label className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer">
+                    顔写真＋
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        e.currentTarget.value = "";
+                        setProfileFile(file);
+                      }}
+                    />
+                  </label>
                   <button
                     type="button"
-                    className="px-3 h-8 rounded border border-gray-300 bg-gray-50 text-xs"
-                    onClick={() => setNgShopRows((prev) => [...prev, { shopName: "" }])}
+                    className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
+                    onClick={() => setShowHonsekiDocs((v) => !v)}
                   >
-                    追加
+                    本籍地記載書類
                   </button>
+                </div>
+                {showHonsekiDocs && (
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className="w-full text-left text-[11px] text-muted mb-1">
+                        顔写真付き（id_with_face）
+                      </div>
+                      <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+                        {(idWithFacePreview || form.idDocWithFaceUrl) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={idWithFacePreview ?? form.idDocWithFaceUrl ?? ""}
+                            alt="id_with_face"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+                            <div className="font-semibold">アップロード＋</div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                e.currentTarget.value = "";
+                                setIdWithFaceFile(file);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="w-full text-left text-[11px] text-muted mb-1">
+                        本籍地記載（id_without_face）
+                      </div>
+                      <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+                        {(idWithoutFacePreview || form.idDocWithoutFaceUrl) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={idWithoutFacePreview ?? form.idDocWithoutFaceUrl ?? ""}
+                            alt="id_without_face"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
+                            <div className="font-semibold">アップロード＋</div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] ?? null;
+                                e.currentTarget.value = "";
+                                setIdWithoutFaceFile(file);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">ランク</div>
+                  <select
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.tiaraRank ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, tiaraRank: e.target.value as CastRank }))}
+                  >
+                    <option value=""></option>
+                    {CAST_RANK_OPTIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">雰囲気</div>
+                  <AtmosphereSlider
+                    value={form.atmosphere ?? 50}
+                    onChange={(v) => setForm((p) => ({ ...p, atmosphere: v }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">派遣会社名</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.otherAgencyName ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, otherAgencyName: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">時給メモ</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.salaryNote ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, salaryNote: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">専属指名メモ</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.exclusiveShopMemo ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, exclusiveShopMemo: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">身分証の種類</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.idDocType ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, idDocType: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">本籍地の証明</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.residencyProof ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, residencyProof: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">宣誓</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.oathStatus ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, oathStatus: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
+                  <div className="text-xs font-semibold text-ink">身分証メモ</div>
+                  <input
+                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                    value={form.idMemo ?? ""}
+                    onChange={(e) => setForm((p) => ({ ...p, idMemo: e.target.value }))}
+                  />
                 </div>
               </div>
             </div>

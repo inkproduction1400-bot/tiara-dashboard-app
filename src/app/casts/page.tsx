@@ -17,6 +17,7 @@ import {
   deleteCastProfilePhoto, uploadCastIdDocWithFace, uploadCastIdDocWithoutFace, deleteCastIdDoc } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
+import { apiPost } from "@/lib/api";
 type PhotoSliderProps = {
   urls: string[];
   onOpen?: (index: number) => void;
@@ -327,6 +328,56 @@ function calcAgeFromBirthdate(birthdate?: string | null): number | null {
 }
 
 export default function Page() {
+
+  // ===== 新規キャスト作成（最小）=====
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDisplayName, setCreateDisplayName] = useState("");
+  const [createFurigana, setCreateFurigana] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreateCast = useCallback(async () => {
+    setCreateError(null);
+    const displayName = createDisplayName.trim();
+    const furigana = createFurigana.trim();
+    if (!displayName || !furigana) {
+      setCreateError("表示名とふりがなを入力してください。");
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      // apiPost は token を自動付与（/auth/* 以外）
+      const created: any = await apiPost("/casts", { displayName, furigana });
+
+      // モーダル閉じる＆入力クリア
+      setCreateOpen(false);
+      setCreateDisplayName("");
+      setCreateFurigana("");
+
+      // 一覧を再取得（既存の一覧取得ロジックを再利用）
+      // ※ このファイルは「初回に最大 10,000 件を一括ロード」想定なので、
+      //    もう一度 listCasts を呼ぶのが一番確実。
+      try {
+        const res = await listCasts({ limit: 10000, offset: 0 } as any);
+        const items = (res as any)?.items ?? (res as any) ?? [];
+        // 既存のマッピング処理に合わせて baseRows を更新するため、
+        // ここでは「既存の初回ロード処理」を呼びたいが関数化されていない場合がある。
+        // そのため、作成後はページリロードで確実に反映させる。
+        window.location.reload();
+      } catch {
+        window.location.reload();
+      }
+
+      return created;
+    } catch (e: any) {
+      // apiFetch は res.ok じゃないと "API xxx" を投げる。詳細はここでは取れないので、最低限。
+      setCreateError(e?.message ?? "作成に失敗しました。ログイン状態と権限を確認してください。");
+    } finally {
+      setCreateLoading(false);
+    }
+  }, [createDisplayName, createFurigana]);
+
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
   const [sortMode, setSortMode] = useState<SortMode>("kana");

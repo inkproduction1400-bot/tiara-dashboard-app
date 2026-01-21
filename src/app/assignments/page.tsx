@@ -89,6 +89,15 @@ const formatOrderLabel = (group?: AssignmentGroup) => {
   return time || "-";
 };
 
+const resolveStatusKey = (
+  shopId: string,
+  group: AssignmentGroup,
+): string => {
+  if (group.orderId) return `${shopId}:${group.orderId}`;
+  if (group.orderStartTime) return `${shopId}:time:${group.orderStartTime}`;
+  return "";
+};
+
 const resolveTargetOrdersForShop = async (
   shopId: string,
   date?: string,
@@ -266,6 +275,12 @@ export default function Page() {
   const [orderStatusByKey, setOrderStatusByKey] = useState<
     Record<string, string>
   >({});
+  const [activeOrderCountByShopDate, setActiveOrderCountByShopDate] = useState<
+    Record<string, number>
+  >({});
+  const [totalOrderCountByShopDate, setTotalOrderCountByShopDate] = useState<
+    Record<string, number>
+  >({});
   const [confirming, setConfirming] = useState(false);
   const [printingIdDocs, setPrintingIdDocs] = useState(false);
   const editingRef = useRef<ScheduleShopRequest | null>(null);
@@ -300,30 +315,51 @@ export default function Page() {
     let active = true;
     const fetchStatuses = async () => {
       try {
+        const today = todayKey();
+        const tomorrow = tomorrowKey();
         const [todayOrders, tomorrowOrders] = await Promise.all([
-          listShopOrders(todayKey()),
-          listShopOrders(tomorrowKey()),
+          listShopOrders(today),
+          listShopOrders(tomorrow),
         ]);
+
         const next: Record<string, string> = {};
-        for (const order of [...todayOrders, ...tomorrowOrders]) {
-          const shopId = order?.shopId ?? order?.shop?.id ?? "";
-          if (!shopId || !order?.id) continue;
-          next[`${shopId}:${order.id}`] = order?.status ?? "";
-          const time = order?.startTime ?? order?.start_time ?? "";
-          if (time) {
-            next[`${shopId}:time:${time}`] = order?.status ?? "";
+        const nextActive: Record<string, number> = {};
+        const nextTotal: Record<string, number> = {};
+
+        const applyOrders = (orders: any[], date: string) => {
+          for (const order of orders) {
+            const shopId = order?.shopId ?? order?.shop?.id ?? "";
+            if (!shopId || !order?.id) continue;
+
+            const status = order?.status ?? "";
+            next[`${shopId}:${order.id}`] = status;
+
+            const time = order?.startTime ?? order?.start_time ?? "";
+            if (time) {
+              next[`${shopId}:time:${time}`] = status;
+            }
+
+            const key = `${date}:${shopId}`;
+            nextTotal[key] = (nextTotal[key] ?? 0) + 1;
+            if (status !== "canceled") {
+              nextActive[key] = (nextActive[key] ?? 0) + 1;
+            }
           }
-        }
+        };
+
+        applyOrders(todayOrders, today);
+        applyOrders(tomorrowOrders, tomorrow);
+
         if (!active) return;
         setOrderStatusByKey(next);
+        setActiveOrderCountByShopDate(nextActive);
+        setTotalOrderCountByShopDate(nextTotal);
       } catch {
         if (!active) return;
         setOrderStatusByKey({});
+        setActiveOrderCountByShopDate({});
+        setTotalOrderCountByShopDate({});
       }
-    };
-    void fetchStatuses();
-    return () => {
-      active = false;
     };
   }, []);
 
@@ -475,9 +511,19 @@ export default function Page() {
   const rows = useMemo(() => {
     const result: { shop: ScheduleShopRequest; group: AssignmentGroup }[] = [];
     for (const shop of filteredItems) {
-      const groups = groupAssignmentsByOrder(shop);
+      const shopKey = resolveShopKey(shop);
+      const activeKey = `${shop.date}:${shopKey}`;
+      const activeCount = activeOrderCountByShopDate[activeKey] ?? 0;
+      const groups = groupAssignmentsByOrder(shop).filter((group) => {
+        const statusKey = resolveStatusKey(shopKey, group);
+        if (!statusKey) return true;
+        return orderStatusByKey[statusKey] !== "canceled";
+      });
+
       if (!groups.length) {
-        result.push({ shop, group: { assignments: [] } });
+        if (activeCount > 0) {
+          result.push({ shop, group: { assignments: [] } });
+        }
         continue;
       }
       for (const group of groups) {
@@ -485,7 +531,12 @@ export default function Page() {
       }
     }
     return result;
-  }, [filteredItems, groupAssignmentsByOrder]);
+  }, [
+    filteredItems,
+    groupAssignmentsByOrder,
+    orderStatusByKey,
+    activeOrderCountByShopDate,
+  ]);
 
   // 集計（資料っぽいヘッダー用：件数・希望人数合計・割当人数合計）
   const summary = useMemo(() => {

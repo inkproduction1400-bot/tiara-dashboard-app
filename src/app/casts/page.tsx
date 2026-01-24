@@ -534,6 +534,13 @@ export default function Page() {
   const pagedRows = total ? rows.slice(safeOffset, safeOffset + limit) : [];
   const leftRows = pagedRows.filter((_, idx) => idx % 2 === 0);
   const rightRows = pagedRows.filter((_, idx) => idx % 2 === 1);
+  const maxColumnRows = Math.max(leftRows.length, rightRows.length);
+  const padRows = (rows: CastRow[], target: number) => {
+    if (rows.length >= target) return rows;
+    return rows.concat(Array.from({ length: target - rows.length }, () => null));
+  };
+  const leftRowsPadded = padRows(leftRows, maxColumnRows);
+  const rightRowsPadded = padRows(rightRows, maxColumnRows);
 
   const pageStart = total === 0 ? 0 : safeOffset + 1;
   const pageEnd = total === 0 ? 0 : Math.min(safeOffset + limit, total);
@@ -718,9 +725,9 @@ export default function Page() {
   };
 
   // 一覧テーブル（2列用共通）
-  const renderTable = (slice: CastRow[]) => (
+  const renderTable = (slice: (CastRow | null)[], keyPrefix: string) => (
     <div className="overflow-auto rounded-xl border border-gray-200 bg-white">
-      <table className="w-full text-[12px]">
+      <table className="w-full text-[12px] table-fixed">
         <thead className="bg-gray-50 text-muted">
           <tr>
             <th className="text-left px-2 py-1 w-24">管理番号</th>
@@ -734,31 +741,45 @@ export default function Page() {
           </tr>
         </thead>
         <tbody>
-          {slice.map((r) => (
+          {slice.map((r, idx) => (
             <tr
-              key={r.id}
-              className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-              onClick={() => handleRowClick(r)}
+              key={r ? `${keyPrefix}-${r.id}` : `${keyPrefix}-empty-${idx}`}
+              className={`border-t border-gray-100 h-9 ${
+                r ? "hover:bg-gray-50 cursor-pointer" : "bg-white"
+              }`}
+              onClick={r ? () => handleRowClick(r) : undefined}
             >
-              <td className="px-2 py-1 font-mono text-[11px]">{r.managementNumber}</td>
-              <td className="px-2 py-1 font-mono text-[11px]">{r.castCode || "-"}</td>
-              <td className="px-2 py-1 truncate">{r.name}</td>
-              <td className="px-2 py-1 text-center">{r.age != null ? r.age : "-"}</td>
-              <td className="px-2 py-1">
-                {r.desiredHourly ? `¥${r.desiredHourly.toLocaleString()}` : "-"}
+              <td className="px-2 py-1 font-mono text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                {r?.managementNumber ?? ""}
               </td>
-              <td className="px-2 py-1 font-mono text-[11px]">
-                {r.legacyStaffId != null ? r.legacyStaffId : "-"}
+              <td className="px-2 py-1 font-mono text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                {r ? r.castCode || "-" : ""}
               </td>
-              <td className="px-2 py-1 truncate">{r.ownerStaffName || "-"}</td>
-              <td className="px-2 py-1">
-                <button
-                  type="button"
-                  className="text-[10px] px-2 py-0.5 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
-                  onClick={(e) => handleClickDelete(e, r)}
-                >
-                  削除
-                </button>
+              <td className="px-2 py-1 whitespace-nowrap overflow-hidden text-ellipsis">
+                {r?.name ?? ""}
+              </td>
+              <td className="px-2 py-1 text-center whitespace-nowrap">
+                {r ? (r.age != null ? r.age : "-") : ""}
+              </td>
+              <td className="px-2 py-1 whitespace-nowrap overflow-hidden text-ellipsis">
+                {r ? (r.desiredHourly ? `¥${r.desiredHourly.toLocaleString()}` : "-") : ""}
+              </td>
+              <td className="px-2 py-1 font-mono text-[11px] whitespace-nowrap overflow-hidden text-ellipsis">
+                {r ? (r.legacyStaffId != null ? r.legacyStaffId : "-") : ""}
+              </td>
+              <td className="px-2 py-1 whitespace-nowrap overflow-hidden text-ellipsis">
+                {r ? r.ownerStaffName || "-" : ""}
+              </td>
+              <td className="px-2 py-1 whitespace-nowrap">
+                {r && (
+                  <button
+                    type="button"
+                    className="text-[10px] px-2 py-0.5 rounded-lg border border-red-400/60 bg-red-500/80 text-white hover:bg-red-500 disabled:opacity-60"
+                    onClick={(e) => handleClickDelete(e, r)}
+                  >
+                    削除
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -881,8 +902,8 @@ export default function Page() {
 
           {total > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {renderTable(leftRows)}
-              {renderTable(rightRows)}
+              {renderTable(leftRowsPadded, "left")}
+              {renderTable(rightRowsPadded, "right")}
             </div>
           )}
 

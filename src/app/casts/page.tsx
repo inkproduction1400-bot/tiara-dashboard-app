@@ -213,6 +213,7 @@ type CastRow = {
   id: string;
   managementNumber: string; // 管理番号（4桁など）
   name: string;
+  nickname: string;
   furigana: string;
   age: number | null;
   desiredHourly: number | null;
@@ -348,6 +349,7 @@ export default function Page() {
     id: "new",
     managementNumber: "",
     name: "",
+    nickname: "",
     furigana: "",
     age: null,
     desiredHourly: null,
@@ -402,6 +404,7 @@ export default function Page() {
             id: (c as any).userId ?? (c as any).id, // userId / id どちらでも対応
             managementNumber: (c as any).managementNumber ?? "----",
             name: (c as any).displayName ?? "(名前未設定)",
+            nickname: (c as any).nickname ?? "",
             furigana:
               (c as any).furigana ??
               (c as any).displayNameKana ??
@@ -460,7 +463,7 @@ export default function Page() {
 
       // 管理番号 / 名前 / ふりがな / 旧スタッフID に含まれていればヒット（旧ID検索対応）
       const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
-      const hay = `${r.managementNumber} ${r.castCode} ${r.name} ${r.furigana} ${legacy}`;
+      const hay = `${r.managementNumber} ${r.castCode} ${r.name} ${r.nickname} ${r.furigana} ${legacy}`;
       return hay.includes(query);
     });
 
@@ -649,6 +652,7 @@ export default function Page() {
         ? {
             ...prev,
             name: updated.displayName ?? prev.name,
+            nickname: (updated as any).nickname ?? prev.nickname,
             furigana:
               (updated as any).furigana ??
               (updated as any).displayNameKana ??
@@ -672,6 +676,7 @@ export default function Page() {
           ? {
               ...r,
               name: updated.displayName ?? r.name,
+              nickname: (updated as any).nickname ?? r.nickname,
               furigana:
                 (updated as any).furigana ??
                 (updated as any).displayNameKana ??
@@ -1074,6 +1079,7 @@ type CastDetailForm = {
   shopSelectionPoints: string;
 
   // 追加フィールド
+  nickname: string;
   furigana: string;
 
   tattoo: "" | "有" | "無";
@@ -1355,6 +1361,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     otherAgencies: "",
     reasonChoose: "",
     shopSelectionPoints: "",
+    nickname: "",
     furigana: "",
     tattoo: "",
     needPickup: "",
@@ -1550,6 +1557,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       shopSelectionPoints: (detailAny.background as any)?.shopSelectionPoints ?? "",
 
       // 追加フィールド
+      nickname: (detailAny as any)?.nickname ?? "",
       furigana:
         detailAny.furigana ??
         detailAny.displayNameKana ??
@@ -1679,6 +1687,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
       if (isCreate) {
         const displayName = form.displayName.trim();
+        const nickname = form.nickname.trim();
         const furigana = form.furigana.trim();
         if (!displayName || !furigana) {
           setSaveError("氏名とふりがなは必須です。");
@@ -1686,6 +1695,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         }
         const created: any = await apiPost("/casts", {
           displayName,
+          nickname: nickname || null,
           furigana,
         });
         castId =
@@ -1778,6 +1788,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           : null;
       const payload: Parameters<typeof updateCast>[1] = {
         displayName: form.displayName || null,
+        nickname: form.nickname || null,
         furigana: form.furigana || null,
         birthdate: form.birthdate || null,
         address: form.address || null,
@@ -2146,6 +2157,18 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
 {/* フォーム */}
                     <div className="space-y-2">
+                      {/* 源氏名 */}
+                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                        <div className="text-xs text-ink font-semibold">源氏名</div>
+                        <input
+                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                          value={form?.nickname ?? ""}
+                          onChange={(e) =>
+                            setForm((p) => (p ? { ...p, nickname: e.target.value } : p))
+                          }
+                        />
+                      </div>
+
                       {/* ふりがな */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                         <div className="text-xs text-ink font-semibold">ふりがな</div>

@@ -11,6 +11,7 @@ export type ApplicationListItem = {
   receivedAt: string | null;
   registeredAt?: string | null;
   fullName: string | null;
+  nickname?: string | null;
   furigana?: string | null;
   birthdate?: string | null;
   age: number | null;
@@ -102,6 +103,7 @@ export type ApplicationDetail = ApplicationListItem & {
 
 export type UpdateApplicationFormInput = Partial<{
   fullName: string;
+  nickname: string;
   furigana: string;
   birthdate: string;
   age: number;

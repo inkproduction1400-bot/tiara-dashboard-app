@@ -558,6 +558,7 @@ function ApplicationDetailModal({
 
   const buildPayload = (): UpdateApplicationFormInput => ({
     fullName: form.fullName ?? undefined,
+    nickname: form.nickname ?? undefined,
     furigana: form.furigana ?? undefined,
     birthdate: form.birthdate ?? undefined,
     age: typeof form.age === "number" ? form.age : undefined,
@@ -736,6 +737,14 @@ function ApplicationDetailModal({
                   </div>
 
                   <div className="space-y-2">
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">源氏名</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        value={form.nickname ?? ""}
+                        onChange={(e) => setForm((p) => ({ ...p, nickname: e.target.value }))}
+                      />
+                    </div>
                     <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                       <div className="text-xs text-ink font-semibold">ふりがな</div>
                       <input

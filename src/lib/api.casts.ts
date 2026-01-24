@@ -24,6 +24,7 @@ export type CastListItem = {
   /** 一覧では userId をキーとして扱う（API の id or userId を吸収） */
   userId: string;
   displayName: string;
+  nickname?: string | null;
   /** NEW: ふりがな（一覧でも扱えるようにオプショナルで定義） */
   furigana?: string | null;
   phone?: string | null;
@@ -85,6 +86,7 @@ export async function listCastsForPicker(
   const mapItem = (it: any): CastListItem => ({
     userId: it.userId ?? it.id ?? "",
     displayName: it.displayName ?? "",
+    nickname: it.nickname ?? null,
     furigana: it.furigana ?? null,
     phone: it.phone ?? null,
     email: it.email ?? null,
@@ -207,6 +209,7 @@ export type CastBackground = {
 export type CastDetail = {
   userId: string;
   displayName: string;
+  nickname: string | null;
   /** NEW: ふりがな（バックエンドの buildCastDetail に合わせて追加） */
   furigana: string | null;
   managementNumber: string | null;
@@ -264,6 +267,7 @@ export type CastDetail = {
 /** PATCH /casts/:id 用の簡易ペイロード */
 export type CastUpdatePayload = {
   displayName?: string | null;
+  nickname?: string | null;
   /** NEW: ふりがな */
   furigana?: string | null;
   birthdate?: string | null;
@@ -771,4 +775,3 @@ export async function deleteCastIdDoc(
 
   return (await res.json().catch(() => ({}))) as { ok?: boolean };
 }
-

@@ -6,6 +6,7 @@ import {
   approveApplication,
   getApplication,
   listApplications,
+  rejectApplication,
   updateApplicationForm,
   type ApplicationDetail,
   type ApplicationListItem,
@@ -444,19 +445,23 @@ type ApprovalUploadFiles = {
 type DetailModalProps = {
   detail: ApplicationDetail;
   onClose: () => void;
+  onReject: () => Promise<void>;
   onApprove: (
     payload: UpdateApplicationFormInput,
     files: ApprovalUploadFiles
   ) => Promise<void>;
   approving: boolean;
+  rejecting: boolean;
   error?: string | null;
 };
 
 function ApplicationDetailModal({
   detail,
   onClose,
+  onReject,
   onApprove,
   approving,
+  rejecting,
   error,
 }: DetailModalProps) {
   const [form, setForm] = useState<ApplicationDetail>(detail);
@@ -673,6 +678,11 @@ function ApplicationDetailModal({
     await handleApprove();
   };
 
+  const handleReject = async () => {
+    if (!confirm("この応募を却下しますか？")) return;
+    await onReject();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -690,17 +700,18 @@ function ApplicationDetailModal({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowHonsekiDocs((v) => !v)}
-              className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50"
-            >
-              チャットで連絡
-            </button>
-            <button
               className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
               onClick={handleRegister}
-              disabled={saving || approving}
+              disabled={saving || approving || rejecting}
             >
               {saving || approving ? "登録中…" : "登録"}
+            </button>
+            <button
+              className="px-3 py-1 rounded-xl text-[11px] border border-red-500/70 bg-red-600/80 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={handleReject}
+              disabled={saving || approving || rejecting}
+            >
+              {rejecting ? "却下中…" : "却下"}
             </button>
             <button
               className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white bg-[#f16d6d]"
@@ -1267,20 +1278,27 @@ export default function Page() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailErr, setDetailErr] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("pending");
+  const [searchName, setSearchName] = useState("");
+  const [queryName, setQueryName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const res = await listApplications({ status: statusFilter, take: 200 });
+      const res = await listApplications({
+        status: statusFilter,
+        take: 200,
+        q: queryName || undefined,
+      });
       setItems(res);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "一覧取得に失敗しました。");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [queryName, statusFilter]);
 
   useEffect(() => {
     load();
@@ -1341,12 +1359,46 @@ export default function Page() {
     }
   };
 
+  const handleReject = async () => {
+    if (!selected) return;
+    setRejecting(true);
+    setDetailErr(null);
+    try {
+      await rejectApplication(selected.id);
+      setSelected(null);
+      if (statusFilter === "pending") {
+        setItems((prev) => prev.filter((row) => row.id !== selected.id));
+      } else {
+        await load();
+      }
+    } catch (e) {
+      setDetailErr(e instanceof Error ? e.message : "却下に失敗しました。");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   return (
     <AppShell>
       <section className="tiara-panel grow p-4 h-full flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-bold">申請・承認</h2>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                className="tiara-input h-9 text-xs w-48"
+                placeholder="申請者名で検索"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+              />
+              <button
+                className="tiara-btn h-9 px-3 text-xs"
+                onClick={() => setQueryName(searchName.trim())}
+                disabled={loading}
+              >
+                検索
+              </button>
+            </div>
             <select
               className="tiara-input h-9 text-xs"
               value={statusFilter}
@@ -1410,8 +1462,10 @@ export default function Page() {
           <ApplicationDetailModal
             detail={selected}
             onClose={() => setSelected(null)}
+            onReject={handleReject}
             onApprove={handleApprove}
             approving={approving}
+            rejecting={rejecting}
             error={detailErr}
           />
         </ModalPortal>

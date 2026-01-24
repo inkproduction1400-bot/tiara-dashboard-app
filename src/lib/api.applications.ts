@@ -203,6 +203,10 @@ export function approveApplication(id: string) {
   return apiFetch(`/applications/${id}/approve`, { method: "PATCH" });
 }
 
+export function rejectApplication(id: string) {
+  return apiFetch(`/applications/${id}/reject`, { method: "PATCH" });
+}
+
 export function updateApplicationForm(
   id: string,
   payload: UpdateApplicationFormInput

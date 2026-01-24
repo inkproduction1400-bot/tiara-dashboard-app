@@ -1386,13 +1386,13 @@ export default function Page() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
               <input
-                className="tiara-input h-9 text-xs w-48"
+                className="tiara-input h-9 text-xs w-80"
                 placeholder="申請者名で検索"
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
               />
               <button
-                className="tiara-btn h-9 px-3 text-xs"
+                className="tiara-btn h-9 px-6 text-xs whitespace-nowrap"
                 onClick={() => setQueryName(searchName.trim())}
                 disabled={loading}
               >
@@ -1400,7 +1400,7 @@ export default function Page() {
               </button>
             </div>
             <select
-              className="tiara-input h-9 text-xs"
+              className="tiara-input h-9 text-xs w-24"
               value={statusFilter}
               onChange={(e) =>
                 setStatusFilter(e.target.value as ApplicationStatus)
@@ -1410,13 +1410,6 @@ export default function Page() {
               <option value="approved">承認済み</option>
               <option value="rejected">却下</option>
             </select>
-            <button
-              className="tiara-btn h-9 px-4 text-xs"
-              onClick={load}
-              disabled={loading}
-            >
-              {loading ? "読み込み中..." : "再読み込み"}
-            </button>
           </div>
         </div>
 

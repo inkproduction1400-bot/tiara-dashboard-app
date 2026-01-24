@@ -539,7 +539,7 @@ export default function Page() {
     if (rows.length >= target) return rows;
     const empties = Array.from({ length: target - rows.length }, () => null) as
       (CastRow | null)[];
-    return rows.concat(empties);
+    return [...rows, ...empties];
   };
   const leftRowsPadded = padRows(leftRows, maxColumnRows);
   const rightRowsPadded = padRows(rightRows, maxColumnRows);

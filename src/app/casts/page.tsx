@@ -1131,6 +1131,11 @@ function CastDetailModal({
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
+  const [form, setForm] = useState<CastDetailForm | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveDone, setSaveDone] = useState(false);
+
 const faceFileRef = React.useRef<HTMLInputElement | null>(null);
 const [faceUploading, setFaceUploading] = useState(false);
 const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
@@ -1302,11 +1307,6 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       }
     })();
   }, [shopsMasterLoaded, shopsMasterLoading]);
-
-  const [form, setForm] = useState<CastDetailForm | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveDone, setSaveDone] = useState(false);
 
   const buildEmptyForm = (): CastDetailForm => ({
     displayName: "",

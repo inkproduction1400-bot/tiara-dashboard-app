@@ -222,8 +222,8 @@ type CastRow = {
   legacyStaffId: number | null;
 };
 
-// ★ 並び替えモード：50音順 or 旧スタッフID昇順/降順
-type SortMode = "kana" | "legacy" | "legacyDesc";
+// ★ 並び替えモード：50音順 or 旧スタッフID昇順/降順 or 管理番号昇順/降順
+type SortMode = "kana" | "legacy" | "legacyDesc" | "management" | "managementDesc";
 
 /** ジャンル選択肢（複数選択） */
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
@@ -326,6 +326,15 @@ function calcAgeFromBirthdate(birthdate?: string | null): number | null {
   }
   if (age < 0 || age > 130) return null;
   return age;
+}
+
+function toManagementNumberValue(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+  const num = Number(digits);
+  return Number.isNaN(num) ? null : num;
 }
 
 export default function Page() {
@@ -468,6 +477,38 @@ export default function Page() {
     });
 
     result = result.slice().sort((a, b) => {
+      if (sortMode === "management") {
+        const av = toManagementNumberValue(a.managementNumber);
+        const bv = toManagementNumberValue(b.managementNumber);
+        if (av == null && bv == null) {
+          const aKey = a.furigana || a.name;
+          const bKey = b.furigana || b.name;
+          return aKey.localeCompare(bKey, "ja");
+        }
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (av !== bv) return av - bv;
+        const aKey = a.furigana || a.name;
+        const bKey = b.furigana || b.name;
+        return aKey.localeCompare(bKey, "ja");
+      }
+
+      if (sortMode === "managementDesc") {
+        const av = toManagementNumberValue(a.managementNumber);
+        const bv = toManagementNumberValue(b.managementNumber);
+        if (av == null && bv == null) {
+          const aKey = a.furigana || a.name;
+          const bKey = b.furigana || b.name;
+          return aKey.localeCompare(bKey, "ja");
+        }
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (av !== bv) return bv - av;
+        const aKey = a.furigana || a.name;
+        const bKey = b.furigana || b.name;
+        return aKey.localeCompare(bKey, "ja");
+      }
+
       if (sortMode === "legacy") {
         // 旧スタッフID昇順（数値昇順, null は末尾）
         const aNull = a.legacyStaffId == null;
@@ -878,6 +919,22 @@ export default function Page() {
                   onChange={() => setSortMode("legacyDesc")}
                 />
                 旧ID降順
+              </label>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={sortMode === "management"}
+                  onChange={() => setSortMode("management")}
+                />
+                管理番号昇順
+              </label>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={sortMode === "managementDesc"}
+                  onChange={() => setSortMode("managementDesc")}
+                />
+                管理番号降順
               </label>
               <button
                 className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"

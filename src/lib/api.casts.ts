@@ -270,6 +270,7 @@ export type CastUpdatePayload = {
   nickname?: string | null;
   /** NEW: ふりがな */
   furigana?: string | null;
+  legacyStaffId?: number | null;
   birthdate?: string | null;
   address?: string | null;
   phone?: string | null;

@@ -41,6 +41,7 @@ export type ApplicationDoc = {
 };
 
 export type ApplicationDetail = ApplicationListItem & {
+  legacyStaffId?: number | null;
   channel?: string;
   drinkOk?: boolean | null;
   genres?: string[];
@@ -102,6 +103,7 @@ export type ApplicationDetail = ApplicationListItem & {
 };
 
 export type UpdateApplicationFormInput = Partial<{
+  legacyStaffId: number;
   fullName: string;
   nickname: string;
   furigana: string;

@@ -564,6 +564,8 @@ function ApplicationDetailModal({
     age: typeof form.age === "number" ? form.age : undefined,
     phone: form.phone ?? undefined,
     email: form.email ?? undefined,
+    legacyStaffId:
+      typeof form.legacyStaffId === "number" ? form.legacyStaffId : undefined,
     desiredArea: form.desiredArea ?? undefined,
     drinkOk: typeof form.drinkOk === "boolean" ? form.drinkOk : undefined,
     genres: form.genres?.length ? form.genres : undefined,
@@ -731,12 +733,29 @@ function ApplicationDetailModal({
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[10px] text-neutral-600">旧スタッフID</div>
-                        <div className="font-mono text-neutral-900">-</div>
+                        <div className="font-mono text-neutral-900">
+                          {form.legacyStaffId != null ? form.legacyStaffId : "-"}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
+                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                      <div className="text-xs text-ink font-semibold">旧スタッフID</div>
+                      <input
+                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                        inputMode="numeric"
+                        value={form.legacyStaffId ?? ""}
+                        onChange={(e) => {
+                          const v = toNumber(e.target.value);
+                          setForm((p) => ({
+                            ...p,
+                            legacyStaffId: typeof v === "number" ? v : null,
+                          }));
+                        }}
+                      />
+                    </div>
                     <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                       <div className="text-xs text-ink font-semibold">源氏名</div>
                       <input

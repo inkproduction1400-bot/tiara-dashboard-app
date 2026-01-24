@@ -1081,6 +1081,7 @@ type CastDetailForm = {
   // 追加フィールド
   nickname: string;
   furigana: string;
+  legacyStaffId: number | null;
 
   tattoo: "" | "有" | "無";
   needPickup: "" | "要" | "不要";
@@ -1363,6 +1364,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     shopSelectionPoints: "",
     nickname: "",
     furigana: "",
+    legacyStaffId: null,
     tattoo: "",
     needPickup: "",
     drinkLevel: "",
@@ -1563,6 +1565,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         detailAny.displayNameKana ??
         detail.displayName ??
         cast.name,
+      legacyStaffId: detailAny.legacyStaffId ?? null,
 
       tattoo:
         detail.attributes?.tattoo == null ? "" : detail.attributes.tattoo ? "有" : "無",
@@ -1689,6 +1692,10 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         const displayName = form.displayName.trim();
         const nickname = form.nickname.trim();
         const furigana = form.furigana.trim();
+        const legacyStaffId =
+          typeof form.legacyStaffId === "number" && Number.isFinite(form.legacyStaffId)
+            ? form.legacyStaffId
+            : null;
         if (!displayName || !furigana) {
           setSaveError("氏名とふりがなは必須です。");
           return;
@@ -1697,6 +1704,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
           displayName,
           nickname: nickname || null,
           furigana,
+          legacyStaffId,
         });
         castId =
           created?.userId ??
@@ -1790,6 +1798,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         displayName: form.displayName || null,
         nickname: form.nickname || null,
         furigana: form.furigana || null,
+        legacyStaffId:
+          typeof form.legacyStaffId === "number" ? form.legacyStaffId : null,
         birthdate: form.birthdate || null,
         address: form.address || null,
         phone: form.phone || null,
@@ -2157,6 +2167,28 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
 {/* フォーム */}
                     <div className="space-y-2">
+                      {/* 旧スタッフID */}
+                      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+                        <div className="text-xs text-ink font-semibold">旧スタッフID</div>
+                        <input
+                          className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
+                          inputMode="numeric"
+                          value={form?.legacyStaffId ?? ""}
+                          onChange={(e) => {
+                            const raw = e.target.value.trim();
+                            const n = raw === "" ? null : Number(raw);
+                            setForm((p) =>
+                              p
+                                ? {
+                                    ...p,
+                                    legacyStaffId:
+                                      n == null || Number.isNaN(n) ? null : n,
+                                  }
+                                : p,
+                            );
+                          }}
+                        />
+                      </div>
                       {/* 源氏名 */}
                       <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                         <div className="text-xs text-ink font-semibold">源氏名</div>

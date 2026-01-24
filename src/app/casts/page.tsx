@@ -535,9 +535,11 @@ export default function Page() {
   const leftRows = pagedRows.filter((_, idx) => idx % 2 === 0);
   const rightRows = pagedRows.filter((_, idx) => idx % 2 === 1);
   const maxColumnRows = Math.max(leftRows.length, rightRows.length);
-  const padRows = (rows: CastRow[], target: number) => {
+  const padRows = (rows: CastRow[], target: number): (CastRow | null)[] => {
     if (rows.length >= target) return rows;
-    return rows.concat(Array.from({ length: target - rows.length }, () => null));
+    const empties = Array.from({ length: target - rows.length }, () => null) as
+      (CastRow | null)[];
+    return rows.concat(empties);
   };
   const leftRowsPadded = padRows(leftRows, maxColumnRows);
   const rightRowsPadded = padRows(rightRows, maxColumnRows);

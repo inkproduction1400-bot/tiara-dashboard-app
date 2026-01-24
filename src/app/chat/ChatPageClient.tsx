@@ -302,13 +302,13 @@ function ChatContent() {
   const [sortNumberSmallFirst, setSortNumberSmallFirst] = useState(false);
   const [sortNumberLargeFirst, setSortNumberLargeFirst] = useState(false);
 
-  const [rooms, setRooms] = useState<ChatPreview[]>(DUMMY_CHATS);
+  const [rooms, setRooms] = useState<ChatPreview[]>([]);
   const [roomsLoaded, setRoomsLoaded] = useState<boolean>(false);
 
   const selectedRoomIdFromUrl = searchParams.get("roomId");
 
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(() => {
-    return selectedRoomIdFromUrl || (DUMMY_CHATS[0]?.id ?? null);
+    return selectedRoomIdFromUrl || null;
   });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -659,14 +659,8 @@ function ChatContent() {
           );
         }
       } catch (e) {
-        setRooms(DUMMY_CHATS);
+        setRooms([]);
         setRoomsLoaded(true);
-
-        if (!selectedRoomIdFromUrl && DUMMY_CHATS[0]?.id) {
-          const p = new URLSearchParams(Array.from(searchParams.entries()));
-          p.set("roomId", DUMMY_CHATS[0].id);
-          router.replace(`${pathname}?${p.toString()}`);
-        }
       }
     })();
 
@@ -721,10 +715,8 @@ function ChatContent() {
         }
       } catch (e) {
         if (!ac.signal.aborted) {
-          setMessages(makeDummyMessages(selectedChat));
+          setMessages([]);
           setMessagesLoaded(true);
-
-          requestAnimationFrame(() => scrollToBottom("auto"));
         }
       }
     })();

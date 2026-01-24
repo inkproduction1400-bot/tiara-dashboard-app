@@ -329,54 +329,8 @@ function calcAgeFromBirthdate(birthdate?: string | null): number | null {
 
 export default function Page() {
 
-  // ===== 新規キャスト作成（最小）=====
+  // ===== 新規キャスト作成 =====
   const [createOpen, setCreateOpen] = useState(false);
-  const [createDisplayName, setCreateDisplayName] = useState("");
-  const [createFurigana, setCreateFurigana] = useState("");
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  const handleCreateCast = useCallback(async () => {
-    setCreateError(null);
-    const displayName = createDisplayName.trim();
-    const furigana = createFurigana.trim();
-    if (!displayName || !furigana) {
-      setCreateError("表示名とふりがなを入力してください。");
-      return;
-    }
-
-    setCreateLoading(true);
-    try {
-      // apiPost は token を自動付与（/auth/* 以外）
-      const created: any = await apiPost("/casts", { displayName, furigana });
-
-      // モーダル閉じる＆入力クリア
-      setCreateOpen(false);
-      setCreateDisplayName("");
-      setCreateFurigana("");
-
-      // 一覧を再取得（既存の一覧取得ロジックを再利用）
-      // ※ このファイルは「初回に最大 10,000 件を一括ロード」想定なので、
-      //    もう一度 listCasts を呼ぶのが一番確実。
-      try {
-        const res = await listCasts({ limit: 10000, offset: 0 } as any);
-        const items = (res as any)?.items ?? (res as any) ?? [];
-        // 既存のマッピング処理に合わせて baseRows を更新するため、
-        // ここでは「既存の初回ロード処理」を呼びたいが関数化されていない場合がある。
-        // そのため、作成後はページリロードで確実に反映させる。
-        window.location.reload();
-      } catch {
-        window.location.reload();
-      }
-
-      return created;
-    } catch (e: any) {
-      // apiFetch は res.ok じゃないと "API xxx" を投げる。詳細はここでは取れないので、最低限。
-      setCreateError(e?.message ?? "作成に失敗しました。ログイン状態と権限を確認してください。");
-    } finally {
-      setCreateLoading(false);
-    }
-  }, [createDisplayName, createFurigana]);
 
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
@@ -390,6 +344,17 @@ export default function Page() {
   const [detail, setDetail] = useState<CastDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const emptyCastRow: CastRow = {
+    id: "new",
+    managementNumber: "",
+    name: "",
+    furigana: "",
+    age: null,
+    desiredHourly: null,
+    castCode: "",
+    ownerStaffName: "",
+    legacyStaffId: null,
+  };
 
   // 削除モーダル用
   const [deleteTarget, setDeleteTarget] = useState<CastRow | null>(null);
@@ -812,11 +777,20 @@ export default function Page() {
               管理番号・名前・旧IDで検索／担当者と並び替えでソート
             </p>
           </div>
-          <div className="text-[11px] text-muted">
-            {loading
-              ? "一覧を読み込み中…"
-              : `${total.toLocaleString()} 件中 ${pageStart.toLocaleString()}〜${pageEnd.toLocaleString()} 件表示中`}
-            {loadError && <span className="ml-2 text-red-400">（{loadError}）</span>}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-[#2b78e4] bg-[#2b78e4] text-white px-3 py-2 text-xs"
+              onClick={() => setCreateOpen(true)}
+            >
+              ＋ 新規キャスト
+            </button>
+            <div className="text-[11px] text-muted">
+              {loading
+                ? "一覧を読み込み中…"
+                : `${total.toLocaleString()} 件中 ${pageStart.toLocaleString()}〜${pageEnd.toLocaleString()} 件表示中`}
+              {loadError && <span className="ml-2 text-red-400">（{loadError}）</span>}
+            </div>
           </div>
         </header>
 
@@ -931,6 +905,22 @@ export default function Page() {
           </ModalPortal>
         )}
 
+        {/* 新規キャスト登録モーダル */}
+        {createOpen && (
+          <ModalPortal>
+            <CastDetailModal
+              cast={emptyCastRow}
+              detail={null}
+              detailLoading={false}
+              detailError={null}
+              onClose={() => setCreateOpen(false)}
+              onUpdated={() => {}}
+              staffOptions={staffOptions}
+              mode="create"
+            />
+          </ModalPortal>
+        )}
+
         {/* 削除確認モーダル */}
         {deleteTarget && (
           <ModalPortal>
@@ -956,6 +946,7 @@ type CastDetailModalProps = {
   onClose: () => void;
   onUpdated: (d: CastDetail) => void;
   staffOptions: string[];
+  mode?: "edit" | "create";
 };
 
 /**
@@ -1089,6 +1080,8 @@ type CastDetailForm = {
   // 本籍地記載書類（2枠URL）
   idDocWithFaceUrl: string;
   idDocWithoutFaceUrl: string;
+  /** プロフィール写真URL（作成時/追加時の即時プレビュー用） */
+  profilePhotos?: string[];
   /** 宣誓（身分証のない・更新時） */
   oathStatus: "" | "済" | "未";
 
@@ -1128,7 +1121,9 @@ function CastDetailModal({
   onClose,
   onUpdated,
   staffOptions,
+  mode = "edit",
 }: CastDetailModalProps) {
+  const isCreate = mode === "create";
   const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -1139,8 +1134,72 @@ function CastDetailModal({
 const faceFileRef = React.useRef<HTMLInputElement | null>(null);
 const [faceUploading, setFaceUploading] = useState(false);
 const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
+  const [pendingProfileFiles, setPendingProfileFiles] = useState<File[]>([]);
+  const [pendingProfilePreviewUrls, setPendingProfilePreviewUrls] = useState<string[]>([]);
+  const [pendingIdWithFaceFile, setPendingIdWithFaceFile] = useState<File | null>(null);
+  const [pendingIdWithFacePreview, setPendingIdWithFacePreview] = useState<string | null>(null);
+  const [pendingIdWithoutFaceFile, setPendingIdWithoutFaceFile] = useState<File | null>(null);
+  const [pendingIdWithoutFacePreview, setPendingIdWithoutFacePreview] = useState<string | null>(null);
+  const pendingProfilePreviewRef = useRef<string[]>([]);
+  const pendingIdWithFacePreviewRef = useRef<string | null>(null);
+  const pendingIdWithoutFacePreviewRef = useRef<string | null>(null);
+
+  const resetPendingUploads = useCallback(() => {
+    pendingProfilePreviewRef.current.forEach((u) => URL.revokeObjectURL(u));
+    pendingProfilePreviewRef.current = [];
+    if (pendingIdWithFacePreviewRef.current) {
+      URL.revokeObjectURL(pendingIdWithFacePreviewRef.current);
+      pendingIdWithFacePreviewRef.current = null;
+    }
+    if (pendingIdWithoutFacePreviewRef.current) {
+      URL.revokeObjectURL(pendingIdWithoutFacePreviewRef.current);
+      pendingIdWithoutFacePreviewRef.current = null;
+    }
+    setPendingProfileFiles([]);
+    setPendingProfilePreviewUrls([]);
+    setPendingIdWithFaceFile(null);
+    setPendingIdWithFacePreview(null);
+    setPendingIdWithoutFaceFile(null);
+    setPendingIdWithoutFacePreview(null);
+  }, []);
+
+  const setProfilePreviews = useCallback((next: string[]) => {
+    pendingProfilePreviewRef.current.forEach((u) => URL.revokeObjectURL(u));
+    pendingProfilePreviewRef.current = next;
+    setPendingProfilePreviewUrls(next);
+  }, []);
+
+  const setIdWithFacePreview = useCallback((url: string | null) => {
+    if (pendingIdWithFacePreviewRef.current) {
+      URL.revokeObjectURL(pendingIdWithFacePreviewRef.current);
+    }
+    pendingIdWithFacePreviewRef.current = url;
+    setPendingIdWithFacePreview(url);
+  }, []);
+
+  const setIdWithoutFacePreview = useCallback((url: string | null) => {
+    if (pendingIdWithoutFacePreviewRef.current) {
+      URL.revokeObjectURL(pendingIdWithoutFacePreviewRef.current);
+    }
+    pendingIdWithoutFacePreviewRef.current = url;
+    setPendingIdWithoutFacePreview(url);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resetPendingUploads();
+    };
+  }, [resetPendingUploads]);
+
+  const handleClose = useCallback(() => {
+    if (isCreate) resetPendingUploads();
+    onClose();
+  }, [isCreate, onClose, resetPendingUploads]);
   const photoUrls = useMemo(() => {
     const c: any = detail ?? cast ?? {};
+    const formPhotos = Array.isArray((form as any)?.profilePhotos)
+      ? ((form as any).profilePhotos as string[])
+      : [];
 
     // ✅ 本番API: buildCastDetail が返す（camelCase）
     const v2 = Array.isArray(c.profilePhotos) ? c.profilePhotos : [];
@@ -1169,6 +1228,8 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
     // 優先順位: v2 → v1 → misc → single
     const urls = [
+      ...formPhotos,
+      ...pendingProfilePreviewUrls,
       ...v2,
       ...v1,
       ...((misc ?? []) as any[]),
@@ -1182,7 +1243,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       uniq.push(u);
     }
     return uniq;
-  }, [cast, detail]);
+  }, [cast, detail, form, pendingProfilePreviewUrls]);
 
 
   // ===== 店舗マスタ（NG/専属モーダルで共通）=====
@@ -1247,8 +1308,78 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveDone, setSaveDone] = useState(false);
 
+  const buildEmptyForm = (): CastDetailForm => ({
+    displayName: "",
+    birthdate: "",
+    address: "",
+    phone: "",
+    email: "",
+    tiaraHourly: "",
+    rank: "",
+    ownerStaffName: "",
+    preferredDays: "",
+    lastWorkDate: "",
+    interviewDate: "",
+    preferredTimeFrom: "",
+    preferredTimeTo: "",
+    preferredArea: "",
+    salaryNote: "",
+    heightCm: "",
+    clothingSize: "",
+    shoeSizeCm: "",
+    howFound: "",
+    motivation: "",
+    otherAgencies: "",
+    reasonChoose: "",
+    shopSelectionPoints: "",
+    furigana: "",
+    tattoo: "",
+    needPickup: "",
+    drinkLevel: "",
+    hasExperience: "",
+    workHistory: "",
+    referrerName: "",
+    compareOtherAgencies: "",
+    otherAgencyName: "",
+    otherNotes: "",
+    thirtyKComment: "",
+    idDocType: "",
+    residencyProof: "",
+    idDocWithFaceUrl: "",
+    idDocWithoutFaceUrl: "",
+    oathStatus: "",
+    idMemo: "",
+    genres: [],
+    ngShopMemo: "",
+    ngShopIds: [],
+    ngShopNames: [],
+    exclusiveShopMemo: "",
+    exclusiveShopId: null,
+    exclusiveShopIds: [],
+    exclusiveShopName: null,
+    pickupDestination: "",
+    pickupDestinationExtra: "",
+    bodyType: "",
+    atmosphere: 50,
+    dissatisfaction: "",
+    customerExperience: "",
+    tbManner: "",
+    desiredLocation: "",
+    desiredTimeBand: "",
+    profilePhotos: [],
+  });
+
+  useEffect(() => {
+    if (!isCreate) return;
+    if (form) return;
+    setForm(buildEmptyForm());
+    setSaveDone(false);
+    setSaveError(null);
+  }, [isCreate, form]);
+
   // detail 取得完了時にフォーム初期化
   useEffect(() => {
+    if (isCreate) return;
     if (!detail) {
       setForm(null);
       setSaveDone(false);
@@ -1464,7 +1595,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     });
     setSaveDone(false);
     setSaveError(null);
-  }, [detail, cast.name, cast.ownerStaffName]);
+  }, [detail, cast.name, cast.ownerStaffName, isCreate]);
 
   // 直近2日のシフト（とりあえずダミー。API detail.latestShifts 連携は後続タスク）
   const today = new Date();
@@ -1486,6 +1617,10 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
   const managementNumber = (detail as any)?.managementNumber ?? cast.managementNumber;
   const legacyStaffId = (detail as any)?.legacyStaffId ?? cast.legacyStaffId ?? null;
+  const idWithFacePreviewUrl =
+    form?.idDocWithFaceUrl || pendingIdWithFacePreview || "";
+  const idWithoutFacePreviewUrl =
+    form?.idDocWithoutFaceUrl || pendingIdWithoutFacePreview || "";
 
   const birthdateStr = form?.birthdate || (detail as any)?.birthdate || null;
   const computedAge = calcAgeFromBirthdate(birthdateStr);
@@ -1506,13 +1641,41 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
 
   const handleSave = async () => {
-    const castId = ((detail as any)?.userId as string | undefined) || cast?.id || "";
-    if (!castId) return;
-    if (!detail || !form) return;
+    if (!form) return;
+    if (!isCreate && !detail) return;
     setSaving(true);
     setSaveError(null);
     setSaveDone(false);
     try {
+      let castId =
+        ((detail as any)?.userId as string | undefined) ||
+        ((detail as any)?.id as string | undefined) ||
+        ((detail as any)?.castId as string | undefined) ||
+        cast?.id ||
+        "";
+
+      if (isCreate) {
+        const displayName = form.displayName.trim();
+        const furigana = form.furigana.trim();
+        if (!displayName || !furigana) {
+          setSaveError("氏名とふりがなは必須です。");
+          return;
+        }
+        const created: any = await apiPost("/casts", {
+          displayName,
+          furigana,
+        });
+        castId =
+          created?.userId ??
+          created?.id ??
+          created?.castId ??
+          created?.cast_id ??
+          "";
+        if (!castId) {
+          throw new Error("キャストIDの取得に失敗しました。");
+        }
+      }
+
       // 数値系のパース
       const hourlyRaw = form.tiaraHourly.replace(/[^\d]/g, "");
       const desiredHourly = hourlyRaw.trim().length > 0 ? Number(hourlyRaw) || null : null;
@@ -1598,7 +1761,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         phone: form.phone || null,
         email: form.email || null,
         // 勤務歴は暫定的に note に保存
-        note: form.workHistory || (detail as any).note || null,
+        note: form.workHistory || (detail as any)?.note || null,
         attributes: {
           heightCm,
           clothingSize: form.clothingSize || null,
@@ -1613,13 +1776,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
         } as any,
         preferences: {
           desiredHourly,
-          desiredMonthly: (detail as any).preferences?.desiredMonthly ?? null,
+          desiredMonthly: (detail as any)?.preferences?.desiredMonthly ?? null,
           preferredDays,
           preferredTimeFrom: form.preferredTimeFrom || null,
           preferredTimeTo: form.preferredTimeTo || null,
           preferredArea: form.preferredArea || null,
           // NG メモは background 側で統一管理。ngShopNotes は送信しない。
-          notes: (detail as any).preferences?.notes ?? null,
+          notes: (detail as any)?.preferences?.notes ?? null,
         } as any,
         background,
         hasExperience: hasExperienceFlag,
@@ -1637,6 +1800,24 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       } as any;
 
       const updated = await updateCast(castId, payload);
+
+      if (isCreate) {
+        if (pendingProfileFiles.length > 0) {
+          for (const f of pendingProfileFiles) {
+            await uploadCastProfilePhoto(castId, f);
+          }
+        }
+        if (pendingIdWithFaceFile) {
+          await uploadCastIdDocWithFace(castId, pendingIdWithFaceFile);
+        }
+        if (pendingIdWithoutFaceFile) {
+          await uploadCastIdDocWithoutFace(castId, pendingIdWithoutFaceFile);
+        }
+        resetPendingUploads();
+        handleClose();
+        window.location.reload();
+        return;
+      }
 
       // ★ フロント側で NG店舗情報・専属指名情報とメモをパッチしてから親に渡す
       const updatedAny = updated as any;
@@ -1724,6 +1905,20 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   }
 
   async function patchNgIdsAndMaybeSave(nextIds: string[]) {
+    if (isCreate) {
+      setForm((p: any) =>
+        p
+          ? {
+              ...p,
+              ngShopIds: nextIds,
+              ngShopNames: nextIds.map(
+                (shopId: string) => shopsMaster.find((x: any) => x.id === shopId)?.name ?? "",
+              ),
+            }
+          : p,
+      );
+      return;
+    }
     const resolved = resolveCastIdForPatch();
     if (!resolved) {
       alert("更新対象の castId を特定できませんでした。");
@@ -1754,6 +1949,22 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   }
 
   async function patchExclusiveIdsAndMaybeSave(nextIds: string[]) {
+    if (isCreate) {
+      setForm((p: any) =>
+        p
+          ? {
+              ...p,
+              exclusiveShopIds: nextIds,
+              exclusiveShopId: nextIds?.[0] ?? null,
+              exclusiveShopName:
+                nextIds?.[0]
+                  ? shopsMaster.find((x: any) => x.id === nextIds[0])?.name ?? ""
+                  : null,
+            }
+          : p,
+      );
+      return;
+    }
     const resolved = resolveCastIdForPatch();
     if (!resolved) {
       alert("更新対象の castId を特定できませんでした。");
@@ -1828,7 +2039,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       {/* viewport 基準で中央固定（スクショ版） */}
       <div className="fixed inset-0 z-50 flex items-center justify-center px-3 py-6">
         {/* オーバーレイ */}
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
 
         {/* 本体 */}
         <div className="relative z-10 w-full max-w-7xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-gray-300 overflow-hidden flex flex-col">
@@ -1856,13 +2067,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               <button
                 className="px-3 py-1 rounded-xl text-[11px] border border-emerald-400/60 bg-emerald-500/80 text-white disabled:opacity-60 disabled:cursor-not-allowed bg-[#49c69b]"
                 onClick={handleSave}
-                disabled={!detail || !form || saving}
+                disabled={!form || saving || (!isCreate && !detail)}
               >
                 {saving ? "保存中…" : "登録"}
               </button>
               <button
                 className="px-3 py-1 rounded-xl text-[11px] border border-red-400/80 bg-red-500/80 text-white bg-[#f16d6d]"
-                onClick={onClose}
+                onClick={handleClose}
               >
                 終了
               </button>
@@ -2304,6 +2515,25 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           // 同じファイル再選択できるように即クリア
                           e.currentTarget.value = "";
                           if (!f) return;
+                          if (isCreate) {
+                            const previewUrl = URL.createObjectURL(f);
+                            setPendingProfileFiles((prev) => [...prev, f]);
+                            setProfilePreviews([
+                              ...pendingProfilePreviewRef.current,
+                              previewUrl,
+                            ]);
+                            setForm((prev: any) => {
+                              if (!prev) return prev;
+                              const current = Array.isArray(prev.profilePhotos)
+                                ? (prev.profilePhotos as string[])
+                                : [];
+                              return {
+                                ...(prev as any),
+                                profilePhotos: [...current, previewUrl],
+                              } as any;
+                            });
+                            return;
+                          }
                           // CastDetail 型には id が無いが、実データには id/castId 等が載っている前提で推定して使う
                           const resolvedCastId: string =
                             // detail 側（最優先）
@@ -2348,7 +2578,6 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                       className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
                       onClick={() => {
                         // 保存先・アップロード仕様が確定したら実装
-                        if (!detail) return;
                         setShowHonsekiDocs((v) => !v);
                       }}
                     >
@@ -2364,10 +2593,10 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       </div>
 
       <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
-        {form?.idDocWithFaceUrl ? (
+        {idWithFacePreviewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={form.idDocWithFaceUrl}
+            src={idWithFacePreviewUrl}
             alt="id_with_face"
             className="w-full h-full object-cover"
           />
@@ -2380,7 +2609,16 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (!file || !(detail as any)?.userId) return;
+                if (!file) return;
+                if (isCreate) {
+                  const previewUrl = URL.createObjectURL(file);
+                  setPendingIdWithFaceFile(file);
+                  setIdWithFacePreview(previewUrl);
+                  setForm((prev) => (prev ? { ...prev, idDocWithFaceUrl: previewUrl } : prev));
+                  e.target.value = "";
+                  return;
+                }
+                if (!(detail as any)?.userId) return;
                 try {
                   const res = await uploadCastIdDocWithFace((detail as any).userId, file);
                   const url = pickUploadedUrl(res);
@@ -2397,8 +2635,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       <button
         type="button"
         className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
-        disabled={!form?.idDocWithFaceUrl || !(detail as any)?.userId}
+        disabled={!idWithFacePreviewUrl || (isCreate ? !pendingIdWithFaceFile : !(detail as any)?.userId)}
         onClick={async () => {
+          if (isCreate) {
+            setPendingIdWithFaceFile(null);
+            setIdWithFacePreview(null);
+            setForm((prev) => (prev ? { ...prev, idDocWithFaceUrl: "" } : prev));
+            return;
+          }
           if (!(detail as any)?.userId) return;
           await deleteCastIdDoc((detail as any).userId, "with-face", form?.idDocWithFaceUrl || undefined);
           setForm((prev) => (prev ? { ...prev, idDocWithFaceUrl: "" } : prev));
@@ -2415,10 +2659,10 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       </div>
 
       <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
-        {form?.idDocWithoutFaceUrl ? (
+        {idWithoutFacePreviewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={form.idDocWithoutFaceUrl}
+            src={idWithoutFacePreviewUrl}
             alt="id_without_face"
             className="w-full h-full object-cover"
           />
@@ -2431,7 +2675,23 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (!file || !(detail as any)?.userId) return;
+                if (!file) return;
+                if (isCreate) {
+                  const previewUrl = URL.createObjectURL(file);
+                  setPendingIdWithoutFaceFile(file);
+                  setIdWithoutFacePreview(previewUrl);
+                  setForm((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          idDocWithoutFaceUrl: previewUrl,
+                        }
+                      : prev,
+                  );
+                  e.target.value = "";
+                  return;
+                }
+                if (!(detail as any)?.userId) return;
                 try {
                   const res = await uploadCastIdDocWithoutFace((detail as any).userId, file);
                   const url = pickUploadedUrl(res);
@@ -2455,8 +2715,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       <button
         type="button"
         className="mt-2 w-full sm:w-auto px-3 py-1.5 rounded-lg border border-gray-300 bg-gray-50 text-[11px] text-ink hover:bg-gray-100 disabled:opacity-50"
-        disabled={!form?.idDocWithoutFaceUrl || !(detail as any)?.userId}
+        disabled={!idWithoutFacePreviewUrl || (isCreate ? !pendingIdWithoutFaceFile : !(detail as any)?.userId)}
         onClick={async () => {
+          if (isCreate) {
+            setPendingIdWithoutFaceFile(null);
+            setIdWithoutFacePreview(null);
+            setForm((prev) => (prev ? { ...prev, idDocWithoutFaceUrl: "" } : prev));
+            return;
+          }
           if (!(detail as any)?.userId) return;
           await deleteCastIdDoc((detail as any).userId, "without-face", form?.idDocWithoutFaceUrl || undefined);
           setForm((prev) => (prev ? { ...prev, idDocWithoutFaceUrl: "" } : prev));

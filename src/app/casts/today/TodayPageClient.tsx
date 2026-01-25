@@ -786,6 +786,27 @@ export default function Page() {
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatDisabledUntil, setChatDisabledUntil] = useState<Date | null>(null);
+  const chatTemplateStorageKey = "tiara:matching-chat-templates:v1";
+  const defaultChatTemplates = useMemo(
+    () => ({
+      request:
+        "お疲れ様です。本日の出勤をお願いできないでしょうか？",
+      confirm:
+        "お疲れ様です。本日は出勤予定となっていますが出勤時間に変更等はないでしょうか？",
+    }),
+    [],
+  );
+  const [chatTemplates, setChatTemplates] = useState<{
+    request: string;
+    confirm: string;
+  }>(defaultChatTemplates);
+  const [chatTemplateEditOpen, setChatTemplateEditOpen] = useState(false);
+  const [chatTemplateEditingKey, setChatTemplateEditingKey] = useState<
+    "request" | "confirm"
+  >("request");
+  const [chatTemplateDraft, setChatTemplateDraft] = useState("");
+  const chatTemplateLongPressTimerRef = useRef<number | null>(null);
+  const chatTemplateLongPressFiredRef = useRef(false);
 
   // NG登録モーダル用
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -889,6 +910,32 @@ export default function Page() {
       // ignore cache parse errors
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(chatTemplateStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<typeof chatTemplates>;
+      setChatTemplates((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(parsed).filter(([, value]) => typeof value === "string"),
+        ),
+      }));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        chatTemplateStorageKey,
+        JSON.stringify(chatTemplates),
+      );
+    } catch {}
+  }, [chatTemplates, chatTemplateStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1381,6 +1428,40 @@ export default function Page() {
       setChatSending(false);
     }
   }, [chatDraft, selectedCast, chatDisabledUntil]);
+
+  const insertChatTemplate = useCallback((text: string) => {
+    setChatDraft((prev) => (prev ? `${prev}\n${text}` : text));
+  }, []);
+
+  const openChatTemplateEdit = useCallback(
+    (key: "request" | "confirm") => {
+      setChatTemplateEditingKey(key);
+      setChatTemplateDraft(chatTemplates[key] ?? "");
+      setChatTemplateEditOpen(true);
+    },
+    [chatTemplates],
+  );
+
+  const startChatTemplateLongPress = useCallback(
+    (key: "request" | "confirm") => {
+      if (chatTemplateLongPressTimerRef.current) {
+        window.clearTimeout(chatTemplateLongPressTimerRef.current);
+      }
+      chatTemplateLongPressFiredRef.current = false;
+      chatTemplateLongPressTimerRef.current = window.setTimeout(() => {
+        chatTemplateLongPressFiredRef.current = true;
+        openChatTemplateEdit(key);
+      }, 600);
+    },
+    [openChatTemplateEdit],
+  );
+
+  const stopChatTemplateLongPress = useCallback(() => {
+    if (chatTemplateLongPressTimerRef.current) {
+      window.clearTimeout(chatTemplateLongPressTimerRef.current);
+      chatTemplateLongPressTimerRef.current = null;
+    }
+  }, []);
 
   const handleSaveMatchingSettings = async () => {
     if (!settingsDraft) return;
@@ -3540,6 +3621,47 @@ export default function Page() {
                   );
                 })()}
                 <div className="mt-2">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-[11px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      onMouseDown={() => startChatTemplateLongPress("request")}
+                      onMouseUp={stopChatTemplateLongPress}
+                      onMouseLeave={stopChatTemplateLongPress}
+                      onTouchStart={() => startChatTemplateLongPress("request")}
+                      onTouchEnd={stopChatTemplateLongPress}
+                      onClick={() => {
+                        if (chatTemplateLongPressFiredRef.current) {
+                          chatTemplateLongPressFiredRef.current = false;
+                          return;
+                        }
+                        insertChatTemplate(chatTemplates.request);
+                      }}
+                    >
+                      出勤依頼
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-[11px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      onMouseDown={() => startChatTemplateLongPress("confirm")}
+                      onMouseUp={stopChatTemplateLongPress}
+                      onMouseLeave={stopChatTemplateLongPress}
+                      onTouchStart={() => startChatTemplateLongPress("confirm")}
+                      onTouchEnd={stopChatTemplateLongPress}
+                      onClick={() => {
+                        if (chatTemplateLongPressFiredRef.current) {
+                          chatTemplateLongPressFiredRef.current = false;
+                          return;
+                        }
+                        insertChatTemplate(chatTemplates.confirm);
+                      }}
+                    >
+                      出勤確認
+                    </button>
+                    <span className="text-[10px] text-gray-400">
+                      長押しで定型文を編集
+                    </span>
+                  </div>
                   <div className="relative">
                     <textarea
                       className="w-full h-28 px-3 py-2 border border-gray-200 text-xs resize-none"
@@ -3660,6 +3782,67 @@ export default function Page() {
                 }}
               >
                 割当候補に追加
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {chatTemplateEditOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setChatTemplateEditOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md bg-white border border-gray-200 shadow-xl">
+            <header className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">
+                定型文の編集
+              </h2>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-gray-900"
+                onClick={() => setChatTemplateEditOpen(false)}
+              >
+                ✕
+              </button>
+            </header>
+            <div className="p-4">
+              <div className="text-[11px] text-muted">
+                {chatTemplateEditingKey === "request"
+                  ? "出勤依頼"
+                  : "出勤確認"}
+              </div>
+              <textarea
+                className="mt-2 w-full h-28 px-3 py-2 border border-gray-200 text-xs resize-none"
+                value={chatTemplateDraft}
+                onChange={(e) => setChatTemplateDraft(e.target.value)}
+              />
+            </div>
+            <footer className="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-gray-300 bg-white text-gray-800 text-xs"
+                onClick={() => setChatTemplateEditOpen(false)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs"
+                onClick={() => {
+                  if (!chatTemplateDraft.trim()) {
+                    alert("定型文を入力してください。");
+                    return;
+                  }
+                  setChatTemplates((prev) => ({
+                    ...prev,
+                    [chatTemplateEditingKey]: chatTemplateDraft.trim(),
+                  }));
+                  setChatTemplateEditOpen(false);
+                }}
+              >
+                保存
               </button>
             </footer>
           </div>

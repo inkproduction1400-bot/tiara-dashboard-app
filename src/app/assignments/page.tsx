@@ -311,56 +311,51 @@ export default function Page() {
     [orderCandidates, selectedOrderId],
   );
 
-  useEffect(() => {
-    let active = true;
-    const fetchStatuses = async () => {
-      try {
-        const today = todayKey();
-        const tomorrow = tomorrowKey();
-        const [todayOrders, tomorrowOrders] = await Promise.all([
-          listShopOrders(today),
-          listShopOrders(tomorrow),
-        ]);
+  const fetchOrderStatuses = useCallback(async () => {
+    try {
+      const today = todayKey();
+      const tomorrow = tomorrowKey();
+      const [todayOrders, tomorrowOrders] = await Promise.all([
+        listShopOrders(today),
+        listShopOrders(tomorrow),
+      ]);
 
-        const next: Record<string, string> = {};
-        const nextActive: Record<string, number> = {};
-        const nextTotal: Record<string, number> = {};
+      const next: Record<string, string> = {};
+      const nextActive: Record<string, number> = {};
+      const nextTotal: Record<string, number> = {};
 
-        const applyOrders = (orders: any[], date: string) => {
-          for (const order of orders) {
-            const shopId = order?.shopId ?? order?.shop?.id ?? "";
-            if (!shopId || !order?.id) continue;
+      const applyOrders = (orders: any[], date: string) => {
+        for (const order of orders) {
+          const shopId = order?.shopId ?? order?.shop?.id ?? "";
+          if (!shopId || !order?.id) continue;
 
-            const status = order?.status ?? "";
-            next[`${shopId}:${order.id}`] = status;
+          const status = order?.status ?? "";
+          next[`${shopId}:${order.id}`] = status;
 
-            const time = order?.startTime ?? order?.start_time ?? "";
-            if (time) {
-              next[`${shopId}:time:${time}`] = status;
-            }
-
-            const key = `${date}:${shopId}`;
-            nextTotal[key] = (nextTotal[key] ?? 0) + 1;
-            if (status !== "canceled") {
-              nextActive[key] = (nextActive[key] ?? 0) + 1;
-            }
+          const time = order?.startTime ?? order?.start_time ?? "";
+          if (time) {
+            next[`${shopId}:time:${time}`] = status;
           }
-        };
 
-        applyOrders(todayOrders, today);
-        applyOrders(tomorrowOrders, tomorrow);
+          const key = `${date}:${shopId}`;
+          nextTotal[key] = (nextTotal[key] ?? 0) + 1;
+          if (status !== "canceled") {
+            nextActive[key] = (nextActive[key] ?? 0) + 1;
+          }
+        }
+      };
 
-        if (!active) return;
-        setOrderStatusByKey(next);
-        setActiveOrderCountByShopDate(nextActive);
-        setTotalOrderCountByShopDate(nextTotal);
-      } catch {
-        if (!active) return;
-        setOrderStatusByKey({});
-        setActiveOrderCountByShopDate({});
-        setTotalOrderCountByShopDate({});
-      }
-    };
+      applyOrders(todayOrders, today);
+      applyOrders(tomorrowOrders, tomorrow);
+
+      setOrderStatusByKey(next);
+      setActiveOrderCountByShopDate(nextActive);
+      setTotalOrderCountByShopDate(nextTotal);
+    } catch {
+      setOrderStatusByKey({});
+      setActiveOrderCountByShopDate({});
+      setTotalOrderCountByShopDate({});
+    }
   }, []);
 
   const handlePrint = () => {
@@ -388,15 +383,18 @@ export default function Page() {
 
   useEffect(() => {
     void fetchSchedule();
-  }, [fetchSchedule]);
+    void fetchOrderStatuses();
+  }, [fetchSchedule, fetchOrderStatuses]);
 
   useEffect(() => {
     const onFocus = () => {
-      if (items.length === 0) void fetchSchedule();
+      void fetchSchedule();
+      void fetchOrderStatuses();
     };
     const onVisible = () => {
-      if (document.visibilityState === "visible" && items.length === 0) {
+      if (document.visibilityState === "visible") {
         void fetchSchedule();
+        void fetchOrderStatuses();
       }
     };
     window.addEventListener("focus", onFocus);
@@ -405,7 +403,15 @@ export default function Page() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [items.length, fetchSchedule]);
+  }, [fetchSchedule, fetchOrderStatuses]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void fetchSchedule();
+      void fetchOrderStatuses();
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [fetchSchedule, fetchOrderStatuses]);
 
   useEffect(() => {
     editingRef.current = editing;

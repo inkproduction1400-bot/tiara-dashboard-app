@@ -28,7 +28,7 @@ import {
   listShops,
   type ShopDetail,
 } from "@/lib/api.shops";
-import { apiPost } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -785,6 +785,7 @@ export default function Page() {
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [chatDisabledUntil, setChatDisabledUntil] = useState<Date | null>(null);
 
   // NG登録モーダル用
   const [ngModalOpen, setNgModalOpen] = useState(false);
@@ -1312,8 +1313,34 @@ export default function Page() {
     setChatDraft("");
   }, [selectedCast?.id]);
 
+  useEffect(() => {
+    if (!selectedCast?.id) {
+      setChatDisabledUntil(null);
+      return;
+    }
+    const detail = castDetailById[selectedCast.id];
+    const raw =
+      detail?.chatSendDisabledUntil ?? detail?.chat_send_disabled_until ?? null;
+    if (!raw) {
+      setChatDisabledUntil(null);
+      return;
+    }
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+      setChatDisabledUntil(null);
+      return;
+    }
+    setChatDisabledUntil(parsed);
+  }, [selectedCast?.id, castDetailById]);
+
   const handleSendChat = useCallback(async () => {
     if (!selectedCast) return;
+    if (chatDisabledUntil) {
+      alert(
+        `本日中のチャット送信は停止されています（解除: ${chatDisabledUntil.toLocaleString()}）。`,
+      );
+      return;
+    }
     const text = chatDraft.trim();
     if (!text) {
       alert("チャット内容を入力してください。");
@@ -1321,19 +1348,39 @@ export default function Page() {
     }
     try {
       setChatSending(true);
-      await apiPost("/chat/staff/messages", {
-        castId: selectedCast.id,
-        text,
+      await apiFetch("/chat/staff/messages", {
+        method: "POST",
+        headers: {
+          "x-chat-source": "matching",
+        },
+        body: JSON.stringify({
+          castId: selectedCast.id,
+          text,
+        }),
       });
       setChatDraft("");
       alert("送信しました。");
     } catch (err) {
       console.warn("[casts/today] chat send failed", err);
+      const msg = String((err as any)?.message ?? "");
+      if (msg.includes("chat_send_disabled_until")) {
+        const iso = msg.split("chat_send_disabled_until:")[1]?.trim();
+        const until = iso ? new Date(iso) : null;
+        if (until && !Number.isNaN(until.getTime())) {
+          setChatDisabledUntil(until);
+          alert(
+            `本日中のチャット送信は停止されています（解除: ${until.toLocaleString()}）。`,
+          );
+          return;
+        }
+        alert("本日中のチャット送信は停止されています。");
+        return;
+      }
       alert("送信に失敗しました。時間をおいて再度お試しください。");
     } finally {
       setChatSending(false);
     }
-  }, [chatDraft, selectedCast]);
+  }, [chatDraft, selectedCast, chatDisabledUntil]);
 
   const handleSaveMatchingSettings = async () => {
     if (!settingsDraft) return;
@@ -3504,11 +3551,19 @@ export default function Page() {
                       type="button"
                       className="absolute right-2 bottom-2 px-4 py-1.5 border border-slate-300 bg-white text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                       onClick={handleSendChat}
-                      disabled={chatSending || !chatDraft.trim()}
+                      disabled={
+                        chatSending || !chatDraft.trim() || !!chatDisabledUntil
+                      }
                     >
                       {chatSending ? "送信中..." : "送信"}
                     </button>
                   </div>
+                  {chatDisabledUntil && (
+                    <div className="mt-1 text-[11px] text-rose-600">
+                      本日は送信不可（解除: {chatDisabledUntil.toLocaleString()}
+                      ）
+                    </div>
+                  )}
                 </div>
                 <div className="mt-2 flex items-center gap-6 text-sm text-gray-700 justify-start">
                   <div>

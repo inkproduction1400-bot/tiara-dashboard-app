@@ -215,6 +215,8 @@ export type CastDetail = {
   managementNumber: string | null;
   /** NEW: キャストID（英字+数字ランダム） */
   castCode: string | null;
+  /** NEW: マッチングページのチャット送信停止期限 */
+  chatSendDisabledUntil?: string | null;
   birthdate: string | null;
   age: number | null;
   address: string | null;
@@ -775,4 +777,33 @@ export async function deleteCastIdDoc(
   }
 
   return (await res.json().catch(() => ({}))) as { ok?: boolean };
+}
+
+export async function updateCastTodayShift(
+  castId: string,
+  timeBand: "anytime" | "21:00" | "21:30" | "22:00",
+): Promise<{ ok: true; date: string; timeBand: string }> {
+  return apiFetch(`/casts/${castId}/today-shift`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": "dashboard-browser",
+    },
+    body: JSON.stringify({ timeBand }),
+  });
+}
+
+export async function updateCastChatSendDisabled(
+  castId: string,
+  disabled: boolean,
+  until?: string,
+): Promise<{ ok: true; disabled: boolean; until?: string | null }> {
+  return apiFetch(`/casts/${castId}/chat-send-disabled`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": "dashboard-browser",
+    },
+    body: JSON.stringify({ disabled, until }),
+  });
 }

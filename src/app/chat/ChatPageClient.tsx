@@ -6,6 +6,10 @@ import AppShell from "@/components/AppShell";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { API_BASE } from "@/lib/api";
+import {
+  updateCastChatSendDisabled,
+  updateCastTodayShift,
+} from "@/lib/api.casts";
 
 type Staff = {
   id: string;
@@ -320,6 +324,12 @@ function ChatContent() {
   const [draft, setDraft] = useState<string>("");
   const [sending, setSending] = useState<boolean>(false);
   const sendAbortRef = useRef<AbortController | null>(null);
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [shiftBand, setShiftBand] = useState<
+    "anytime" | "21:00" | "21:30" | "22:00"
+  >("anytime");
+  const [shiftSaving, setShiftSaving] = useState(false);
+  const [shiftError, setShiftError] = useState<string | null>(null);
 
   // ====== スクロール追従（最下部） ======
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -496,6 +506,46 @@ function ChatContent() {
       () => rooms.find((c) => c.id === selectedRoomId) ?? null,
       [rooms, selectedRoomId],
     ) ?? null;
+
+  const handleOpenShiftModal = () => {
+    if (!selectedChat) return;
+    setShiftBand("anytime");
+    setShiftError(null);
+    setShiftModalOpen(true);
+  };
+
+  const handleConfirmShift = async () => {
+    if (!selectedChat) return;
+    setShiftSaving(true);
+    setShiftError(null);
+    try {
+      await updateCastTodayShift(selectedChat.castId, shiftBand);
+      alert("出勤OKを反映しました。");
+      setShiftModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      setShiftError("更新に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setShiftSaving(false);
+    }
+  };
+
+  const handleDisableMatchingChat = () => {
+    if (!selectedChat) return;
+    updateCastChatSendDisabled(selectedChat.castId, true)
+      .then((res) => {
+        const untilText = res.until
+          ? new Date(res.until).toLocaleString()
+          : "明日5:00";
+        alert(
+          `マッチングページのチャット送信を${untilText}まで停止しました。`,
+        );
+      })
+      .catch((e) => {
+        console.error(e);
+        alert("出勤NGの反映に失敗しました。時間をおいて再度お試しください。");
+      });
+  };
 
   // URL → state 追従
   useEffect(() => {
@@ -1149,10 +1199,28 @@ function ChatContent() {
                     </div>
                   </div>
                 </div>
-                <div className="text-[10px] text-muted whitespace-nowrap text-right">
-                  {formatTimeLabel(selectedChat.lastMessageAt)} 更新
-                  <br />
-                  担当: {selectedChat.staffName}
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] text-muted whitespace-nowrap text-right">
+                    {formatTimeLabel(selectedChat.lastMessageAt)} 更新
+                    <br />
+                    担当: {selectedChat.staffName}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenShiftModal}
+                      className="px-3 py-1 text-[11px] rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                    >
+                      出勤OK
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisableMatchingChat}
+                      className="px-3 py-1 text-[11px] rounded-full bg-rose-500 text-white hover:bg-rose-600 transition"
+                    >
+                      出勤NG
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
@@ -1247,6 +1315,64 @@ function ChatContent() {
           </div>
         </div>
       </div>
+
+      {shiftModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-lg border border-ink/10">
+            <div className="px-4 py-3 border-b">
+              <div className="text-sm font-semibold">出勤OK（本日のシフト）</div>
+              <div className="text-[11px] text-muted mt-1">
+                出勤可能な時間帯を1つ選んで確定してください。
+              </div>
+            </div>
+            <div className="px-4 py-4 space-y-2">
+              {(
+                [
+                  { value: "anytime", label: "何時でも" },
+                  { value: "21:00", label: "21:00〜" },
+                  { value: "21:30", label: "21:30〜" },
+                  { value: "22:00", label: "22:00〜" },
+                ] as const
+              ).map((opt) => (
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="today-shift-band"
+                    value={opt.value}
+                    checked={shiftBand === opt.value}
+                    onChange={() => setShiftBand(opt.value)}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+              {shiftError && (
+                <div className="text-[11px] text-rose-500">{shiftError}</div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="h-8 px-3 text-xs border border-gray-300 bg-white text-ink"
+                onClick={() => setShiftModalOpen(false)}
+                disabled={shiftSaving}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="tiara-btn h-8 px-4 text-xs"
+                onClick={() => void handleConfirmShift()}
+                disabled={shiftSaving}
+              >
+                {shiftSaving ? "更新中..." : "確定"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

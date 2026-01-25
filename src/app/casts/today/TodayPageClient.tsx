@@ -722,6 +722,9 @@ export default function Page() {
     count: number;
     headcount: number;
   }>({ count: 0, headcount: 0 });
+  const [matchedCastIds, setMatchedCastIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  );
   const [matchingSettings, setMatchingSettings] =
     useState<MatchingSettings | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1372,13 +1375,13 @@ export default function Page() {
     page: effectivePage,
   } = useMemo(() => {
     const todayIds = new Set(todayCasts.map((c) => c.id));
-    const matchedIds = new Set(staged.map((c) => c.id));
+    const matchedIds = matchedCastIds;
 
     // ① ベース集合の選択（タブの役割）
     // - 未配属 / 本日出勤 / マッチ済み：本日出勤キャストのみ
     // - 全キャスト：シフトに関係なく全キャスト
     let base: Cast[];
-    if (statusTab === "all") {
+    if (statusTab === "all" || statusTab === "matched") {
       base = allCasts;
     } else {
       base = allCasts.filter((c) => todayIds.has(c.id));
@@ -1387,8 +1390,12 @@ export default function Page() {
     // ② タブごとの追加フィルタ
     if (statusTab === "unassigned") {
       base = base.filter((c) => !matchedIds.has(c.id));
+    } else if (statusTab === "today") {
+      base = base.filter((c) => !matchedIds.has(c.id));
     } else if (statusTab === "matched") {
       base = base.filter((c) => matchedIds.has(c.id));
+    } else if (statusTab === "all") {
+      base = base.filter((c) => !matchedIds.has(c.id));
     }
 
     let list: Cast[] = [...base];
@@ -1539,7 +1546,7 @@ export default function Page() {
   }, [
     allCasts,
     todayCasts,
-    staged,
+    matchedCastIds,
     selectedShop,
     selectedShopDetail,
     selectedShopNgCastIds,
@@ -1661,6 +1668,38 @@ export default function Page() {
 
   const todayWageCounts = useMemo(() => buildWageCounts(todayCasts), [todayCasts]);
   const systemWageCounts = useMemo(() => buildWageCounts(allCasts), [allCasts]);
+
+  const applyMatchedFromOrders = useCallback((orders: any[]) => {
+    const set = new Set<string>();
+    orders.forEach((order) => {
+      const status = order?.status ?? order?.order_status ?? null;
+      if (status === "canceled") return;
+      const assigns = Array.isArray(order?.assignments)
+        ? order.assignments
+        : [];
+      assigns.forEach((item: any) => {
+        const castId =
+          item?.castId ??
+          item?.cast?.userId ??
+          item?.cast?.id ??
+          item?.cast_id ??
+          null;
+        if (castId) set.add(castId);
+      });
+    });
+    setMatchedCastIds(set);
+  }, []);
+
+  const fetchMatchedCastIds = useCallback(async () => {
+    try {
+      const date = todayKey();
+      const orders = await listShopOrders(date);
+      applyMatchedFromOrders(orders);
+    } catch (err) {
+      console.warn("[casts/today] load matched casts failed", { err });
+    }
+  }, [applyMatchedFromOrders]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -1684,6 +1723,7 @@ export default function Page() {
           return sum + (Number.isFinite(value) ? value : 0);
         }, 0);
         setOrderSummary({ count, headcount });
+        applyMatchedFromOrders(orders);
       } catch (err) {
         if (cancelled) return;
         console.warn("[casts/today] load order summary failed", { err });
@@ -1694,7 +1734,24 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, [orderItems, orderAssignments, selectedShopId]);
+  }, [orderItems, orderAssignments, selectedShopId, applyMatchedFromOrders]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void fetchMatchedCastIds();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void fetchMatchedCastIds();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchMatchedCastIds]);
 
   // NG登録モーダル用 店舗リスト（ジャンル・名前・ID・並び替え）
   const ngCandidateShops = useMemo(() => {
@@ -2256,6 +2313,7 @@ export default function Page() {
       alert("保存に失敗しました。時間をおいて再度お試しください。");
       return;
     }
+    await fetchMatchedCastIds();
     if (selectedShop) {
       alert(
         `${selectedShop.name} への割当を確定（デモ）\n\n` +
@@ -2293,6 +2351,7 @@ export default function Page() {
       alert("不承処理に失敗しました。時間をおいて再度お試しください。");
       return;
     }
+    await fetchMatchedCastIds();
     if (selectedShopId) {
       await setContactStatus(selectedShopId, "rejected", { force: true });
     }

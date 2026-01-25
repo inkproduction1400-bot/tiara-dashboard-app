@@ -1168,7 +1168,7 @@ export default function Page() {
               </div>
               <button
                 type="button"
-                className="rounded-xl border border-gray-300 bg-white text-gray-700 px-3 py-1.5 text-[11px] hover:bg-gray-50"
+                className="rounded-none border border-gray-300 bg-white text-gray-700 px-3 py-1.5 text-[11px] hover:bg-gray-50"
                 onClick={handlePrint}
               >
                 印刷（割当リスト）
@@ -1180,7 +1180,7 @@ export default function Page() {
               >
                 ＋ 新規店舗リクエスト
               </button>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-600">
+              <span className="text-[10px] px-2 py-0.5 rounded-none bg-gray-100 border border-gray-300 text-gray-600">
                 build: {buildStamp}
               </span>
             </div>
@@ -1188,14 +1188,14 @@ export default function Page() {
 
           {/* 集計バー（資料っぽい帯） */}
           <div className="mt-1 grid grid-cols-2 gap-2 text-[11px]">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-none bg-sky-50 border border-sky-100">
               <span className="text-muted whitespace-nowrap">対象店舗数</span>
               <span className="text-base font-semibold text-sky-900">
                 {summary.totalShops}
               </span>
               <span className="text-[10px] text-sky-900/80">件</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-none bg-indigo-50 border border-indigo-100">
               <span className="text-muted whitespace-nowrap">
                 割当済みキャスト合計
               </span>
@@ -1210,7 +1210,7 @@ export default function Page() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center gap-1">
               <span className="text-muted whitespace-nowrap">日付</span>
-              <div className="inline-flex rounded-full bg-white border border-gray-300 overflow-hidden">
+              <div className="inline-flex rounded-none bg-white border border-gray-300 overflow-hidden">
                 <button
                   type="button"
                   className={`px-3 py-1 text-[11px] ${
@@ -1278,7 +1278,7 @@ export default function Page() {
             </span>
           </div>
 
-          <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
+          <div className="flex-1 overflow-auto rounded-none border border-gray-200 bg-white">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 text-[11px] text-gray-500 sticky top-0 z-10 border-b border-gray-200">
                 <tr>
@@ -1396,7 +1396,7 @@ export default function Page() {
                             </button>
                             <button
                               type="button"
-                              className="rounded-xl border border-red-500 bg-white text-red-600 px-3 py-1 text-[11px] hover:bg-red-50"
+                              className="rounded-none border border-red-500 bg-white text-red-600 px-3 py-1 text-[11px] hover:bg-red-50"
                               onClick={() => void deleteOrder(shop, group)}
                             >
                               削除
@@ -1422,7 +1422,7 @@ export default function Page() {
             onClick={closeEdit}
           />
           {/* モーダル本体 */}
-          <div className="relative z-10 w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative z-10 w-full max-w-3xl max-h-[90vh] rounded-none bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden">
             <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">
@@ -1612,7 +1612,7 @@ export default function Page() {
               </div>
 
               {/* この店舗の割当キャスト一覧 */}
-              <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
+              <div className="mt-2 p-3 rounded-none bg-gray-50 border border-gray-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[11px] text-muted">
@@ -1631,7 +1631,7 @@ export default function Page() {
                   </button>
                 </div>
 
-                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                <div className="rounded-none border border-gray-200 overflow-hidden bg-white">
                   <table className="w-full text-[11px]">
                     <thead className="bg-gray-100 text-gray-600">
                       <tr>
@@ -1689,7 +1689,7 @@ export default function Page() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="rounded-xl border border-red-500 bg-white text-red-600 px-2.5 py-1 text-[10px] hover:bg-red-50"
+                                  className="rounded-none border border-red-500 bg-white text-red-600 px-2.5 py-1 text-[10px] hover:bg-red-50"
                                   onClick={() => deleteAssignment(a)}
                                 >
                                   削除
@@ -1705,7 +1705,7 @@ export default function Page() {
 
                 {/* 割当編集フォーム（インライン） */}
                 {assignmentDraft && (
-                  <div className="mt-3 p-3 rounded-lg bg-sky-50 border border-sky-300 space-y-3">
+                  <div className="mt-3 p-3 rounded-none bg-sky-50 border border-sky-300 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-[11px] text-sky-900 font-semibold">
@@ -1727,7 +1727,7 @@ export default function Page() {
 
                     {orderSelectOpen && (
                       <div
-                        className={`rounded-lg border p-3 space-y-2 ${
+                        className={`rounded-none border p-3 space-y-2 ${
                           selectedOrderCandidate?.status === "confirmed"
                             ? "border-emerald-300 bg-emerald-50"
                             : "border-amber-200 bg-amber-50"
@@ -1779,7 +1779,7 @@ export default function Page() {
                           </button>
                           <button
                             type="button"
-                            className="rounded-xl border border-gray-300 bg-white text-gray-700 px-3 py-1 text-[11px] hover:bg-gray-50"
+                            className="rounded-none border border-gray-300 bg-white text-gray-700 px-3 py-1 text-[11px] hover:bg-gray-50"
                             onClick={cancelAssignmentDraft}
                           >
                             キャンセル
@@ -1862,7 +1862,7 @@ export default function Page() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        className="rounded-xl border border-sky-400 bg-white text-sky-700 px-4 py-1.5 text-[11px] hover:bg-sky-50"
+                        className="rounded-none border border-sky-400 bg-white text-sky-700 px-4 py-1.5 text-[11px] hover:bg-sky-50"
                         onClick={() => {
                           if (!assignmentDraft) return;
                           void printIdDocsForAssignments([assignmentDraft]);
@@ -1873,7 +1873,7 @@ export default function Page() {
                       </button>
                       <button
                         type="button"
-                        className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-[11px]"
+                        className="rounded-none border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-[11px]"
                         onClick={cancelAssignmentDraft}
                       >
                         キャンセル
@@ -1899,7 +1899,7 @@ export default function Page() {
             <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
               <button
                 type="button"
-                className="rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-xs"
+                className="rounded-none border border-gray-300 bg-white text-gray-700 px-4 py-1.5 text-xs"
                 onClick={closeEdit}
               >
                 閉じる

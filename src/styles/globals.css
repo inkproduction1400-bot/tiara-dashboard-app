@@ -85,6 +85,10 @@ body {
     0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
+.casts-today .tiara-panel {
+  border-radius: 0;
+}
+
 .tiara-input {
   @apply w-full rounded-xl px-3 py-2.5 outline-none;
   border: 1px solid #d6def5;

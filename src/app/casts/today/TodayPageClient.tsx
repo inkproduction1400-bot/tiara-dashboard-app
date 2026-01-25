@@ -2640,7 +2640,7 @@ export default function Page() {
 
   return (
     <AppShell>
-      <div className="h-full flex flex-col gap-3">
+      <div className="casts-today h-full flex flex-col gap-3">
         {/* 上部：統計バー & コントロール（タイトル文言は非表示） */}
         <section className="tiara-panel rounded-none p-3 flex flex-col gap-2" style={{ borderRadius: 0 }}>
           <header className="flex items-center justify-between">

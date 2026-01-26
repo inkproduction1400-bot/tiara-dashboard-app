@@ -104,6 +104,11 @@ export default function Sidebar() {
           href: "/assignments",
           active: isActiveDeep("/assignments"),
         },
+        {
+          label: "日報",
+          href: "/daily-report",
+          active: isActiveDeep("/daily-report"),
+        },
       ],
     },
     {

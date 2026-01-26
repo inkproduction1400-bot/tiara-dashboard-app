@@ -1,7 +1,7 @@
 // src/app/daily-report/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { listShopOrders, type ShopOrderRecord } from "@/lib/api.shop-orders";
 import {
@@ -487,24 +487,25 @@ export default function DailyReportPage() {
                   { label: "紹介手数料", key: "referralFee" },
                   { label: "差引現金", key: "cashDiff" },
                 ].map((row, i) => (
-                  <div
-                    key={`${row.label}-${i}`}
-                    className="border-b border-slate-500 border-r border-slate-500 last:border-r-0 px-2 py-1 h-7 flex items-center"
-                  >
-                    {row.label && <span className="mr-2">{row.label}</span>}
-                    {row.key && (
-                      <input
-                        className="ml-auto w-24 bg-transparent text-right text-xs"
-                        value={(summary as any)[row.key]}
-                        onChange={(e) =>
-                          setSummary((prev) => ({
-                            ...prev,
-                            [row.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    )}
-                  </div>
+                  <Fragment key={`${row.label}-${i}`}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7 flex items-center">
+                      {row.label}
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7 flex items-center">
+                      {row.key ? (
+                        <input
+                          className="w-full bg-transparent text-right text-xs"
+                          value={(summary as any)[row.key]}
+                          onChange={(e) =>
+                            setSummary((prev) => ({
+                              ...prev,
+                              [row.key]: e.target.value,
+                            }))
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  </Fragment>
                 ))}
               </div>
             </div>
@@ -527,33 +528,34 @@ export default function DailyReportPage() {
               </div>
               <div className="grid grid-cols-[1fr_1fr] text-sm">
                 {expenseRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-slate-500 border-r border-slate-500 last:border-r-0 px-2 py-1 h-7 flex items-center gap-2"
-                  >
-                    <input
-                      className="flex-1 bg-transparent text-xs"
-                      value={row.label}
-                      onChange={(e) =>
-                        setExpenseRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, label: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                    <input
-                      className="w-24 bg-transparent text-right text-xs"
-                      value={row.amount}
-                      onChange={(e) =>
-                        setExpenseRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, amount: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
+                  <Fragment key={idx}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.label}
+                        onChange={(e) =>
+                          setExpenseRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, label: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-right text-xs"
+                        value={row.amount}
+                        onChange={(e) =>
+                          setExpenseRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, amount: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </Fragment>
                 ))}
                 <div className="border-t border-slate-500 border-r border-slate-500 px-2 py-1 h-7 flex items-center">
                   経費合計
@@ -580,22 +582,23 @@ export default function DailyReportPage() {
                   { label: "現金残", key: "cashBalance" },
                   { label: "差額", key: "difference" },
                 ].map((row, i) => (
-                  <div
-                    key={`${row.label}-${i}`}
-                    className="border-b border-slate-500 border-r border-slate-500 last:border-r-0 px-2 py-1 h-7 flex items-center"
-                  >
-                    <span className="mr-2">{row.label}</span>
-                    <input
-                      className="ml-auto w-24 bg-transparent text-right text-xs"
-                      value={(summary as any)[row.key]}
-                      onChange={(e) =>
-                        setSummary((prev) => ({
-                          ...prev,
-                          [row.key]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+                  <Fragment key={`${row.label}-${i}`}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7 flex items-center">
+                      {row.label}
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7 flex items-center">
+                      <input
+                        className="w-full bg-transparent text-right text-xs"
+                        value={(summary as any)[row.key]}
+                        onChange={(e) =>
+                          setSummary((prev) => ({
+                            ...prev,
+                            [row.key]: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </Fragment>
                 ))}
               </div>
             </div>
@@ -626,58 +629,49 @@ export default function DailyReportPage() {
                   </div>
                 ))}
                 {referralRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.referrer}
-                      onChange={(e) =>
-                        setReferralRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, referrer: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {referralRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.girl}
-                      onChange={(e) =>
-                        setReferralRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, girl: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {referralRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-right text-xs"
-                      value={row.amount}
-                      onChange={(e) =>
-                        setReferralRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, amount: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
+                  <Fragment key={idx}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.referrer}
+                        onChange={(e) =>
+                          setReferralRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx
+                                ? { ...r, referrer: e.target.value }
+                                : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.girl}
+                        onChange={(e) =>
+                          setReferralRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, girl: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-right text-xs"
+                        value={row.amount}
+                        onChange={(e) =>
+                          setReferralRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, amount: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </Fragment>
                 ))}
                 <div className="border-t border-slate-500 border-r border-slate-500 px-2 py-1 text-center col-span-2">
                   合計
@@ -725,58 +719,47 @@ export default function DailyReportPage() {
                   </div>
                 ))}
                 {uncollectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.name}
-                      onChange={(e) =>
-                        setUncollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, name: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {uncollectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.shop}
-                      onChange={(e) =>
-                        setUncollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, shop: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {uncollectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-right text-xs"
-                      value={row.amount}
-                      onChange={(e) =>
-                        setUncollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, amount: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
+                  <Fragment key={idx}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.name}
+                        onChange={(e) =>
+                          setUncollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, name: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.shop}
+                        onChange={(e) =>
+                          setUncollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, shop: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-right text-xs"
+                        value={row.amount}
+                        onChange={(e) =>
+                          setUncollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, amount: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </Fragment>
                 ))}
               </div>
             </div>
@@ -807,58 +790,47 @@ export default function DailyReportPage() {
                   </div>
                 ))}
                 {collectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.name}
-                      onChange={(e) =>
-                        setCollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, name: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {collectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-xs"
-                      value={row.shop}
-                      onChange={(e) =>
-                        setCollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, shop: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-                {collectedRows.map((row, idx) => (
-                  <div
-                    key={idx}
-                    className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7"
-                  >
-                    <input
-                      className="w-full bg-transparent text-right text-xs"
-                      value={row.amount}
-                      onChange={(e) =>
-                        setCollectedRows((prev) =>
-                          prev.map((r, i) =>
-                            i === idx ? { ...r, amount: e.target.value } : r,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
+                  <Fragment key={idx}>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.name}
+                        onChange={(e) =>
+                          setCollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, name: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-r border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-xs"
+                        value={row.shop}
+                        onChange={(e) =>
+                          setCollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, shop: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="border-b border-slate-500 px-2 py-1 h-7">
+                      <input
+                        className="w-full bg-transparent text-right text-xs"
+                        value={row.amount}
+                        onChange={(e) =>
+                          setCollectedRows((prev) =>
+                            prev.map((r, i) =>
+                              i === idx ? { ...r, amount: e.target.value } : r,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </Fragment>
                 ))}
               </div>
             </div>
@@ -872,23 +844,29 @@ export default function DailyReportPage() {
                   {[
                     { label: "件数", key: "cases" },
                     { label: "交換件数", key: "exchangeCases" },
-                  ].map((row) => (
-                    <div
-                      key={row.key}
-                      className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7 flex items-center"
-                    >
-                      <span className="mr-2">{row.label}</span>
-                      <input
-                        className="ml-auto w-20 bg-transparent text-right text-xs"
-                        value={(salesReport as any)[row.key]}
-                        onChange={(e) =>
-                          setSalesReport((prev) => ({
-                            ...prev,
-                            [row.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
+                    { label: "", key: null },
+                    { label: "", key: null },
+                    { label: "", key: null },
+                  ].map((row, i) => (
+                    <Fragment key={`${row.label}-${i}`}>
+                      <div className="border-b border-r border-slate-500 px-2 py-1 h-7 flex items-center">
+                        {row.label}
+                      </div>
+                      <div className="border-b border-slate-500 px-2 py-1 h-7 flex items-center">
+                        {row.key ? (
+                          <input
+                            className="w-full bg-transparent text-right text-xs"
+                            value={(salesReport as any)[row.key]}
+                            onChange={(e) =>
+                              setSalesReport((prev) => ({
+                                ...prev,
+                                [row.key]: e.target.value,
+                              }))
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
               </div>
@@ -903,24 +881,28 @@ export default function DailyReportPage() {
                     { label: "まとめサイト", key: "portal" },
                     { label: "スカウト", key: "scout" },
                     { label: "女の子紹介", key: "girlReferral" },
+                    { label: "", key: null },
                     { label: "合計", key: "total" },
-                  ].map((row) => (
-                    <div
-                      key={row.key}
-                      className="border-b border-r border-slate-500 last:border-r-0 px-2 py-1 h-7 flex items-center"
-                    >
-                      <span className="mr-2">{row.label}</span>
-                      <input
-                        className="ml-auto w-20 bg-transparent text-right text-xs"
-                        value={(registrations as any)[row.key]}
-                        onChange={(e) =>
-                          setRegistrations((prev) => ({
-                            ...prev,
-                            [row.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
+                  ].map((row, i) => (
+                    <Fragment key={`${row.label}-${i}`}>
+                      <div className="border-b border-r border-slate-500 px-2 py-1 h-7 flex items-center">
+                        {row.label}
+                      </div>
+                      <div className="border-b border-slate-500 px-2 py-1 h-7 flex items-center">
+                        {row.key ? (
+                          <input
+                            className="w-full bg-transparent text-right text-xs"
+                            value={(registrations as any)[row.key]}
+                            onChange={(e) =>
+                              setRegistrations((prev) => ({
+                                ...prev,
+                                [row.key]: e.target.value,
+                              }))
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    </Fragment>
                   ))}
                 </div>
               </div>

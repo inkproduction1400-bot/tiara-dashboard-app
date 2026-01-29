@@ -105,6 +105,11 @@ export default function Sidebar() {
           active: isActiveDeep("/assignments"),
         },
         {
+          label: "領収書",
+          href: "/receipts",
+          active: isActiveDeep("/receipts"),
+        },
+        {
           label: "日報",
           href: "/daily-report",
           active: isActiveDeep("/daily-report"),
@@ -152,7 +157,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="side-nav side--manabi slim">
+    <aside className="side-nav side--manabi slim flex flex-col h-full">
       {/* ロゴ（ログイン後のデフォルト＝マッチングへ） */}
       <div className="side__brand px-2 py-3">
         <Link
@@ -174,7 +179,7 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <nav className="side__nav">
+      <nav className="side__nav flex-1 overflow-y-auto">
         {nav.map((sec) => (
           <div className="nav__section" key={sec.title}>
             <div className="nav__title">{sec.title}</div>

@@ -200,7 +200,8 @@ aside.side-nav {
 
 /* Nav */
 .side--manabi .side__nav {
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
 }
 .side--manabi .nav__section {

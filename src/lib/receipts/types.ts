@@ -16,6 +16,7 @@ export type ReceiptPayload = {
   businessDate: string; // YYYY-MM-DD
   receiptDate: string; // YYYY-MM-DD
   castId: string;
+  castName: string;
   shopId: string;
   shopName: string;
   shopAddress?: string;
@@ -24,7 +25,6 @@ export type ReceiptPayload = {
   hourly?: number;
   daily?: number;
   fee?: number;
-  memo?: string;
 };
 
 export type ReceiptStatus = "none" | "issued" | "uncollected";

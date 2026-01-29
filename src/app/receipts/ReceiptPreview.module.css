@@ -1,0 +1,323 @@
+.previewCard {
+  background: #ffffff;
+  border: 1px solid #111111;
+  padding: 22px 20px;
+  min-height: 420px;
+  position: relative;
+  color: #111111;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  line-height: 1.2;
+}
+
+.previewTitle {
+  text-align: center;
+  font-size: 21px;
+  letter-spacing: 0.25em;
+  margin-bottom: 16px;
+}
+
+.previewTitleSmall {
+  text-align: center;
+  font-size: 19px;
+  letter-spacing: 0.18em;
+  margin-bottom: 12px;
+}
+
+.nameRow {
+  position: relative;
+  margin: 10px 0 18px;
+  padding-right: 28px;
+}
+
+.nameLine {
+  border-bottom: 1px solid #111111;
+  height: 20px;
+}
+
+.nameValue {
+  position: absolute;
+  left: 6px;
+  bottom: 3px;
+  font-size: 13px;
+}
+
+.nameSuffix {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 16px;
+}
+
+.amountBox {
+  border: 1px solid #111111;
+  height: 88px;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  padding: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.amountBlock {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.amountSymbol {
+  font-size: 44px;
+  font-weight: 600;
+}
+
+.amountLine {
+  border-bottom: 1px solid #111111;
+  height: 34px;
+  position: relative;
+}
+
+.amountValue {
+  position: absolute;
+  right: 6px;
+  bottom: 3px;
+  font-size: 17px;
+}
+
+.feeCaption {
+  text-align: center;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.verticalNote {
+  position: absolute;
+  right: 2px;
+  top: 132px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.wageRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+  margin: 10px 0 8px;
+  font-size: 11px;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.lineLong {
+  border-bottom: 1px solid #111111;
+  height: 20px;
+  position: relative;
+  min-width: 120px;
+}
+
+.lineValue {
+  position: absolute;
+  left: 4px;
+  bottom: 3px;
+  font-size: 12px;
+}
+
+.butRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 8px;
+  font-size: 11px;
+}
+
+.butLabel {
+  white-space: nowrap;
+}
+
+.timeRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  position: relative;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #111111;
+}
+
+.timeValue {
+  position: relative;
+  top: 1px;
+}
+
+.clock {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #111111;
+  border-radius: 50%;
+  position: relative;
+  margin: 0 4px;
+}
+
+.clock::before {
+  content: "";
+  position: absolute;
+  width: 1px;
+  height: 5px;
+  background: #111111;
+  left: 6px;
+  top: 2px;
+}
+
+.clock::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 1px;
+  background: #111111;
+  left: 6px;
+  top: 6px;
+}
+
+.dateRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.dateRowCenter {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 11px;
+}
+
+.dateLine {
+  border-bottom: 1px solid #111111;
+  height: 20px;
+  position: relative;
+  min-width: 64px;
+}
+
+.dateLabel {
+  font-size: 12px;
+}
+
+.footerText {
+  margin-top: 12px;
+  font-size: 11px;
+}
+
+.signRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: end;
+  font-size: 11px;
+  margin-top: 10px;
+}
+
+.signLine {
+  border-bottom: 1px solid #111111;
+  height: 20px;
+}
+
+.signStamp {
+  text-align: right;
+  font-size: 12px;
+}
+
+.addressLabel {
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.longLine {
+  border-bottom: 1px solid #111111;
+  height: 20px;
+  position: relative;
+  min-width: 160px;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+}
+
+.companyBlock {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.companyName {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.companyAddress {
+  font-size: 11px;
+}
+
+.taxRow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 11px;
+}
+
+.taxLabel {
+  white-space: nowrap;
+}
+
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 11px;
+}
+
+.fieldLabel {
+  white-space: nowrap;
+}
+
+.circledText {
+  display: inline-block;
+  padding: 2px 12px;
+  border: 2px solid #111111;
+  border-radius: 9999px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.smallBlock {
+  border-top: 1px solid #111111;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+
+.blockTitle {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.insuranceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 10px;
+  margin-top: 6px;
+}

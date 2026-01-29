@@ -55,10 +55,16 @@ const parseNumber = (value: string) => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+const formatAmount = (value?: number) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return "";
+  return value.toLocaleString("ja-JP");
+};
+
 type ReceiptFormState = {
   businessDate: string;
   receiptDate: string;
   castId: string;
+  castName: string;
   shopId: string;
   shopName: string;
   shopAddress: string;
@@ -67,7 +73,6 @@ type ReceiptFormState = {
   hourly: string;
   daily: string;
   fee: string;
-  memo: string;
 };
 
 const buildFormState = (
@@ -77,6 +82,7 @@ const buildFormState = (
   businessDate,
   receiptDate: businessDate,
   castId: row.castId,
+  castName: row.castName,
   shopId: row.shopId,
   shopName: row.shopName,
   shopAddress: row.shopAddress ?? "",
@@ -85,13 +91,13 @@ const buildFormState = (
   hourly: row.hourly ? String(row.hourly) : "",
   daily: row.daily ? String(row.daily) : "",
   fee: row.fee ? String(row.fee) : "",
-  memo: "",
 });
 
 const toPayload = (form: ReceiptFormState): ReceiptPayload => ({
   businessDate: form.businessDate,
   receiptDate: form.receiptDate,
   castId: form.castId,
+  castName: form.castName,
   shopId: form.shopId,
   shopName: form.shopName,
   shopAddress: form.shopAddress || undefined,
@@ -100,7 +106,6 @@ const toPayload = (form: ReceiptFormState): ReceiptPayload => ({
   hourly: parseNumber(form.hourly),
   daily: parseNumber(form.daily),
   fee: parseNumber(form.fee),
-  memo: form.memo || undefined,
 });
 
 const loadStatusMap = (): Record<string, ReceiptStatusEntry> => {
@@ -132,6 +137,19 @@ export default function ReceiptsPage() {
   const [formState, setFormState] = useState<ReceiptFormState | null>(null);
   const [activeRow, setActiveRow] = useState<AssignmentRow | null>(null);
   const [printing, setPrinting] = useState(false);
+  const feeNumber = useMemo(
+    () => (formState ? parseNumber(formState.fee) : undefined),
+    [formState?.fee],
+  );
+  const feeBaseDisplay = useMemo(
+    () => formatAmount(feeNumber),
+    [feeNumber],
+  );
+  const feeTaxDisplay = useMemo(
+    () =>
+      feeNumber !== undefined ? formatAmount(Math.round(feeNumber * 0.1)) : "",
+    [feeNumber],
+  );
 
   useEffect(() => {
     setStatusMap(loadStatusMap());
@@ -511,6 +529,14 @@ export default function ReceiptsPage() {
                   />
                 </div>
                 <div className="grid gap-1">
+                  <label className={formPanelLabel}>キャスト名</label>
+                  <input
+                    className={`${formPanelInput} bg-slate-50`}
+                    value={formState.castName}
+                    readOnly
+                  />
+                </div>
+                <div className="grid gap-1">
                   <label className={formPanelLabel}>派遣先住所</label>
                   <input
                     className={formPanelInput}
@@ -608,19 +634,6 @@ export default function ReceiptsPage() {
                     }
                   />
                 </div>
-                <div className="grid gap-1">
-                  <label className={formPanelLabel}>備考</label>
-                  <textarea
-                    className={`${formPanelInput} min-h-[100px]`}
-                    value={formState.memo}
-                    onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        memo: event.target.value,
-                      })
-                    }
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.25fr] gap-4">
@@ -635,7 +648,9 @@ export default function ReceiptsPage() {
                     <div className={styles.amountBox}>
                       <span className={styles.amountSymbol}>¥</span>
                       <div className={styles.amountLine}>
-                        <span className={styles.amountValue}>{formState.fee}</span>
+                        <span className={styles.amountValue}>
+                          {feeBaseDisplay || formState.fee}
+                        </span>
                       </div>
                     </div>
                     <div className={styles.verticalNote}>迄の手取り額として</div>
@@ -651,8 +666,8 @@ export default function ReceiptsPage() {
                     </div>
                   </div>
                   <div className={styles.butRow}>
-                    <span className={styles.butLabel}>但</span>
-                    <div className={styles.timeRow}>
+                    <div className={styles.butLine}>
+                      <span className={styles.butLabel}>但</span>
                       <span className={styles.timeValue}>
                         {formState.startTime || "20:00"}
                       </span>
@@ -662,55 +677,52 @@ export default function ReceiptsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className={styles.dateRow}>
-                    <span className={styles.dateLabel}>月</span>
-                    <div className={styles.dateLine}>
-                      <span className={styles.lineValue}>
-                        {receiptDateParts.month}
-                      </span>
-                    </div>
-                    <span className={styles.dateLabel}>日</span>
-                    <div className={styles.dateLine}>
-                      <span className={styles.lineValue}>{receiptDateParts.day}</span>
-                    </div>
-                  </div>
                   <div className={styles.footerText}>上記正に領収致しました</div>
                   <div className={styles.signRow}>
-                    <div className={styles.signLine}>
-                      <span className={styles.lineValue}>源氏名</span>
+                    <div className={styles.signField}>
+                      <span className={styles.signLabel}>源氏名</span>
+                      <div className={styles.signLine} />
                     </div>
-                    <div className={styles.signLine}>
-                      <span className={styles.lineValue}>氏名</span>
+                    <div className={styles.signField}>
+                      <span className={styles.signLabel}>氏名</span>
+                      <div className={styles.signLine} />
                     </div>
-                    <span className={styles.signStamp}>印</span>
+                    <div className={styles.signField}>
+                      <span className={styles.signLabel}>印</span>
+                      <div className={styles.signLine} />
+                    </div>
                   </div>
                   <div className={styles.addressLabel}>住所</div>
-                  <div className={styles.longLine}>
-                    <span className={styles.lineValue}>{formState.shopAddress}</span>
-                  </div>
+                  <div className={styles.longLine} />
                 </div>
 
                 <div className={styles.previewCard}>
                   <div className={styles.previewTitle}>領収書</div>
                   <div className={styles.nameRow}>
                     <div className={styles.nameLine} />
-                    <span className={styles.nameValue}>{formState.shopName}</span>
+                    <span className={styles.nameValue}>{formState.castName}</span>
                     <span className={styles.nameSuffix}>様</span>
                   </div>
                   <div className={styles.feeCaption}>手数料として</div>
                   <div className={styles.amountBox}>
                     <span className={styles.amountSymbol}>¥</span>
                     <div className={styles.amountLine}>
-                      <span className={styles.amountValue}>{formState.fee}</span>
+                      <span className={styles.amountValue}>
+                        {feeBaseDisplay || formState.fee}
+                      </span>
                     </div>
                   </div>
                   <div className={styles.taxRow}>
                     <span className={styles.taxLabel}>税　抜(10%)</span>
-                    <div className={styles.longLine} />
+                    <div className={styles.longLine}>
+                      <span className={styles.lineValue}>{feeBaseDisplay}</span>
+                    </div>
                   </div>
                   <div className={styles.taxRow}>
                     <span className={styles.taxLabel}>消費税(10%)</span>
-                    <div className={styles.longLine} />
+                    <div className={styles.longLine}>
+                      <span className={styles.lineValue}>{feeTaxDisplay}</span>
+                    </div>
                   </div>
                   <div className={styles.dateRowCenter}>
                     <div className={styles.dateLine}>
@@ -760,19 +772,11 @@ export default function ReceiptsPage() {
                   </div>
                   <div className={styles.fieldRow}>
                     <span className={styles.fieldLabel}>雇用期間：令和</span>
-                    <div className={styles.dateLine}>
-                      <span className={styles.lineValue}>{receiptDateParts.year}</span>
-                    </div>
+                    <div className={styles.dateLine} />
                     <span className={styles.fieldLabel}>年</span>
-                    <div className={styles.dateLine}>
-                      <span className={styles.lineValue}>
-                        {receiptDateParts.month}
-                      </span>
-                    </div>
+                    <div className={styles.dateLine} />
                     <span className={styles.fieldLabel}>月</span>
-                    <div className={styles.dateLine}>
-                      <span className={styles.lineValue}>{receiptDateParts.day}</span>
-                    </div>
+                    <div className={styles.dateLine} />
                     <span className={styles.fieldLabel}>日から 令和</span>
                     <div className={styles.dateLine} />
                     <span className={styles.fieldLabel}>年</span>
@@ -783,11 +787,7 @@ export default function ReceiptsPage() {
                   </div>
                   <div className={styles.fieldRow}>
                     <span className={styles.fieldLabel}>就業時間：</span>
-                    <div className={styles.longLine}>
-                      <span className={styles.lineValue}>
-                        {formState.startTime || ""}
-                      </span>
-                    </div>
+                    <div className={styles.longLine} />
                     <span className={styles.fieldLabel}>から</span>
                     <span className={styles.fieldLabel}>(うち休憩時間</span>
                     <div className={styles.longLine} />

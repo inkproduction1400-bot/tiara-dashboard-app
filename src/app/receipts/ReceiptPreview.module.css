@@ -124,6 +124,16 @@
   font-size: 12px;
 }
 
+.butLine {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #111111;
+  white-space: nowrap;
+}
+
 .butRow {
   display: grid;
   grid-template-columns: auto 1fr auto 1fr;
@@ -219,11 +229,20 @@
 
 .signRow {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   align-items: end;
   font-size: 11px;
   margin-top: 10px;
+}
+
+.signField {
+  display: grid;
+  gap: 4px;
+}
+
+.signLabel {
+  font-size: 11px;
 }
 
 .signLine {

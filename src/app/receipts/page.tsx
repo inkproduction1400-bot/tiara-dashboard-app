@@ -274,6 +274,36 @@ export default function ReceiptsPage() {
     }
   };
 
+  const receiptDateParts = useMemo(() => {
+    if (!formState?.receiptDate) return { year: "", month: "", day: "" };
+    const [year, month, day] = formState.receiptDate.split("-");
+    return {
+      year: year ?? "",
+      month: month ?? "",
+      day: day ?? "",
+    };
+  }, [formState?.receiptDate]);
+
+  const updateReceiptDateParts = (
+    patch: Partial<{ year: string; month: string; day: string }>,
+  ) => {
+    if (!formState) return;
+    const next = { ...receiptDateParts, ...patch };
+    const y = next.year.trim();
+    const m = next.month.trim().padStart(2, "0");
+    const d = next.day.trim().padStart(2, "0");
+    if (!y || !m || !d) return;
+    setFormState({
+      ...formState,
+      receiptDate: `${y}-${m}-${d}`,
+    });
+  };
+
+  const lineInputClass =
+    "w-full border-b border-slate-500 bg-transparent text-sm focus:outline-none";
+  const tinyLineInputClass =
+    "w-full border-b border-slate-500 bg-transparent text-xs focus:outline-none";
+
   return (
     <AppShell>
       <div className="h-full flex flex-col gap-4">
@@ -461,40 +491,55 @@ export default function ReceiptsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4 p-4">
-              <div className="space-y-3">
-                <div className="grid gap-2">
-                  <label className="text-xs text-slate-600">派遣先（店名）</label>
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_1.25fr] gap-4 p-4">
+              <div className="border border-slate-500 bg-white px-4 py-4">
+                <div className="text-center text-lg tracking-[0.35em] font-semibold">
+                  領収書
+                </div>
+                <div className="mt-6 flex items-end gap-2">
                   <input
-                    className="border border-slate-500 px-2 py-1 text-sm"
+                    className={`${lineInputClass} text-base`}
                     value={formState.shopName}
                     onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        shopName: event.target.value,
-                      })
+                      setFormState({ ...formState, shopName: event.target.value })
                     }
                   />
+                  <span className="text-sm">様</span>
                 </div>
-                <div className="grid gap-2">
-                  <label className="text-xs text-slate-600">派遣先住所</label>
+                <div className="mt-4 border border-slate-500 px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl font-semibold">¥</span>
+                    <input
+                      className="w-full text-2xl bg-transparent focus:outline-none"
+                      value={formState.fee}
+                      onChange={(event) =>
+                        setFormState({ ...formState, fee: event.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center text-sm">
+                  <span>時給</span>
                   <input
-                    className="border border-slate-500 px-2 py-1 text-sm"
-                    value={formState.shopAddress}
+                    className={lineInputClass}
+                    value={formState.hourly}
                     onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        shopAddress: event.target.value,
-                      })
+                      setFormState({ ...formState, hourly: event.target.value })
                     }
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-2">
-                    <label className="text-xs text-slate-600">出勤開始</label>
+                  <span>日給</span>
+                  <input
+                    className={lineInputClass}
+                    value={formState.daily}
+                    onChange={(event) =>
+                      setFormState({ ...formState, daily: event.target.value })
+                    }
+                  />
+                  <span>但</span>
+                  <div className="flex items-center gap-2">
                     <input
                       type="time"
-                      className="border border-slate-500 px-2 py-1 text-sm"
+                      className={lineInputClass}
                       value={formState.startTime}
                       onChange={(event) =>
                         setFormState({
@@ -503,12 +548,10 @@ export default function ReceiptsPage() {
                         })
                       }
                     />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-xs text-slate-600">出勤終了</label>
+                    <span>〜</span>
                     <input
                       type="time"
-                      className="border border-slate-500 px-2 py-1 text-sm"
+                      className={lineInputClass}
                       value={formState.endTime}
                       onChange={(event) =>
                         setFormState({
@@ -518,142 +561,273 @@ export default function ReceiptsPage() {
                       }
                     />
                   </div>
+                  <span>迄の手取り額として</span>
+                  <div className="col-span-3" />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="grid gap-2">
-                    <label className="text-xs text-slate-600">時給</label>
+                <div className="mt-5 flex justify-end items-center gap-2 text-sm">
+                  <input
+                    className={tinyLineInputClass}
+                    value={receiptDateParts.month}
+                    onChange={(event) =>
+                      updateReceiptDateParts({ month: event.target.value })
+                    }
+                  />
+                  <span>月</span>
+                  <input
+                    className={tinyLineInputClass}
+                    value={receiptDateParts.day}
+                    onChange={(event) =>
+                      updateReceiptDateParts({ day: event.target.value })
+                    }
+                  />
+                  <span>日</span>
+                </div>
+                <div className="mt-6 text-xs">上記正に領収致しました</div>
+                <div className="mt-6 grid grid-cols-[1fr_1fr_auto] gap-2 items-center text-sm">
+                  <input className={lineInputClass} defaultValue="" />
+                  <input className={lineInputClass} defaultValue="" />
+                  <span>印</span>
+                </div>
+                <div className="mt-4 text-sm">住所</div>
+                <input
+                  className={lineInputClass}
+                  value={formState.shopAddress}
+                  onChange={(event) =>
+                    setFormState({ ...formState, shopAddress: event.target.value })
+                  }
+                />
+              </div>
+
+              <div className="border border-slate-500 bg-white px-4 py-4">
+                <div className="text-center text-lg tracking-[0.35em] font-semibold">
+                  領収書
+                </div>
+                <div className="mt-6 flex items-end gap-2">
+                  <input
+                    className={`${lineInputClass} text-base`}
+                    value={formState.shopName}
+                    onChange={(event) =>
+                      setFormState({ ...formState, shopName: event.target.value })
+                    }
+                  />
+                  <span className="text-sm">様</span>
+                </div>
+                <div className="mt-2 text-center text-xs">手数料として</div>
+                <div className="mt-2 border border-slate-500 px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl font-semibold">¥</span>
                     <input
-                      className="border border-slate-500 px-2 py-1 text-sm"
-                      value={formState.hourly}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          hourly: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-xs text-slate-600">日給</label>
-                    <input
-                      className="border border-slate-500 px-2 py-1 text-sm"
-                      value={formState.daily}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          daily: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-xs text-slate-600">手数料</label>
-                    <input
-                      className="border border-slate-500 px-2 py-1 text-sm"
+                      className="w-full text-2xl bg-transparent focus:outline-none"
                       value={formState.fee}
                       onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          fee: event.target.value,
-                        })
+                        setFormState({ ...formState, fee: event.target.value })
                       }
                     />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <label className="text-xs text-slate-600">領収書日付</label>
-                  <input
-                    type="date"
-                    className="border border-slate-500 px-2 py-1 text-sm"
-                    value={formState.receiptDate}
-                    onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        receiptDate: event.target.value,
-                      })
-                    }
-                  />
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                    <span>税　抜(10%)</span>
+                    <div className={lineInputClass} />
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                    <span>消費税(10%)</span>
+                    <div className={lineInputClass} />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <label className="text-xs text-slate-600">備考</label>
-                  <textarea
-                    className="border border-slate-500 px-2 py-1 text-sm min-h-[80px]"
-                    value={formState.memo}
+                <div className="mt-5 flex justify-end items-center gap-2 text-sm">
+                  <input
+                    className={tinyLineInputClass}
+                    value={receiptDateParts.month}
                     onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        memo: event.target.value,
-                      })
+                      updateReceiptDateParts({ month: event.target.value })
                     }
                   />
+                  <span>月</span>
+                  <input
+                    className={tinyLineInputClass}
+                    value={receiptDateParts.day}
+                    onChange={(event) =>
+                      updateReceiptDateParts({ day: event.target.value })
+                    }
+                  />
+                  <span>日</span>
+                </div>
+                <div className="mt-6 text-xs">上記正に領収致しました</div>
+                <div className="mt-6 text-center text-sm font-semibold">株式会社Tiara</div>
+                <div className="mt-3 text-xs leading-relaxed">
+                  福岡市博多区中洲２丁目１-１８
+                  <br />
+                  しんばし別館６F
+                  <br />
+                  Tel:0120-000-602
+                  <br />
+                  T3290001096246
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="border border-slate-500 bg-white px-4 py-3">
-                  <div className="text-xs text-slate-500">領収書プレビュー</div>
-                  <div className="mt-3 border border-slate-400 bg-white px-4 py-6 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">領収書</div>
-                      <div className="text-xs text-slate-500">
-                        {formState.receiptDate}
-                      </div>
+              <div className="border border-slate-500 bg-white px-4 py-4 text-xs">
+                <div className="text-center text-base tracking-[0.25em] font-semibold">
+                  就業条件明示書
+                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                    <span>求人者名</span>
+                    <input className={lineInputClass} defaultValue="" />
+                    <span>会社名</span>
+                    <input className={lineInputClass} defaultValue="" />
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                    <span>就業場所</span>
+                    <input className={lineInputClass} defaultValue="" />
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                    <span>従事する仕事内容</span>
+                    <input className={lineInputClass} defaultValue="派遣給仕の職務" />
+                    <span>その他</span>
+                    <input className={lineInputClass} defaultValue="" />
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                    <span>雇用期間</span>
+                    <div className="flex items-center gap-1">
+                      <span>令和</span>
+                      <input
+                        className={tinyLineInputClass}
+                        value={receiptDateParts.year}
+                        onChange={(event) =>
+                          updateReceiptDateParts({ year: event.target.value })
+                        }
+                      />
+                      <span>年</span>
+                      <input
+                        className={tinyLineInputClass}
+                        value={receiptDateParts.month}
+                        onChange={(event) =>
+                          updateReceiptDateParts({ month: event.target.value })
+                        }
+                      />
+                      <span>月</span>
+                      <input
+                        className={tinyLineInputClass}
+                        value={receiptDateParts.day}
+                        onChange={(event) =>
+                          updateReceiptDateParts({ day: event.target.value })
+                        }
+                      />
+                      <span>日 から</span>
                     </div>
-                    <div className="mt-3">
-                      <div className="text-xs text-slate-500">宛名</div>
-                      <div className="border-b border-slate-400 py-1">
-                        {formState.shopName}
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <span>令和</span>
+                      <input className={tinyLineInputClass} defaultValue="" />
+                      <span>年</span>
+                      <input className={tinyLineInputClass} defaultValue="" />
+                      <span>月</span>
+                      <input className={tinyLineInputClass} defaultValue="" />
+                      <span>日</span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <div className="text-slate-500">時給</div>
-                        <div>{formState.hourly || "-"}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">日給</div>
-                        <div>{formState.daily || "-"}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">手数料</div>
-                        <div>{formState.fee || "-"}</div>
-                      </div>
-                      <div>
-                        <div className="text-slate-500">出勤時間</div>
-                        <div>
-                          {formState.startTime || "--:--"} -
-                          {" "}
-                          {formState.endTime || "--:--"}
-                        </div>
-                      </div>
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                    <span>就業時間</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="time"
+                        className={tinyLineInputClass}
+                        value={formState.startTime}
+                        onChange={(event) =>
+                          setFormState({
+                            ...formState,
+                            startTime: event.target.value,
+                          })
+                        }
+                      />
+                      <span>から</span>
                     </div>
-                    <div className="mt-3 text-xs text-slate-500">
-                      {formState.shopAddress}
+                    <div className="flex items-center gap-1">
+                      <span>(うち休憩時間</span>
+                      <input className={tinyLineInputClass} defaultValue="" />
+                      <span>から )</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                    <span>所定時間外労働の有無</span>
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1">
+                        <input type="checkbox" />
+                        <span>有り</span>
+                      </label>
+                      <span>・</span>
+                      <label className="flex items-center gap-1">
+                        <input type="checkbox" defaultChecked />
+                        <span>無し</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-start">
+                    <div className="space-y-1">
+                      <div>賃金</div>
+                      <div>①月給 (　　円)</div>
+                      <div>②日給 (　　円)</div>
+                      <div>③時給 (　　円)</div>
+                      <div>④その他 (　　円)</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div>休日に関する事項</div>
+                      <div>月・火・水・木・金・土・日・祝休日</div>
+                      <div>その他（　　　　）</div>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-500 pt-2 grid grid-cols-[1fr_1fr] gap-2">
+                    <div className="space-y-1">
+                      <div>労働・社会保険の適用</div>
+                      <div>イ　労働保険 (有・無)</div>
+                      <div>ロ　健康保険 (有・無)</div>
+                      <div>ハ　厚生年金保険 (有・無)</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div>口　雇用保険 (有・無)</div>
+                      <div>ニ　厚生年金保険 (有・無)</div>
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="border border-slate-500 bg-white px-4 py-2 text-sm"
-                    onClick={() => {
-                      setModalOpen(false);
-                      setFormState(null);
-                      setActiveRow(null);
-                    }}
-                  >
-                    閉じる
-                  </button>
-                  <button
-                    type="button"
-                    className="border border-slate-500 bg-white px-4 py-2 text-sm"
-                    onClick={handlePrint}
-                    disabled={printing}
-                  >
-                    {printing ? "印刷中..." : "印刷"}
-                  </button>
+                <div className="mt-6 grid grid-cols-[1fr_auto] gap-2 items-center">
+                  <div className="space-y-2">
+                    <div className="border border-slate-500 px-2 py-1 text-center">
+                      営業報告
+                    </div>
+                    <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                      <span>件数</span>
+                      <input className={lineInputClass} defaultValue="" />
+                      <span>交換件数</span>
+                      <input className={lineInputClass} defaultValue="" />
+                    </div>
+                  </div>
+                  <div className="border border-slate-500 px-2 py-1 text-center">
+                    登録人数
+                  </div>
                 </div>
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-4 pb-4">
+              <button
+                type="button"
+                className="border border-slate-500 bg-white px-4 py-2 text-sm"
+                onClick={() => {
+                  setModalOpen(false);
+                  setFormState(null);
+                  setActiveRow(null);
+                }}
+              >
+                閉じる
+              </button>
+              <button
+                type="button"
+                className="border border-slate-500 bg-white px-4 py-2 text-sm"
+                onClick={handlePrint}
+                disabled={printing}
+              >
+                {printing ? "印刷中..." : "印刷"}
+              </button>
             </div>
           </div>
         </div>

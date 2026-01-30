@@ -497,7 +497,7 @@ export default function ReceiptsPage() {
           role="dialog"
           aria-modal
         >
-          <div className="w-[min(1000px,94vw)] max-h-[90vh] overflow-auto bg-white border border-slate-600">
+          <div className="w-[min(1800px,98vw)] overflow-visible bg-white border border-slate-600">
             <div className="flex items-center justify-between border-b border-slate-500 px-4 py-2">
               <div className="font-semibold">領収書入力</div>
               <button
@@ -513,131 +513,8 @@ export default function ReceiptsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4 p-4">
-              <div className="border border-slate-500 bg-white p-4 space-y-3">
-                <div className="grid gap-1">
-                  <label className={formPanelLabel}>派遣先（店名）</label>
-                  <input
-                    className={formPanelInput}
-                    value={formState.shopName}
-                    onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        shopName: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <label className={formPanelLabel}>キャスト名</label>
-                  <input
-                    className={`${formPanelInput} bg-slate-50`}
-                    value={formState.castName}
-                    readOnly
-                  />
-                </div>
-                <div className="grid gap-1">
-                  <label className={formPanelLabel}>派遣先住所</label>
-                  <input
-                    className={formPanelInput}
-                    value={formState.shopAddress}
-                    onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        shopAddress: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="grid gap-1">
-                    <label className={formPanelLabel}>出勤開始</label>
-                    <input
-                      type="time"
-                      className={formPanelInput}
-                      value={formState.startTime}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          startTime: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1">
-                    <label className={formPanelLabel}>出勤終了</label>
-                    <input
-                      type="time"
-                      className={formPanelInput}
-                      value={formState.endTime}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          endTime: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="grid gap-1">
-                    <label className={formPanelLabel}>時給</label>
-                    <input
-                      className={formPanelInput}
-                      value={formState.hourly}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          hourly: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1">
-                    <label className={formPanelLabel}>日給</label>
-                    <input
-                      className={formPanelInput}
-                      value={formState.daily}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          daily: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1">
-                    <label className={formPanelLabel}>手数料</label>
-                    <input
-                      className={formPanelInput}
-                      value={formState.fee}
-                      onChange={(event) =>
-                        setFormState({
-                          ...formState,
-                          fee: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-1">
-                  <label className={formPanelLabel}>領収書日付</label>
-                  <input
-                    type="date"
-                    className={formPanelInput}
-                    value={formState.receiptDate}
-                    onChange={(event) =>
-                      setFormState({
-                        ...formState,
-                        receiptDate: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.25fr] gap-4">
-                <div className={styles.previewCard}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+              <div className={styles.previewCard}>
                   <div className={styles.previewTitle}>領収書</div>
                   <div className={styles.nameRow}>
                     <div className={styles.nameLine} />
@@ -694,9 +571,9 @@ export default function ReceiptsPage() {
                   </div>
                   <div className={styles.addressLabel}>住所</div>
                   <div className={styles.longLine} />
-                </div>
+              </div>
 
-                <div className={styles.previewCard}>
+              <div className={styles.previewCard}>
                   <div className={styles.previewTitle}>領収書</div>
                   <div className={styles.nameRow}>
                     <div className={styles.nameLine} />
@@ -749,9 +626,9 @@ export default function ReceiptsPage() {
                       T3290001096246
                     </div>
                   </div>
-                </div>
+              </div>
 
-                <div className={styles.previewCard}>
+              <div className={styles.previewCard}>
                   <div className={styles.previewTitleSmall}>就業条件明示書</div>
                   <div className={styles.fieldRow}>
                     <span className={styles.fieldLabel}>求人者名：</span>
@@ -825,7 +702,6 @@ export default function ReceiptsPage() {
                       <div>ニ　厚生年金保険（有・無）</div>
                     </div>
                   </div>
-                </div>
               </div>
             </div>
 

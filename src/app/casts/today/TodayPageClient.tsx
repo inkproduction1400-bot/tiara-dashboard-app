@@ -117,6 +117,8 @@ type Shop = {
   requireDrinkOk?: boolean;
   /** 店舗ジャンル（将来の拡張を想定） */
   genre?: ShopGenre | null;
+  /** 電話番号（店舗管理の情報） */
+  phone?: string | null;
   /** 連絡方法（店舗管理の情報） */
   contactMethod?: string | null;
   /** 連絡ステータス（入力中/済/確定など） */
@@ -127,6 +129,14 @@ type Shop = {
   idDocumentRequirement?: string | null;
   /** 飲酒条件（店舗管理の情報） */
   drinkPreference?: string | null;
+  /** 体型（店舗管理の情報） */
+  bodyType?: string | null;
+  /** ヘアセット（店舗管理の情報） */
+  hairSet?: string | null;
+  /** 注意点（店舗管理の情報） */
+  caution?: string | null;
+  /** 担当者（店舗管理の情報） */
+  ownerStaff?: string | null;
   [key: string]: any;
 };
 
@@ -208,6 +218,31 @@ const normalizeShopDrinkPreference = (raw: any): DrinkLevel | null => {
   if (s.includes("normal") || s.includes("普通")) return "normal";
   if (s.includes("strong") || s.includes("強")) return "strong";
   return mapDrinkLevel(raw);
+};
+
+const formatShopDrinkLabel = (shop: Shop): string => {
+  const level = normalizeShopDrinkPreference(shop.drinkPreference);
+  switch (level) {
+    case "ng":
+      return "NG";
+    case "weak":
+      return "弱い";
+    case "normal":
+      return "普通";
+    case "strong":
+      return "強い";
+    default:
+      if (shop.requireDrinkOk) return "OKのみ";
+      return "-";
+  }
+};
+
+const formatContactMethodLabel = (shop: Shop): string => {
+  const m = normalizeContactMethod(shop);
+  if (m === "line") return "LINE";
+  if (m === "sms") return "SMS";
+  if (m === "tel") return "TEL";
+  return "-";
 };
 
 const hourlyMatchScore = (
@@ -975,7 +1010,10 @@ export default function Page() {
         return shop.code || "-";
       case "name":
         return shop.name || "-";
+      case "tel":
+        return shop.phone || "-";
       case "hourly": {
+        if (shop.wageLabel) return shop.wageLabel;
         const min = shop.minHourly != null ? `¥${shop.minHourly.toLocaleString()}` : "";
         const max = shop.maxHourly != null ? `¥${shop.maxHourly.toLocaleString()}` : "";
         if (min && max) return `${min}〜${max}`;
@@ -985,6 +1023,18 @@ export default function Page() {
       }
       case "genre":
         return shop.genre ? SHOP_GENRE_LABEL[shop.genre] : "-";
+      case "drink":
+        return formatShopDrinkLabel(shop);
+      case "body":
+        return shop.bodyType || "-";
+      case "hair":
+        return shop.hairSet || "-";
+      case "notes":
+        return shop.caution || "-";
+      case "owner":
+        return shop.ownerStaff || "-";
+      case "contact":
+        return formatContactMethodLabel(shop);
       case "contacted":
         return formatContactStatus(shop.contactStatus);
       default:
@@ -1050,12 +1100,47 @@ export default function Page() {
           name: shop.name ?? "",
           nameKana: shop.nameKana ?? shop.kana ?? null,
           genre: shop.genre ?? null,
-          contactMethod: (shop as any).contactMethod ?? null,
-          drinkPreference: (shop as any).drinkPreference ?? null,
+          phone:
+            shop.phone ??
+            (shop as any).tel ??
+            (shop as any).telephone ??
+            null,
+          contactMethod:
+            (shop as any).contactMethod ??
+            (shop as any).contact_method ??
+            (shop as any).preferredContactMethod ??
+            (shop as any).preferred_contact_method ??
+            null,
+          drinkPreference:
+            (shop as any).drinkPreference ??
+            (shop as any).drink_preference ??
+            null,
           wageLabel: (shop as any).wageLabel ?? (shop as any).wage_label ?? null,
           idDocumentRequirement:
             (shop as any).idDocumentRequirement ??
             (shop as any).id_document_requirement ??
+            null,
+          bodyType:
+            (shop as any).bodyType ??
+            (shop as any).body_type ??
+            (shop as any).dailyOrder?.bodyType ??
+            (shop as any).dailyOrder?.body_type ??
+            null,
+          hairSet:
+            (shop as any).hairSet ??
+            (shop as any).hair_set ??
+            (shop as any).dailyOrder?.hairSet ??
+            (shop as any).dailyOrder?.hair_set ??
+            null,
+          caution:
+            (shop as any).caution ??
+            (shop as any).note ??
+            (shop as any).notes ??
+            null,
+          ownerStaff:
+            (shop as any).ownerStaff ??
+            (shop as any).owner_staff ??
+            (shop as any).staff ??
             null,
         })) as Shop[];
         setFallbackShops(items);

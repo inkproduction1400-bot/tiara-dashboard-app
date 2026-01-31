@@ -8,6 +8,7 @@ import {
   listTodayCasts,
   listCasts as fetchCastList,
   getCast,
+  getCastSignedPhotoUrl,
 } from "@/lib/api.casts";
 import {
   listShopOrders,
@@ -316,6 +317,10 @@ const resolvePhotoUrl = (item: any): string | undefined => {
   }
   return undefined;
 };
+
+const isLocalPreviewUrl = (value?: string) =>
+  typeof value === "string" &&
+  (value.startsWith("blob:") || value.startsWith("data:"));
 
 const parseWageMinFromLabel = (label?: string | null): number | null => {
   if (!label) return null;
@@ -899,20 +904,6 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem("tiara:cast-photo-cache-v1");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        setPhotoByCastId(parsed as Record<string, string>);
-      }
-    } catch {
-      // ignore cache parse errors
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(chatTemplateStorageKey);
       if (!raw) return;
@@ -938,20 +929,14 @@ export default function Page() {
   }, [chatTemplates, chatTemplateStorageKey]);
 
   useEffect(() => {
+    // signed URL は短TTLのため永続キャッシュしない
     if (typeof window === "undefined") return;
-    if (photoCacheSaveTimer.current) {
-      window.clearTimeout(photoCacheSaveTimer.current);
-    }
-    photoCacheSaveTimer.current = window.setTimeout(() => {
-      const entries = Object.entries(photoByCastId);
-      const limited = entries.slice(0, 800);
-      const next = Object.fromEntries(limited);
-      window.localStorage.setItem(
-        "tiara:cast-photo-cache-v1",
-        JSON.stringify(next),
-      );
-    }, 300);
-  }, [photoByCastId]);
+    return () => {
+      if (photoCacheSaveTimer.current) {
+        window.clearTimeout(photoCacheSaveTimer.current);
+      }
+    };
+  }, []);
 
   const shopTableColumns = [
     { key: "code", label: "店舗番号", width: "50px" },
@@ -2497,10 +2482,19 @@ export default function Page() {
         targets.map(async (c) => {
           try {
             const detail = await getCast(c.id);
-            const url = resolvePhotoUrl(detail);
-            if (url && !cancelled) {
+            const rawUrl = resolvePhotoUrl(detail);
+            const signedUrl = rawUrl
+              ? await getCastSignedPhotoUrl({
+                  castId: c.id,
+                  purpose: "profile",
+                  urlOrPath: rawUrl,
+                })
+              : null;
+            const finalUrl =
+              signedUrl ?? (isLocalPreviewUrl(rawUrl) ? rawUrl : null);
+            if (finalUrl && !cancelled) {
               setPhotoByCastId((prev) =>
-                prev[c.id] ? prev : { ...prev, [c.id]: url },
+                prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
               );
             }
             if (!cancelled) {
@@ -2538,9 +2532,41 @@ export default function Page() {
   }, [filteredCasts, photoByCastId]);
 
   useEffect(() => {
+    let cancelled = false;
+    const targets = filteredCasts.filter(
+      (c) => !photoByCastId[c.id] && resolvePhotoUrl(c),
+    );
+    if (targets.length === 0) return;
+    const run = async () => {
+      await Promise.all(
+        targets.map(async (c) => {
+          const rawUrl = resolvePhotoUrl(c);
+          if (!rawUrl) return;
+          const signedUrl = await getCastSignedPhotoUrl({
+            castId: c.id,
+            purpose: "profile",
+            urlOrPath: rawUrl,
+          });
+          const finalUrl =
+            signedUrl ?? (isLocalPreviewUrl(rawUrl) ? rawUrl : null);
+          if (finalUrl && !cancelled) {
+            setPhotoByCastId((prev) =>
+              prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
+            );
+          }
+        }),
+      );
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredCasts, photoByCastId]);
+
+  useEffect(() => {
     const urls: string[] = [];
     for (const cast of filteredCasts) {
-      const url = photoByCastId[cast.id] ?? cast.photoUrl;
+      const url = photoByCastId[cast.id];
       if (url) urls.push(url);
       if (urls.length >= 48) break;
     }
@@ -3095,7 +3121,7 @@ export default function Page() {
               >
               {!loading &&
                 filteredCasts.map((cast: Cast) => {
-                  const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl;
+                  const photoUrl = photoByCastId[cast.id] ?? "";
                   const badgeIcons = getCastBadgeIcons(cast);
                   const isFixed =
                     !!selectedShop &&
@@ -3490,13 +3516,11 @@ export default function Page() {
                   return (
                     <>
                       <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
-                        {(photoByCastId[selectedCast.id] ??
-                          selectedCast.photoUrl) ? (
+                        {photoByCastId[selectedCast.id] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={
-                              photoByCastId[selectedCast.id] ??
-                              selectedCast.photoUrl
+                              photoByCastId[selectedCast.id]
                             }
                             alt={selectedCast.name}
                             className="w-full h-full object-cover"
@@ -4308,10 +4332,10 @@ export default function Page() {
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-9 h-9 overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {c.photoUrl ? (
+                            {photoByCastId[c.id] ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={c.photoUrl}
+                                src={photoByCastId[c.id]}
                                 alt={c.name}
                                 className="w-full h-full object-cover"
                               />

@@ -14,10 +14,18 @@ import {
   type CastDetail,
   type CastListItem,
   uploadCastProfilePhoto,
-  deleteCastProfilePhoto, uploadCastIdDocWithFace, uploadCastIdDocWithoutFace, deleteCastIdDoc } from "@/lib/api.casts";
+  deleteCastProfilePhoto,
+  uploadCastIdDocWithFace,
+  uploadCastIdDocWithoutFace,
+  deleteCastIdDoc,
+  getCastSignedPhotoUrl,
+} from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
 import { apiPost } from "@/lib/api";
+
+const isLocalPreviewUrl = (value: string) =>
+  value.startsWith("blob:") || value.startsWith("data:");
 type PhotoSliderProps = {
   urls: string[];
   onOpen?: (index: number) => void;
@@ -1232,6 +1240,9 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const [pendingIdWithFacePreview, setPendingIdWithFacePreview] = useState<string | null>(null);
   const [pendingIdWithoutFaceFile, setPendingIdWithoutFaceFile] = useState<File | null>(null);
   const [pendingIdWithoutFacePreview, setPendingIdWithoutFacePreview] = useState<string | null>(null);
+  const [signedPhotoByUrl, setSignedPhotoByUrl] = useState<Record<string, string>>({});
+  const [signedIdWithFaceUrl, setSignedIdWithFaceUrl] = useState<string>("");
+  const [signedIdWithoutFaceUrl, setSignedIdWithoutFaceUrl] = useState<string>("");
   const pendingProfilePreviewRef = useRef<string[]>([]);
   const pendingIdWithFacePreviewRef = useRef<string | null>(null);
   const pendingIdWithoutFacePreviewRef = useRef<string | null>(null);
@@ -1336,6 +1347,107 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     }
     return uniq;
   }, [cast, detail, form, pendingProfilePreviewUrls]);
+
+  const resolvedCastId =
+    ((detail as any)?.id as string | undefined) ||
+    ((detail as any)?.castId as string | undefined) ||
+    ((detail as any)?.cast_id as string | undefined) ||
+    ((detail as any)?.userId as string | undefined) ||
+    ((detail as any)?.user_id as string | undefined) ||
+    ((form as any)?.id as string | undefined) ||
+    ((form as any)?.castId as string | undefined) ||
+    ((form as any)?.cast_id as string | undefined) ||
+    ((form as any)?.userId as string | undefined) ||
+    ((form as any)?.user_id as string | undefined) ||
+    "";
+  const idWithFaceRaw = form?.idDocWithFaceUrl || "";
+  const idWithoutFaceRaw = form?.idDocWithoutFaceUrl || "";
+
+  const photoEntries = useMemo(() => {
+    return photoUrls
+      .map((raw) => {
+        if (!raw) return null;
+        if (isLocalPreviewUrl(raw)) {
+          return { raw, display: raw };
+        }
+        const signed = signedPhotoByUrl[raw];
+        return signed ? { raw, display: signed } : null;
+      })
+      .filter(Boolean) as { raw: string; display: string }[];
+  }, [photoUrls, signedPhotoByUrl]);
+
+  useEffect(() => {
+    if (!resolvedCastId) return;
+    const targets = photoUrls.filter(
+      (raw) => raw && !isLocalPreviewUrl(raw) && !signedPhotoByUrl[raw],
+    );
+    if (targets.length === 0) return;
+    let cancelled = false;
+    const run = async () => {
+      for (const raw of targets) {
+        const signed = await getCastSignedPhotoUrl({
+          castId: resolvedCastId,
+          purpose: "profile",
+          urlOrPath: raw,
+        });
+        if (signed && !cancelled) {
+          setSignedPhotoByUrl((prev) =>
+            prev[raw] ? prev : { ...prev, [raw]: signed },
+          );
+        }
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [photoUrls, resolvedCastId, signedPhotoByUrl]);
+
+  useEffect(() => {
+    if (!resolvedCastId) return;
+    if (!idWithFaceRaw || isLocalPreviewUrl(idWithFaceRaw)) {
+      setSignedIdWithFaceUrl("");
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      const signed = await getCastSignedPhotoUrl({
+        castId: resolvedCastId,
+        purpose: "id_with_face",
+        urlOrPath: idWithFaceRaw,
+      });
+      if (!cancelled) {
+        setSignedIdWithFaceUrl(signed ?? "");
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [idWithFaceRaw, resolvedCastId]);
+
+  useEffect(() => {
+    if (!resolvedCastId) return;
+    if (!idWithoutFaceRaw || isLocalPreviewUrl(idWithoutFaceRaw)) {
+      setSignedIdWithoutFaceUrl("");
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      const signed = await getCastSignedPhotoUrl({
+        castId: resolvedCastId,
+        purpose: "id_without_face",
+        urlOrPath: idWithoutFaceRaw,
+      });
+      if (!cancelled) {
+        setSignedIdWithoutFaceUrl(signed ?? "");
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [idWithoutFaceRaw, resolvedCastId]);
 
 
   // ===== 店舗マスタ（NG/専属モーダルで共通）=====
@@ -1709,9 +1821,17 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   const managementNumber = (detail as any)?.managementNumber ?? cast.managementNumber;
   const legacyStaffId = (detail as any)?.legacyStaffId ?? cast.legacyStaffId ?? null;
   const idWithFacePreviewUrl =
-    form?.idDocWithFaceUrl || pendingIdWithFacePreview || "";
+    pendingIdWithFacePreview ||
+    (isLocalPreviewUrl(idWithFaceRaw)
+      ? idWithFaceRaw
+      : signedIdWithFaceUrl) ||
+    "";
   const idWithoutFacePreviewUrl =
-    form?.idDocWithoutFaceUrl || pendingIdWithoutFacePreview || "";
+    pendingIdWithoutFacePreview ||
+    (isLocalPreviewUrl(idWithoutFaceRaw)
+      ? idWithoutFaceRaw
+      : signedIdWithoutFaceUrl) ||
+    "";
 
   const birthdateStr = form?.birthdate || (detail as any)?.birthdate || null;
   const computedAge = calcAgeFromBirthdate(birthdateStr);
@@ -2197,7 +2317,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                     <div className="space-y-2">
             <PhotoSlider
-              urls={photoUrls}
+              urls={photoEntries.map((p) => p.display)}
               onOpen={(i) => {
                 setActivePhotoIndex(i);
                 setPhotoModalOpen(true);
@@ -3060,7 +3180,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
       {/* 雰囲気スライダー用CSS（目盛り・ノブ小・中央基準） */}
             {/* 写真を拡大表示 */}
-      {photoModalOpen && photoUrls[activePhotoIndex] && (
+      {photoModalOpen && photoEntries[activePhotoIndex] && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
           onClick={() => setPhotoModalOpen(false)}
@@ -3080,7 +3200,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                 type="button"
                 className="absolute top-3 right-[5.5rem] z-10 h-10 px-4 rounded-full bg-red-600 text-white text-sm"
                 onClick={async () => {
-                  const targetUrl = photoUrls[activePhotoIndex];
+                  const targetUrl = photoEntries[activePhotoIndex]?.raw;
                   if (!targetUrl) return;
 
                   // CastDetail 型には id が無いが、実データには id/castId 等が載っている前提で推定して使う
@@ -3134,7 +3254,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
             <div className="w-full rounded-2xl overflow-hidden bg-black">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photoUrls[activePhotoIndex]}
+                src={photoEntries[activePhotoIndex]?.display}
                 alt="拡大写真"
                 className="w-full h-auto object-contain max-h-[75vh]"
               />

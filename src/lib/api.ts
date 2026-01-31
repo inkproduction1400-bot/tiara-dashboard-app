@@ -49,7 +49,11 @@ export async function apiFetch<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const token = getToken();
+  const rawToken = getToken();
+  const token =
+    rawToken && rawToken !== "null" && rawToken !== "undefined"
+      ? rawToken
+      : null;
   // 認証系エンドポイントかどうか
   const isAuthPath = path.startsWith("/auth/");
 

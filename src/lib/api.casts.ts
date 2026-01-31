@@ -563,7 +563,11 @@ export async function uploadCastProfilePhoto(castId: string, file: File): Promis
   form.append("file", file);
 
   const headers: HeadersInit = {};
-  const token = getToken();
+  const rawToken = getToken();
+  const token =
+    rawToken && rawToken !== "null" && rawToken !== "undefined"
+      ? rawToken
+      : null;
   const uid =
     (typeof window !== "undefined" && localStorage.getItem("tiara:user_id")) ||
     process.env.NEXT_PUBLIC_DEMO_USER_ID ||
@@ -597,7 +601,11 @@ export async function deleteCastProfilePhoto(
     process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
   ).replace(/\/+$/, "");
 
-  const token = getToken();
+  const rawToken = getToken();
+  const token =
+    rawToken && rawToken !== "null" && rawToken !== "undefined"
+      ? rawToken
+      : null;
 
   const headers: HeadersInit = {};
   if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
@@ -622,6 +630,62 @@ export async function deleteCastProfilePhoto(
   }
 
   return res.json() as Promise<{ urls: string[] }>;
+}
+
+export type CastPhotoSignedPurpose = "profile" | "id_with_face" | "id_without_face";
+
+type SignedUrlResponse = {
+  signedUrl: string;
+  expiresIn: number;
+};
+
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+const buildSignedCacheKey = (
+  castId: string,
+  purpose: CastPhotoSignedPurpose,
+  urlOrPath: string,
+) => `${castId}:${purpose}:${urlOrPath}`;
+
+const isLocalPreviewUrl = (value: string) =>
+  value.startsWith("blob:") || value.startsWith("data:");
+
+export async function getCastSignedPhotoUrl(input: {
+  castId: string;
+  purpose: CastPhotoSignedPurpose;
+  urlOrPath: string;
+}): Promise<string | null> {
+  const { castId, purpose, urlOrPath } = input;
+  if (!urlOrPath || typeof urlOrPath !== "string") return null;
+  if (isLocalPreviewUrl(urlOrPath)) return urlOrPath;
+
+  const key = buildSignedCacheKey(castId, purpose, urlOrPath);
+  const cached = signedUrlCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
+  try {
+    const res = await apiFetch<SignedUrlResponse>(
+      `/casts/${castId}/photos/signed`,
+      withUser({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ purpose, urlOrPath }),
+      }),
+    );
+
+    if (!res?.signedUrl) return null;
+    const safeExpiresIn =
+      typeof res.expiresIn === "number" && res.expiresIn > 0
+        ? res.expiresIn
+        : 60;
+    const expiresAt = Date.now() + Math.max(10, safeExpiresIn - 5) * 1000;
+    signedUrlCache.set(key, { url: res.signedUrl, expiresAt });
+    return res.signedUrl;
+  } catch {
+    return null;
+  }
 }
 
 

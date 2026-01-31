@@ -245,6 +245,14 @@ const formatContactMethodLabel = (shop: Shop): string => {
   return "-";
 };
 
+const formatHairSetLabel = (raw?: string | null): string => {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (!s) return "-";
+  if (s === "need" || s.includes("必要")) return "必要";
+  if (s === "none" || s.includes("不要")) return "不要";
+  return raw ?? "-";
+};
+
 const hourlyMatchScore = (
   desiredHourly: number | null | undefined,
   minHourly: number | null | undefined,
@@ -1028,7 +1036,7 @@ export default function Page() {
       case "body":
         return shop.bodyType || "-";
       case "hair":
-        return shop.hairSet || "-";
+        return formatHairSetLabel(shop.hairSet);
       case "notes":
         return shop.caution || "-";
       case "owner":

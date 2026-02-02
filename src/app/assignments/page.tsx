@@ -17,7 +17,7 @@ import {
   updateShopOrder,
   confirmShopOrder,
 } from "@/lib/api.shop-orders";
-import { getCast } from "@/lib/api.casts";
+import { getCast, getCastSignedPhotoUrl } from "@/lib/api.casts";
 import { updateShopRequest } from "@/lib/api.shop-requests";
 import {
   type ScheduleShopRequest,
@@ -140,6 +140,12 @@ const createEmptyScheduleRequest = (date: string): ScheduleShopRequest => ({
   note: "",
 });
 
+type IdDocSource = {
+  urlOrPath: string;
+  label: string;
+  purpose: "id_with_face" | "id_without_face";
+};
+
 type IdDocImage = {
   url: string;
   label: string;
@@ -154,31 +160,79 @@ type IdDocPrintItem = {
 const resolveCastIdForAssignment = (assignment: ShopAssignment) =>
   assignment.castId ?? null;
 
-const pickIdDocImages = (cast: any): IdDocImage[] => {
-  const images: IdDocImage[] = [];
+const pickIdDocImages = (cast: any): IdDocSource[] => {
+  const images: IdDocSource[] = [];
   const seen = new Set<string>();
-  const pushUnique = (url?: string | null, label?: string) => {
+  const pushUnique = (
+    url?: string | null,
+    label?: string,
+    purpose: IdDocSource["purpose"] = "id_with_face",
+  ) => {
     if (!url) return;
     if (seen.has(url)) return;
     seen.add(url);
-    images.push({ url, label: label ?? "身分証" });
+    images.push({
+      urlOrPath: url,
+      label: label ?? "身分証",
+      purpose,
+    });
   };
 
-  pushUnique(cast?.idDocWithFaceUrl, "身分証（顔あり）");
-  pushUnique(cast?.idDocWithoutFaceUrl, "身分証（本籍地）");
+  pushUnique(cast?.idDocWithFaceUrl, "身分証（顔あり）", "id_with_face");
+  pushUnique(
+    cast?.idDocWithoutFaceUrl,
+    "身分証（本籍地）",
+    "id_without_face",
+  );
 
   if (Array.isArray(cast?.idPhotosWithFace)) {
     cast.idPhotosWithFace.forEach((url: string) =>
-      pushUnique(url, "身分証（顔あり）"),
+      pushUnique(url, "身分証（顔あり）", "id_with_face"),
     );
   }
   if (Array.isArray(cast?.idPhotosWithoutFace)) {
     cast.idPhotosWithoutFace.forEach((url: string) =>
-      pushUnique(url, "身分証（本籍地）"),
+      pushUnique(url, "身分証（本籍地）", "id_without_face"),
     );
   }
 
   return images;
+};
+
+const isLocalPreviewUrl = (value?: string | null) =>
+  typeof value === "string" &&
+  (value.startsWith("blob:") || value.startsWith("data:"));
+
+const isHttpUrl = (value?: string | null) =>
+  typeof value === "string" &&
+  (value.startsWith("http://") || value.startsWith("https://"));
+
+const resolveSignedIdDocImages = async (
+  castId: string,
+  sources: IdDocSource[],
+): Promise<IdDocImage[]> => {
+  const results: IdDocImage[] = [];
+  for (const src of sources) {
+    const raw = src.urlOrPath;
+    if (!raw) continue;
+    if (isLocalPreviewUrl(raw)) {
+      results.push({ url: raw, label: src.label });
+      continue;
+    }
+    const signed = await getCastSignedPhotoUrl({
+      castId,
+      purpose: src.purpose,
+      urlOrPath: raw,
+    });
+    if (signed) {
+      results.push({ url: signed, label: src.label });
+      continue;
+    }
+    if (isHttpUrl(raw)) {
+      results.push({ url: raw, label: src.label });
+    }
+  }
+  return results;
 };
 
 const buildIdDocPrintHtml = (items: IdDocPrintItem[]) => {
@@ -1016,7 +1070,8 @@ export default function Page() {
           castIds.map(async (castId) => {
             try {
               const cast = await getCast(castId);
-              const images = pickIdDocImages(cast);
+              const sources = pickIdDocImages(cast);
+              const images = await resolveSignedIdDocImages(castId, sources);
               return {
                 castName: cast?.displayName ?? "キャスト",
                 castCode: cast?.castCode ?? null,

@@ -19,9 +19,8 @@ import {
   uploadCastIdDocWithoutFace,
   deleteCastIdDoc,
   getCastSignedPhotoUrl,
-  getCastShifts,
-  type CastShift,
-  type CastShiftDay,
+  getCastShiftRequests,
+  type CastShiftRequestSelection,
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
@@ -3794,7 +3793,9 @@ function ShiftEditModal({
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-origin
-  const [shiftDays, setShiftDays] = useState<Record<string, CastShift[]>>({});
+  const [shiftDays, setShiftDays] = useState<
+    Record<string, CastShiftRequestSelection[]>
+  >({});
   const [shiftLoading, setShiftLoading] = useState(false);
   const [shiftError, setShiftError] = useState<string | null>(null);
 
@@ -3824,17 +3825,13 @@ function ShiftEditModal({
   const pad2 = (v: number) => String(v).padStart(2, "0");
   const toDateKey = (d: Date) =>
     `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const formatTime = (value: string) => {
-    const d = new Date(value);
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  };
-  const formatShiftLabel = (list: CastShift[]) => {
+  const formatShiftLabel = (list: CastShiftRequestSelection[]) => {
     if (!list || list.length === 0) return "未設定";
     if (list.length === 1) {
-      const s = list[0];
-      const start = s?.startAt ? formatTime(s.startAt) : "—";
-      const end = s?.endAt ? formatTime(s.endAt) : null;
-      return end ? `${start}〜${end}` : start;
+      const band = list[0]?.timeBand ?? "";
+      if (!band) return "未設定";
+      if (band === "anytime") return "ANY";
+      return band;
     }
     return `${list.length}件`;
   };
@@ -3852,13 +3849,13 @@ function ShiftEditModal({
 
     setShiftLoading(true);
     setShiftError(null);
-    getCastShifts(castId, from, to)
+    getCastShiftRequests(castId, from, to)
       .then((res) => {
-        const map: Record<string, CastShift[]> = {};
+        const map: Record<string, CastShiftRequestSelection[]> = {};
         const daysList = Array.isArray(res?.days) ? res.days : [];
         for (const day of daysList) {
           if (!day?.date) continue;
-          map[day.date] = Array.isArray(day.shifts) ? day.shifts : [];
+          map[day.date] = Array.isArray(day.selections) ? day.selections : [];
         }
         setShiftDays(map);
       })
@@ -3909,7 +3906,7 @@ function ShiftEditModal({
             </button>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-muted">
-            <span>free = 出勤なし</span>
+            <span>anytime = いつでも可</span>
             <span>21:00 / 21:30 / 22:00 = 出勤予定</span>
           </div>
         </div>

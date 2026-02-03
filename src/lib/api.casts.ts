@@ -294,6 +294,21 @@ export type CastShiftResponse = {
   latestTwoDays: CastShiftDay[];
 };
 
+export type CastShiftRequestSelection = {
+  timeBand: string;
+};
+
+export type CastShiftRequestDay = {
+  date: string;
+  selections: CastShiftRequestSelection[];
+};
+
+export type CastShiftRequestResponse = {
+  from: string;
+  to: string;
+  days: CastShiftRequestDay[];
+};
+
 /** PATCH /casts/:id 用の簡易ペイロード */
 export type CastUpdatePayload = {
   displayName?: string | null;
@@ -569,6 +584,18 @@ export async function getCastShifts(
   if (to) qs.set("to", to);
   const path = `/casts/${castId}/shifts${qs.toString() ? `?${qs.toString()}` : ""}`;
   return apiFetch<CastShiftResponse>(path, withUser());
+}
+
+export async function getCastShiftRequests(
+  castId: string,
+  from?: string,
+  to?: string,
+): Promise<CastShiftRequestResponse> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const path = `/casts/${castId}/shift-requests${qs.toString() ? `?${qs.toString()}` : ""}`;
+  return apiFetch<CastShiftRequestResponse>(path, withUser());
 }
 
 /** Cast 一括更新（本体＋attributes/preferences/background＋ngShopIds 等） */

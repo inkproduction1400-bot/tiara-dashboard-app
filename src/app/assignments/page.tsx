@@ -1094,11 +1094,13 @@ export default function Page() {
           return;
         }
 
+        if (options.silent) {
+          return;
+        }
+
         const win = window.open("", "_blank", "noopener,noreferrer");
         if (!win) {
-          if (!options.silent) {
-            alert("印刷ウィンドウを開けませんでした（ポップアップ許可をご確認ください）。");
-          }
+          alert("印刷ウィンドウを開けませんでした（ポップアップ許可をご確認ください）。");
           return;
         }
         win.document.open();

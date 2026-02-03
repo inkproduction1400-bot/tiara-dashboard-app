@@ -266,6 +266,34 @@ export type CastDetail = {
   legacyStaffId?: number | null;
 };
 
+export type CastShift = {
+  id: string;
+  startAt: string;
+  endAt: string | null;
+  status: string | null;
+  wagePerHour?: number | null;
+  rateToShop?: number | null;
+  shop?: {
+    id: string;
+    name: string;
+    shopNumber?: string | null;
+    prefecture?: string | null;
+    city?: string | null;
+  } | null;
+};
+
+export type CastShiftDay = {
+  date: string;
+  shifts: CastShift[];
+};
+
+export type CastShiftResponse = {
+  from: string;
+  to: string;
+  days: CastShiftDay[];
+  latestTwoDays: CastShiftDay[];
+};
+
 /** PATCH /casts/:id 用の簡易ペイロード */
 export type CastUpdatePayload = {
   displayName?: string | null;
@@ -529,6 +557,18 @@ export async function listCasts(
 /** Cast 詳細取得（モーダル用） */
 export async function getCast(id: string): Promise<CastDetail> {
   return apiFetch<CastDetail>(`/casts/${id}`, withUser());
+}
+
+export async function getCastShifts(
+  castId: string,
+  from?: string,
+  to?: string,
+): Promise<CastShiftResponse> {
+  const qs = new URLSearchParams();
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
+  const path = `/casts/${castId}/shifts${qs.toString() ? `?${qs.toString()}` : ""}`;
+  return apiFetch<CastShiftResponse>(path, withUser());
 }
 
 /** Cast 一括更新（本体＋attributes/preferences/background＋ngShopIds 等） */

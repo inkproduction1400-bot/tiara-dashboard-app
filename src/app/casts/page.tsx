@@ -19,6 +19,9 @@ import {
   uploadCastIdDocWithoutFace,
   deleteCastIdDoc,
   getCastSignedPhotoUrl,
+  getCastShifts,
+  type CastShift,
+  type CastShiftDay,
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
 
@@ -1818,6 +1821,12 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   };
 
   const displayName = form?.displayName ?? detail?.displayName ?? cast.name;
+  const currentCastId =
+    ((detail as any)?.userId as string | undefined) ||
+    ((detail as any)?.id as string | undefined) ||
+    ((detail as any)?.castId as string | undefined) ||
+    cast?.id ||
+    "";
   const managementNumber = (detail as any)?.managementNumber ?? cast.managementNumber;
   const legacyStaffId = (detail as any)?.legacyStaffId ?? cast.legacyStaffId ?? null;
   const idWithFacePreviewUrl =
@@ -3134,7 +3143,11 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
       {/* シフト編集モーダル */}
       {shiftModalOpen && (
-        <ShiftEditModal onClose={() => setShiftModalOpen(false)} castName={displayName} />
+        <ShiftEditModal
+          onClose={() => setShiftModalOpen(false)}
+          castName={displayName}
+          castId={currentCastId}
+        />
       )}
 
       {/* NG店舗選択モーダル */}
@@ -3772,13 +3785,18 @@ function DeleteCastModal({
 function ShiftEditModal({
   onClose,
   castName,
+  castId,
 }: {
   onClose: () => void;
   castName: string;
+  castId: string;
 }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-origin
+  const [shiftDays, setShiftDays] = useState<Record<string, CastShift[]>>({});
+  const [shiftLoading, setShiftLoading] = useState(false);
+  const [shiftError, setShiftError] = useState<string | null>(null);
 
   const days = useMemo(() => buildMonthDays(year, month), [year, month]);
   const prevMonth = () => {
@@ -3802,6 +3820,57 @@ function ShiftEditModal({
   };
 
   const monthLabel = `${year}年 ${month + 1}月`;
+
+  const pad2 = (v: number) => String(v).padStart(2, "0");
+  const toDateKey = (d: Date) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const formatTime = (value: string) => {
+    const d = new Date(value);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+  const formatShiftLabel = (list: CastShift[]) => {
+    if (!list || list.length === 0) return "未設定";
+    if (list.length === 1) {
+      const s = list[0];
+      const start = s?.startAt ? formatTime(s.startAt) : "—";
+      const end = s?.endAt ? formatTime(s.endAt) : null;
+      return end ? `${start}〜${end}` : start;
+    }
+    return `${list.length}件`;
+  };
+
+  useEffect(() => {
+    if (!castId) {
+      setShiftDays({});
+      return;
+    }
+    const from = `${year}-${pad2(month + 1)}-01`;
+    const toDate = new Date(year, month + 1, 1);
+    const to = `${toDate.getFullYear()}-${pad2(toDate.getMonth() + 1)}-${pad2(
+      toDate.getDate(),
+    )}`;
+
+    setShiftLoading(true);
+    setShiftError(null);
+    getCastShifts(castId, from, to)
+      .then((res) => {
+        const map: Record<string, CastShift[]> = {};
+        const daysList = Array.isArray(res?.days) ? res.days : [];
+        for (const day of daysList) {
+          if (!day?.date) continue;
+          map[day.date] = Array.isArray(day.shifts) ? day.shifts : [];
+        }
+        setShiftDays(map);
+      })
+      .catch((err) => {
+        console.warn("[casts] shift fetch failed", err);
+        setShiftError("シフトの取得に失敗しました。");
+        setShiftDays({});
+      })
+      .finally(() => {
+        setShiftLoading(false);
+      });
+  }, [castId, year, month]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-3">
@@ -3844,6 +3913,9 @@ function ShiftEditModal({
             <span>21:00 / 21:30 / 22:00 = 出勤予定</span>
           </div>
         </div>
+        {shiftError && (
+          <div className="mb-2 text-[11px] text-rose-500">{shiftError}</div>
+        )}
 
         {/* カレンダー */}
         <div className="flex-1 overflow-auto rounded-xl border border-gray-200 bg-white">
@@ -3863,6 +3935,8 @@ function ShiftEditModal({
                   {days.slice(rowIdx * 7, rowIdx * 7 + 7).map((d, i) => {
                     const dayNum = d.date.getDate();
                     const isToday = d.date.toDateString() === now.toDateString();
+                    const dateKey = toDateKey(d.date);
+                    const dayShifts = shiftDays[dateKey] ?? [];
                     return (
                       <td
                         key={i}
@@ -3879,10 +3953,12 @@ function ShiftEditModal({
                             {dayNum}
                           </span>
                           <span className="text-[9px] px-1 py-0.5 rounded bg-gray-100 border border-gray-300">
-                            -
+                            {shiftLoading ? "..." : dayShifts.length || "-"}
                           </span>
                         </div>
-                        <div className="text-[10px] text-muted">シフト: 未設定</div>
+                        <div className="text-[10px] text-muted">
+                          シフト: {formatShiftLabel(dayShifts)}
+                        </div>
                       </td>
                     );
                   })}

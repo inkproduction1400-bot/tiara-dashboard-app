@@ -13,6 +13,8 @@ import {
   type ApplicationStatus,
   type UpdateApplicationFormInput,
 } from "@/lib/api.applications";
+import { API_BASE } from "@/lib/api";
+import { getToken } from "@/lib/device";
 import { listStaffs } from "@/lib/api.staffs";
 import {
   uploadCastIdDocWithFace,
@@ -77,6 +79,25 @@ function toDrinkLevelApi(value?: string | null) {
     return value;
   }
   return undefined;
+}
+
+async function fetchDocBlobUrl(s3Key: string): Promise<string | null> {
+  if (!s3Key) return null;
+  const token = getToken();
+  if (!token || token === "null" || token === "undefined") return null;
+
+  const url = `${API_BASE}/storage/object/${encodeURIComponent(s3Key)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  if (!blob.size) return null;
+  return URL.createObjectURL(blob);
 }
 
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
@@ -481,6 +502,9 @@ function ApplicationDetailModal({
   const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [idWithFacePreview, setIdWithFacePreview] = useState<string | null>(null);
   const [idWithoutFacePreview, setIdWithoutFacePreview] = useState<string | null>(null);
+  const [selfieBlobUrl, setSelfieBlobUrl] = useState<string | null>(null);
+  const [idFrontBlobUrl, setIdFrontBlobUrl] = useState<string | null>(null);
+  const [idBackBlobUrl, setIdBackBlobUrl] = useState<string | null>(null);
   const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [staffOptions, setStaffOptions] = useState<string[]>([]);
   const docsByType = useMemo(() => {
@@ -490,13 +514,13 @@ function ApplicationDetailModal({
     }
     return map;
   }, [detail.docs]);
-  const selfiePreviewUrl = docsByType.get("selfie")?.previewUrl ?? null;
-  const idFrontPreviewUrl = docsByType.get("id_front")?.previewUrl ?? null;
-  const idBackPreviewUrl = docsByType.get("id_back")?.previewUrl ?? null;
+  const selfieS3Key = docsByType.get("selfie")?.s3Key ?? "";
+  const idFrontS3Key = docsByType.get("id_front")?.s3Key ?? "";
+  const idBackS3Key = docsByType.get("id_back")?.s3Key ?? "";
   const profileSliderUrls = profilePreview
     ? [profilePreview]
-    : selfiePreviewUrl
-      ? [selfiePreviewUrl]
+    : selfieBlobUrl
+      ? [selfieBlobUrl]
       : [];
 
   useEffect(() => {
@@ -532,8 +556,54 @@ function ApplicationDetailModal({
     setProfilePreview(null);
     setIdWithFacePreview(null);
     setIdWithoutFacePreview(null);
+    setSelfieBlobUrl(null);
+    setIdFrontBlobUrl(null);
+    setIdBackBlobUrl(null);
     setShowHonsekiDocs(false);
   }, [detail]);
+
+  useEffect(() => {
+    let canceled = false;
+    let selfieUrl: string | null = null;
+    let frontUrl: string | null = null;
+    let backUrl: string | null = null;
+
+    const load = async () => {
+      try {
+        const [selfie, front, back] = await Promise.all([
+          selfieS3Key ? fetchDocBlobUrl(selfieS3Key) : Promise.resolve(null),
+          idFrontS3Key ? fetchDocBlobUrl(idFrontS3Key) : Promise.resolve(null),
+          idBackS3Key ? fetchDocBlobUrl(idBackS3Key) : Promise.resolve(null),
+        ]);
+        if (canceled) {
+          if (selfie) URL.revokeObjectURL(selfie);
+          if (front) URL.revokeObjectURL(front);
+          if (back) URL.revokeObjectURL(back);
+          return;
+        }
+        selfieUrl = selfie;
+        frontUrl = front;
+        backUrl = back;
+        setSelfieBlobUrl(selfie);
+        setIdFrontBlobUrl(front);
+        setIdBackBlobUrl(back);
+      } catch {
+        if (!canceled) {
+          setSelfieBlobUrl(null);
+          setIdFrontBlobUrl(null);
+          setIdBackBlobUrl(null);
+        }
+      }
+    };
+    void load();
+
+    return () => {
+      canceled = true;
+      if (selfieUrl) URL.revokeObjectURL(selfieUrl);
+      if (frontUrl) URL.revokeObjectURL(frontUrl);
+      if (backUrl) URL.revokeObjectURL(backUrl);
+    };
+  }, [selfieS3Key, idFrontS3Key, idBackS3Key]);
 
   useEffect(() => {
     if (!profileFile) return;
@@ -776,8 +846,8 @@ function ApplicationDetailModal({
                         const doc = docsByType.get(item.key);
                         const imageUrl =
                           item.key === "id_front"
-                            ? idWithFacePreview ?? idFrontPreviewUrl
-                            : idWithoutFacePreview ?? idBackPreviewUrl;
+                            ? idWithFacePreview ?? idFrontBlobUrl
+                            : idWithoutFacePreview ?? idBackBlobUrl;
                         return (
                           <div key={item.key} className="mb-2 last:mb-0 rounded-lg border border-black/10 p-2">
                             <div className="flex items-center justify-between gap-2">

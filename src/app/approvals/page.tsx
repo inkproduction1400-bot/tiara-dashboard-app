@@ -1176,19 +1176,8 @@ function ApplicationDetailModal({
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs font-semibold text-ink">身長</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.heightCm ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, heightCm: toNumber(e.target.value) ?? null }))
-                    }
-                    placeholder="自動反映"
-                  />
-                </div>
                 <div className="flex items-center gap-3 pt-1">
-                  <label className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer">
+                  <label className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs cursor-pointer inline-flex items-center justify-center leading-none">
                     顔写真＋
                     <input
                       type="file"

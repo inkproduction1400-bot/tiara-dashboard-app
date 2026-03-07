@@ -56,6 +56,8 @@ function toNumber(value: string): number | undefined {
 
 function toDrinkLevelLabel(value?: string | null) {
   if (!value) return "";
+  if (value === "none") return "NG";
+  if (value === "ok") return "普通";
   if (value === "ng" || value === "NG") return "NG";
   if (value === "weak" || value === "弱い") return "弱い";
   if (value === "normal" || value === "普通") return "普通";
@@ -65,6 +67,8 @@ function toDrinkLevelLabel(value?: string | null) {
 
 function toDrinkLevelApi(value?: string | null) {
   if (!value) return undefined;
+  if (value === "none") return "ng";
+  if (value === "ok") return "normal";
   if (value === "NG") return "ng";
   if (value === "弱い") return "weak";
   if (value === "普通") return "normal";
@@ -74,7 +78,6 @@ function toDrinkLevelApi(value?: string | null) {
   }
   return undefined;
 }
-
 
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
 const CAST_RANK_OPTIONS = ["S", "A", "B", "C"] as const;
@@ -480,6 +483,13 @@ function ApplicationDetailModal({
   const [idWithoutFacePreview, setIdWithoutFacePreview] = useState<string | null>(null);
   const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [staffOptions, setStaffOptions] = useState<string[]>([]);
+  const docsByType = useMemo(() => {
+    const map = new Map<string, { docType: string; s3Key: string; uploadedAt: string }>();
+    for (const doc of detail.docs ?? []) {
+      map.set(doc.docType, doc);
+    }
+    return map;
+  }, [detail.docs]);
 
   useEffect(() => {
     const fallbackInterviewDate =
@@ -748,6 +758,34 @@ function ApplicationDetailModal({
                           {form.legacyStaffId != null ? form.legacyStaffId : "-"}
                         </div>
                       </div>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-black/30 bg-white/90 p-2">
+                      <div className="text-[10px] font-semibold text-neutral-700 mb-2">応募書類</div>
+                      {[
+                        { key: "selfie", label: "顔写真" },
+                        { key: "id_front", label: "身分証1" },
+                        { key: "id_back", label: "身分証2" },
+                      ].map((item) => {
+                        const doc = docsByType.get(item.key);
+                        return (
+                          <div key={item.key} className="mb-2 last:mb-0 rounded-lg border border-black/10 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-[10px] font-semibold text-neutral-700">{item.label}</div>
+                              <div className="text-[9px] text-neutral-500">
+                                {doc?.uploadedAt ? formatDate(doc.uploadedAt) : "未登録"}
+                              </div>
+                            </div>
+                            {doc?.s3Key ? (
+                              <>
+                                <div className="mt-1 text-[9px] text-neutral-500">アップロード済み</div>
+                                <div className="mt-1 break-all text-[9px] text-neutral-500">{doc.s3Key}</div>
+                              </>
+                            ) : (
+                              <div className="mt-1 text-[9px] text-neutral-400">書類未アップロード</div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

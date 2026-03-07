@@ -484,12 +484,20 @@ function ApplicationDetailModal({
   const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [staffOptions, setStaffOptions] = useState<string[]>([]);
   const docsByType = useMemo(() => {
-    const map = new Map<string, { docType: string; s3Key: string; uploadedAt: string }>();
+    const map = new Map<string, { docType: string; s3Key: string; uploadedAt: string; previewUrl?: string | null }>();
     for (const doc of detail.docs ?? []) {
       map.set(doc.docType, doc);
     }
     return map;
   }, [detail.docs]);
+  const selfiePreviewUrl = docsByType.get("selfie")?.previewUrl ?? null;
+  const idFrontPreviewUrl = docsByType.get("id_front")?.previewUrl ?? null;
+  const idBackPreviewUrl = docsByType.get("id_back")?.previewUrl ?? null;
+  const profileSliderUrls = profilePreview
+    ? [profilePreview]
+    : selfiePreviewUrl
+      ? [selfiePreviewUrl]
+      : [];
 
   useEffect(() => {
     const fallbackInterviewDate =
@@ -742,7 +750,7 @@ function ApplicationDetailModal({
 
                 <div className="mt-4 grid grid-cols-[170px_minmax(0,1fr)] gap-4">
                   <div className="space-y-2">
-                    <PhotoSlider urls={profilePreview ? [profilePreview] : []} />
+                    <PhotoSlider urls={profileSliderUrls} />
                     <div className="mt-2 w-full rounded-xl bg-white/90 border border-black/40 px-2 py-1 text-[11px] leading-4">
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-[10px] text-neutral-600">管理番号</div>
@@ -762,11 +770,14 @@ function ApplicationDetailModal({
                     <div className="mt-3 rounded-xl border border-black/30 bg-white/90 p-2">
                       <div className="text-[10px] font-semibold text-neutral-700 mb-2">応募書類</div>
                       {[
-                        { key: "selfie", label: "顔写真" },
                         { key: "id_front", label: "身分証1" },
                         { key: "id_back", label: "身分証2" },
                       ].map((item) => {
                         const doc = docsByType.get(item.key);
+                        const imageUrl =
+                          item.key === "id_front"
+                            ? idWithFacePreview ?? idFrontPreviewUrl
+                            : idWithoutFacePreview ?? idBackPreviewUrl;
                         return (
                           <div key={item.key} className="mb-2 last:mb-0 rounded-lg border border-black/10 p-2">
                             <div className="flex items-center justify-between gap-2">
@@ -775,10 +786,14 @@ function ApplicationDetailModal({
                                 {doc?.uploadedAt ? formatDate(doc.uploadedAt) : "未登録"}
                               </div>
                             </div>
-                            {doc?.s3Key ? (
+                            {imageUrl ? (
                               <>
-                                <div className="mt-1 text-[9px] text-neutral-500">アップロード済み</div>
-                                <div className="mt-1 break-all text-[9px] text-neutral-500">{doc.s3Key}</div>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={imageUrl}
+                                  alt={item.label}
+                                  className="mt-1 h-20 w-full rounded-md border border-black/10 object-cover"
+                                />
                               </>
                             ) : (
                               <div className="mt-1 text-[9px] text-neutral-400">書類未アップロード</div>

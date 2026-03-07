@@ -38,6 +38,7 @@ export type ApplicationDoc = {
   docType: string;
   s3Key: string;
   uploadedAt: string;
+  previewUrl?: string | null;
 };
 
 export type ApplicationDetail = ApplicationListItem & {

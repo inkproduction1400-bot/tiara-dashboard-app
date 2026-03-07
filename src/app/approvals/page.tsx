@@ -399,27 +399,11 @@ function RegisterInfo2({
 
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-ink font-semibold">希望勤務地</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={form?.desiredLocation ?? ""}
-              onChange={(e) => setForm((p) => ({ ...p, desiredLocation: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
             <div className="text-xs text-ink font-semibold">希望時間帯</div>
             <input
               className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
               value={form?.desiredTimeBand ?? ""}
               onChange={(e) => setForm((p) => ({ ...p, desiredTimeBand: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
-            <div className="text-xs text-ink font-semibold">希望エリア</div>
-            <input
-              className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-              value={form?.preferredArea ?? ""}
-              onChange={(e) => setForm((p) => ({ ...p, preferredArea: e.target.value }))}
             />
           </div>
           <div className="grid grid-cols-[190px_minmax(0,1fr)] items-center gap-3">
@@ -956,14 +940,6 @@ function ApplicationDetailModal({
                         onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
                       />
                     </div>
-                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                      <div className="text-xs text-ink font-semibold">アドレス</div>
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form.email ?? ""}
-                        onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                      />
-                    </div>
                     <div className="grid grid-cols-[110px_minmax(0,1fr)] items-start gap-2">
                       <div className="text-xs text-ink font-semibold pt-1">ジャンル</div>
                       <div className="flex flex-wrap gap-2">
@@ -1056,14 +1032,6 @@ function ApplicationDetailModal({
                         onChange={(e) =>
                           setForm((p) => ({ ...p, heightCm: toNumber(e.target.value) ?? null }))
                         }
-                      />
-                    </div>
-                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                      <div className="text-xs text-ink font-semibold">服のサイズ</div>
-                      <input
-                        className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                        value={form.clothingSize ?? ""}
-                        onChange={(e) => setForm((p) => ({ ...p, clothingSize: e.target.value }))}
                       />
                     </div>
                     <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
@@ -1350,38 +1318,6 @@ function ApplicationDetailModal({
                     className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
                     value={form.exclusiveShopMemo ?? ""}
                     onChange={(e) => setForm((p) => ({ ...p, exclusiveShopMemo: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs font-semibold text-ink">身分証の種類</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.idDocType ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, idDocType: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs font-semibold text-ink">本籍地の証明</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.residencyProof ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, residencyProof: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs font-semibold text-ink">宣誓</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.oathStatus ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, oathStatus: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-[140px_minmax(0,1fr)] items-center gap-2">
-                  <div className="text-xs font-semibold text-ink">身分証メモ</div>
-                  <input
-                    className="w-full h-8 bg-white border border-black/40 px-2 text-sm"
-                    value={form.idMemo ?? ""}
-                    onChange={(e) => setForm((p) => ({ ...p, idMemo: e.target.value }))}
                   />
                 </div>
               </div>

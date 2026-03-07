@@ -1014,17 +1014,6 @@ function ApplicationDetailModal({
                       </div>
                     </div>
                     <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-                      <div className="text-xs text-ink font-semibold">シフト情報</div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-8 bg-white border border-black/40 px-2 text-xs flex items-center">
-                          未設定
-                        </div>
-                        <button type="button" className="h-8 px-3 text-xs bg-white border border-black/40">
-                          編集
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
                       <div className="text-xs text-ink font-semibold">身長</div>
                       <input
                         className="w-full h-8 bg-white border border-black/40 px-2 text-sm"

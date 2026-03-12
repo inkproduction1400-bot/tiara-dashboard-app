@@ -69,13 +69,13 @@ function toDrinkLevelLabel(value?: string | null) {
 
 function toDrinkLevelApi(value?: string | null) {
   if (!value) return undefined;
-  if (value === "none") return "ng";
-  if (value === "ok") return "normal";
-  if (value === "NG") return "ng";
+  if (value === "none") return "none";
+  if (value === "ok") return "ok";
+  if (value === "NG") return "none";
   if (value === "弱い") return "weak";
-  if (value === "普通") return "normal";
-  if (value === "強い") return "strong";
-  if (value === "ng" || value === "weak" || value === "normal" || value === "strong") {
+  if (value === "普通") return "ok";
+  if (value === "強い") return "ok";
+  if (value === "weak" || value === "ok" || value === "none") {
     return value;
   }
   return undefined;
@@ -650,11 +650,7 @@ function ApplicationDetailModal({
       typeof form.hourlyExpectation === "number"
         ? form.hourlyExpectation
         : undefined,
-    tiaraHourly: typeof form.tiaraHourly === "number" ? form.tiaraHourly : undefined,
-    tiaraRank: form.tiaraRank ?? undefined,
-    ownerStaffName: form.ownerStaffName ?? undefined,
     lastWorkDate: form.lastWorkDate ?? undefined,
-    interviewDate: form.interviewDate ?? undefined,
     preferredArea: form.preferredArea ?? undefined,
     salaryNote: form.salaryNote ?? undefined,
     otherAgencies: form.otherAgencies ?? undefined,
@@ -676,13 +672,11 @@ function ApplicationDetailModal({
     exclusiveShopName: form.exclusiveShopName ?? undefined,
     pickupDestination: form.pickupDestination ?? undefined,
     pickupDestinationExtra: form.pickupDestinationExtra ?? undefined,
-    bodyType: form.bodyType ?? undefined,
     atmosphere: typeof form.atmosphere === "number" ? form.atmosphere : undefined,
     dissatisfaction: form.dissatisfaction ?? undefined,
     customerExperience: form.customerExperience ?? undefined,
     tbManner: form.tbManner ?? undefined,
     desiredLocation: form.desiredLocation ?? undefined,
-    desiredTimeBand: form.desiredTimeBand ?? undefined,
     interviewNotes: form.interviewNotes ?? undefined,
     registeredAt: form.registeredAt ?? undefined,
     address: form.address ?? undefined,

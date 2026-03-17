@@ -20,7 +20,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="tiara-mobile-card tiara-mobile-pill fixed bottom-4 left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-[min(390px,calc(100%-1.5rem))] -translate-x-1/2 items-center justify-around border px-2 py-2 backdrop-blur">
+    <nav className="tiara-mobile-card tiara-mobile-pill fixed bottom-4 left-1/2 z-40 box-border flex w-[calc(100%-1.5rem)] max-w-[390px] -translate-x-1/2 items-center justify-around border px-2 py-2 backdrop-blur">
       {ITEMS.map(({ href, label, match, Icon }) => {
         const active = pathname === match || pathname?.startsWith(`${match}/`);
         return (

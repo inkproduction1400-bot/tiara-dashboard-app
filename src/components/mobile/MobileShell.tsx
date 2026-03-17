@@ -32,15 +32,15 @@ export function MobileShell({
   }, []);
 
   return (
-    <div className="min-h-dvh overflow-x-hidden px-3 pb-24 pt-3">
-      <div className="mx-auto w-full max-w-[420px] overflow-x-hidden">
-        <div className="tiara-mobile-surface min-h-[calc(100dvh-1.5rem)] overflow-x-hidden overflow-y-hidden">
+    <div className="min-h-dvh w-full max-w-full overflow-x-clip px-3 pb-24 pt-3">
+      <div className="mx-auto w-full min-w-0 max-w-[420px] overflow-x-clip">
+        <div className="tiara-mobile-surface min-h-[calc(100dvh-1.5rem)] w-full min-w-0 max-w-full overflow-x-clip overflow-y-hidden">
           {children}
         </div>
       </div>
       {withBottomNav ? <MobileBottomNav /> : null}
       {toast ? (
-        <div className="tiara-mobile-pill fixed left-1/2 top-4 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 truncate bg-slate-900/92 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+        <div className="tiara-mobile-pill fixed left-1/2 top-4 z-50 box-border w-[calc(100%-2rem)] max-w-[360px] -translate-x-1/2 truncate bg-slate-900/92 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
           {toast}
         </div>
       ) : null}

@@ -21,7 +21,7 @@ export function MobileHeader({
   const router = useRouter();
 
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-3 bg-white/85 px-4 pb-3 pt-6 backdrop-blur">
+    <header className="sticky top-0 z-20 flex w-full min-w-0 items-center gap-3 overflow-x-hidden bg-white/85 px-4 pb-3 pt-6 backdrop-blur">
       {backHref ? (
         <button
           type="button"
@@ -48,7 +48,7 @@ export function MobileHeader({
         <button
           type="button"
           onClick={onRefresh}
-          className="tiara-mobile-pill flex h-11 items-center gap-2 bg-[#0b8ef3]/10 px-3 text-sm font-semibold text-[#0b8ef3]"
+          className="tiara-mobile-pill flex h-11 shrink-0 items-center gap-2 whitespace-nowrap bg-[#0b8ef3]/10 px-3 text-sm font-semibold text-[#0b8ef3]"
         >
           <RefreshCw className="h-4 w-4" />
           <span>{actionLabel}</span>

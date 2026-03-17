@@ -27,9 +27,9 @@ export function MobileCastProfileSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex overflow-x-hidden bg-slate-900/35">
-      <div className="mx-auto flex w-full max-w-[420px] items-end px-3">
-        <div className="flex max-h-[88dvh] w-full max-w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 overflow-x-clip bg-slate-900/35">
+      <div className="mx-auto flex h-full w-full max-w-[420px] min-w-0 items-end px-3">
+        <div className="flex max-h-[88dvh] w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
           <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
           <div className="mt-4 flex items-center justify-between gap-3">
             <div className="min-w-0">

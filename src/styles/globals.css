@@ -43,12 +43,15 @@ html,
 body,
 #__next {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   overflow-x: hidden;
   overflow-y: visible;
 }
 
 body {
   margin: 0;
+  max-width: 100%;
   background: transparent;
   color: var(--ink);
 }

@@ -8,9 +8,17 @@
   --mobile-accent-soft: rgba(11, 142, 243, 0.12);
   --mobile-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   background:
     radial-gradient(circle at top, rgba(11, 142, 243, 0.16), transparent 32%),
     linear-gradient(180deg, #f7fafc 0%, var(--mobile-bg) 56%, #eef3f9 100%);
+}
+
+.tiara-mobile-scope,
+.tiara-mobile-scope * {
+  box-sizing: border-box;
 }
 
 .tiara-mobile-surface {

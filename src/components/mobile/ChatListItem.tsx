@@ -1,12 +1,13 @@
-"use client";
-
 import Link from "next/link";
 import clsx from "clsx";
+import { Pin } from "lucide-react";
 import type { MobileChatRoom } from "./mobileApi";
 
 type ChatListItemProps = {
   room: MobileChatRoom;
   active?: boolean;
+  pinned?: boolean;
+  onTogglePin?: (roomId: string) => void;
 };
 
 function formatTime(value: string) {
@@ -24,12 +25,16 @@ function initials(name: string) {
   return name.replace(/\s+/g, "").slice(0, 2) || "ST";
 }
 
-export function ChatListItem({ room, active = false }: ChatListItemProps) {
+export function ChatListItem({
+  room,
+  active = false,
+  pinned = false,
+  onTogglePin,
+}: ChatListItemProps) {
   return (
-    <Link
-      href={`/m/chat/${room.id}`}
+    <div
       className={clsx(
-        "tiara-mobile-card block border px-4 py-4 transition",
+        "tiara-mobile-card border px-4 py-4 transition",
         active ? "border-[#0b8ef3]/40 bg-[#f2f9ff]" : "border-white/70",
       )}
     >
@@ -50,12 +55,33 @@ export function ChatListItem({ room, active = false }: ChatListItemProps) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-bold text-slate-900">
-                {room.castName}
-              </div>
-              <div className="truncate text-xs text-slate-500">
-                {room.castCode} / 担当 {room.staffName}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-bold text-slate-900">
+                    {room.castName}
+                  </div>
+                  <div className="truncate text-xs text-slate-500">
+                    {room.castCode} / 担当 {room.staffName}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={pinned ? "ピン留め解除" : "ピン留め"}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onTogglePin?.(room.id);
+                  }}
+                  className={clsx(
+                    "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition",
+                    pinned
+                      ? "bg-[#0b8ef3]/12 text-[#0b8ef3]"
+                      : "bg-slate-100 text-slate-400",
+                  )}
+                >
+                  <Pin className={clsx("h-4 w-4", pinned && "fill-current")} />
+                </button>
               </div>
             </div>
             <div className="shrink-0 text-right">
@@ -70,7 +96,9 @@ export function ChatListItem({ room, active = false }: ChatListItemProps) {
             </div>
           </div>
 
-          <p className="mt-2 truncate text-sm text-slate-600">{room.lastMessage}</p>
+          <Link href={`/m/chat/${room.id}`} className="mt-2 block">
+            <p className="truncate text-sm text-slate-600">{room.lastMessage}</p>
+          </Link>
 
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
             <span className="tiara-mobile-pill bg-slate-100 px-2.5 py-1 text-slate-600">
@@ -82,6 +110,6 @@ export function ChatListItem({ room, active = false }: ChatListItemProps) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

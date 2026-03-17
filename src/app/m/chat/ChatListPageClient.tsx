@@ -12,6 +12,8 @@ import {
 } from "@/components/mobile/mobileApi";
 import { getToken } from "@/lib/device";
 
+const MOBILE_CHAT_PIN_STORAGE_KEY = "tiara:m:chat-pins:v1";
+
 function inferDefaultStaffs(rooms: MobileChatRoom[]) {
   const auth = getAuthSnapshot();
   const candidates = [auth.userName, auth.loginId]
@@ -32,8 +34,33 @@ export default function ChatListPageClient() {
   const [rooms, setRooms] = useState<MobileChatRoom[]>(() => readMobileChatRoomsCache());
   const [query, setQuery] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState<string[]>([]);
+  const [pinnedRoomIds, setPinnedRoomIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(rooms.length === 0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(MOBILE_CHAT_PIN_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setPinnedRoomIds(parsed.filter((value): value is string => typeof value === "string"));
+      }
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        MOBILE_CHAT_PIN_STORAGE_KEY,
+        JSON.stringify(pinnedRoomIds),
+      );
+    } catch {
+      // noop
+    }
+  }, [pinnedRoomIds]);
 
   const load = useCallback(async (options?: { background?: boolean }) => {
     const background = options?.background ?? false;
@@ -115,22 +142,74 @@ export default function ChatListPageClient() {
     [rooms],
   );
 
+  const searchableRooms = useMemo(
+    () =>
+      rooms.map((room) => ({
+        room,
+        searchableText: [
+          room.castName,
+          room.castCode,
+          room.staffName,
+          room.lastMessage,
+          room.assignmentStatus,
+          room.shiftStatus,
+          room.genreText,
+          room.wageText,
+        ]
+          .join(" ")
+          .trim()
+          .toLowerCase(),
+      })),
+    [rooms],
+  );
+
   const filteredRooms = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    return rooms.filter((room) => {
-      if (selectedStaffs.length > 0 && !selectedStaffs.includes(room.staffName)) {
-        return false;
+    const tokens = query
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    return searchableRooms
+      .filter(({ room, searchableText }) => {
+        if (selectedStaffs.length > 0 && !selectedStaffs.includes(room.staffName)) {
+          return false;
+        }
+
+        if (tokens.length === 0) return true;
+        return tokens.every((token) => searchableText.includes(token));
+      })
+      .map(({ room }) => room);
+  }, [query, searchableRooms, selectedStaffs]);
+
+  const sortedRooms = useMemo(() => {
+    const pinnedSet = new Set(pinnedRoomIds);
+
+    return [...filteredRooms].sort((left, right) => {
+      const leftPinned = pinnedSet.has(left.id) ? 1 : 0;
+      const rightPinned = pinnedSet.has(right.id) ? 1 : 0;
+      if (leftPinned !== rightPinned) {
+        return rightPinned - leftPinned;
       }
 
-      if (!lowered) return true;
-      return [
-        room.castName,
-        room.castCode,
-        room.lastMessage,
-        room.staffName,
-      ].some((value) => value.toLowerCase().includes(lowered));
+      return (
+        new Date(right.lastMessageAt).getTime() -
+        new Date(left.lastMessageAt).getTime()
+      );
     });
-  }, [query, rooms, selectedStaffs]);
+  }, [filteredRooms, pinnedRoomIds]);
+
+  const togglePinnedRoom = useCallback((roomId: string) => {
+    setPinnedRoomIds((current) =>
+      current.includes(roomId)
+        ? current.filter((item) => item !== roomId)
+        : [...current, roomId],
+    );
+  }, []);
+
+  const applySelectedStaffs = useCallback((values: string[]) => {
+    setSelectedStaffs(values);
+  }, []);
 
   return (
     <MobileShell>
@@ -170,18 +249,14 @@ export default function ChatListPageClient() {
         <div className="px-4 py-10 text-sm text-rose-500">{error}</div>
       ) : (
         <ChatList
-          rooms={filteredRooms}
+          rooms={sortedRooms}
           query={query}
           onQueryChange={setQuery}
           staffOptions={staffOptions}
           selectedStaffs={selectedStaffs}
-          onToggleStaff={(value) =>
-            setSelectedStaffs((current) =>
-              current.includes(value)
-                ? current.filter((item) => item !== value)
-                : [...current, value],
-            )
-          }
+          onApplyStaffs={applySelectedStaffs}
+          onTogglePin={togglePinnedRoom}
+          pinnedRoomIds={pinnedRoomIds}
         />
       )}
     </MobileShell>

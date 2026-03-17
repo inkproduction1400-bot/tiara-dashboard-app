@@ -17,6 +17,8 @@ export type MobileChatRoom = {
   unreadCount: number;
   shiftStatus: string;
   assignmentStatus: string;
+  genreText: string;
+  wageText: string;
 };
 
 const MOBILE_CHAT_ROOMS_LIMIT = 20;
@@ -61,6 +63,8 @@ type ApiRoom = {
     drinkOk?: boolean | null;
     status?: string | null;
     shifts?: { status?: string | null }[] | null;
+    cast_background?: { genres?: string | null }[] | null;
+    preferences?: { desiredHourly?: number | null }[] | null;
   } | null;
 };
 
@@ -188,6 +192,11 @@ function mapMobileChatRoom(room: ApiRoom, index: number): MobileChatRoom | null 
     unreadCount: deriveUnreadCount(room, lastMessageAt),
     shiftStatus: mapShiftStatus(room),
     assignmentStatus: mapAssignmentStatus(room),
+    genreText: (room.cast?.cast_background ?? [])
+      .map((item) => item.genres ?? "")
+      .filter(Boolean)
+      .join(" "),
+    wageText: String(room.cast?.preferences?.[0]?.desiredHourly ?? "").trim(),
   } satisfies MobileChatRoom;
 }
 

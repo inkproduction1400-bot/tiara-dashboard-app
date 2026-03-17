@@ -38,11 +38,11 @@ export function ChatListItem({
   return (
     <div
       className={clsx(
-        "tiara-mobile-card w-full max-w-full overflow-hidden border px-4 py-4 transition",
+        "tiara-mobile-card w-full min-w-0 max-w-full overflow-hidden border px-4 py-4 transition",
         active ? "border-[#0b8ef3]/40 bg-[#f2f9ff]" : "border-white/70",
       )}
     >
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex w-full min-w-0 max-w-full items-start gap-3">
         <button
           type="button"
           onClick={() => onOpenProfile?.(room)}
@@ -72,9 +72,12 @@ export function ChatListItem({
           />
         </button>
 
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <Link href={`/m/chat/${room.id}`} className="min-w-0 flex-1 overflow-hidden">
-            <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-start gap-3 overflow-hidden">
+          <Link
+            href={`/m/chat/${room.id}`}
+            className="block min-w-0 flex-1 overflow-hidden"
+          >
+            <div className="flex min-w-0 max-w-full items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-slate-900">
                   {room.castName}
@@ -86,7 +89,7 @@ export function ChatListItem({
             </div>
             <p className="mt-2 truncate text-sm text-slate-600">{room.lastMessage}</p>
 
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+            <div className="mt-3 flex min-w-0 max-w-full flex-wrap gap-2 overflow-hidden text-[11px] font-semibold">
               <span className="tiara-mobile-pill max-w-full truncate bg-slate-100 px-2.5 py-1 text-slate-600">
                 {room.shiftStatus}
               </span>
@@ -96,7 +99,7 @@ export function ChatListItem({
             </div>
           </Link>
 
-          <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex w-14 shrink-0 flex-col items-end gap-2">
             <button
               type="button"
               aria-label={pinned ? "ピン留め解除" : "ピン留め"}
@@ -114,7 +117,7 @@ export function ChatListItem({
             >
               <Pin className={clsx("h-4 w-4", pinned && "fill-current")} />
             </button>
-            <div className="max-w-[3.5rem] text-right text-[11px] font-semibold text-slate-400">
+            <div className="w-full truncate text-right text-[11px] font-semibold text-slate-400">
               {formatTime(room.lastMessageAt)}
             </div>
             {room.unreadCount > 0 ? (

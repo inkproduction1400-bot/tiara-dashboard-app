@@ -281,13 +281,13 @@ export default function ChatListPageClient() {
         onRefresh={() => void load()}
       />
       {loading ? (
-        <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col gap-3 px-4 py-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
-              className="tiara-mobile-card animate-pulse border px-4 py-4"
+              className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4"
             >
-              <div className="flex items-start gap-3">
+              <div className="flex min-w-0 items-start gap-3">
                 <div className="h-14 w-14 rounded-2xl bg-slate-200" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">

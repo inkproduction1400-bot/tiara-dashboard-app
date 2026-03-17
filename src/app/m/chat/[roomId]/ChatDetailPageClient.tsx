@@ -164,13 +164,13 @@ export default function ChatDetailPageClient({
       {loading ? (
         <>
           <div className="border-b border-slate-100 px-4 pb-4">
-            <div className="tiara-mobile-card animate-pulse border px-4 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-2">
+            <div className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0 space-y-2">
                   <div className="h-4 w-28 rounded bg-slate-200" />
                   <div className="h-3 w-20 rounded bg-slate-100" />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <div className="h-6 w-16 rounded-full bg-slate-100" />
                   <div className="h-6 w-16 rounded-full bg-slate-100" />
                 </div>
@@ -193,13 +193,13 @@ export default function ChatDetailPageClient({
       ) : room ? (
         <>
           <div className="border-b border-slate-100 px-4 pb-4">
-            <div className="tiara-mobile-card border px-4 py-4">
+            <div className="tiara-mobile-card w-full min-w-0 max-w-full overflow-hidden border px-4 py-4">
               <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-slate-900">{room.castName}</p>
                   <p className="truncate text-xs text-slate-500">担当 {room.staffName}</p>
                 </div>
-                <div className="flex min-w-0 flex-wrap justify-end gap-2 text-[11px] font-semibold">
+                <div className="flex min-w-0 max-w-[48%] flex-wrap justify-end gap-2 overflow-hidden text-[11px] font-semibold">
                   <span className="tiara-mobile-pill max-w-full truncate bg-slate-100 px-2.5 py-1 text-slate-600">
                     {room.shiftStatus}
                   </span>

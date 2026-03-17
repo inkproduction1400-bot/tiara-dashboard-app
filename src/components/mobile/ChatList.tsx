@@ -47,37 +47,39 @@ export function ChatList({
         : `担当者: ${selectedStaffs.length}名選択中`;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden px-4 pb-6">
-      <div className="tiara-mobile-card mt-1 border px-3 py-3">
-        <label className="flex items-center gap-3">
+    <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-4 pb-6">
+      <div className="tiara-mobile-card mt-1 w-full min-w-0 max-w-full overflow-hidden border px-3 py-3">
+        <label className="flex min-w-0 items-center gap-3">
           <Search className="h-4 w-4 text-slate-400" />
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="名前・担当・状態などをスペース区切りで検索"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
         </label>
       </div>
 
-      <div className="mt-3">
-        <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-500">
-          <SlidersHorizontal className="h-4 w-4" />
-          <span>{selectedStaffSummary}</span>
+      <div className="mt-3 w-full min-w-0 max-w-full">
+        <div className="mb-2 flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
+          <SlidersHorizontal className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{selectedStaffSummary}</span>
         </div>
         <button
           type="button"
           onClick={() => setFilterOpen(true)}
-          className="tiara-mobile-card flex w-full items-center justify-between border px-3 py-3 text-left"
+          className="tiara-mobile-card flex w-full min-w-0 max-w-full items-center justify-between overflow-hidden border px-3 py-3 text-left"
         >
-          <span className="text-sm font-semibold text-slate-700">担当者フィルタを開く</span>
-          <span className="text-xs text-slate-400">
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+            担当者フィルタを開く
+          </span>
+          <span className="shrink-0 pl-3 text-xs text-slate-400">
             {selectedStaffs.length === 0 ? "未設定" : `${selectedStaffs.length}件選択`}
           </span>
         </button>
       </div>
 
-      <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto">
+      <div className="mt-4 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto">
         {rooms.length > 0 ? (
           rooms.map((room) => (
             <ChatListItem

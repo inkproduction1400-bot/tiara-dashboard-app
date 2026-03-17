@@ -19,10 +19,12 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isStaff = message.from === "staff";
 
   return (
-    <div className={`flex ${isStaff ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[85%] ${isStaff ? "items-end" : "items-start"} flex flex-col gap-1`}>
+    <div className={`flex min-w-0 max-w-full ${isStaff ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`flex min-w-0 max-w-[85%] flex-col gap-1 ${isStaff ? "items-end" : "items-start"}`}
+      >
         <div
-          className={`tiara-mobile-bubble max-w-full break-words px-4 py-3 text-sm leading-relaxed shadow-sm ${
+          className={`tiara-mobile-bubble min-w-0 max-w-full break-words px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isStaff
               ? "tiara-mobile-bubble--staff bg-[#0b8ef3] text-white"
               : "tiara-mobile-bubble--cast border border-slate-200 bg-white text-slate-800"

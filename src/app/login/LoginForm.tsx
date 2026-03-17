@@ -6,9 +6,14 @@ import { useEffect, useState } from "react";
 import OtpDialog from "./OtpDialog";
 import { getDeviceId, saveToken } from "@/lib/device";
 import { login, verifyChallenge } from "@/lib/api";
+import { isCurrentPhoneDevice } from "@/lib/mobile-device";
 
 // ⬇ デモ判定を api.ts と同じ環境変数名に統一
 const DEMO = process.env.NEXT_PUBLIC_DEMO_LOGIN === "1";
+
+function resolvePostLoginPath() {
+  return isCurrentPhoneDevice() ? "/m/chat" : "/";
+}
 
 export default function LoginForm() {
   const router = useRouter();
@@ -43,7 +48,7 @@ export default function LoginForm() {
       // ---- デモモード：即時成功（トークン保存して遷移）----
       if (DEMO) {
         saveToken("demo-token");
-        router.replace("/casts/today");
+        router.replace(resolvePostLoginPath());
         return;
       }
 
@@ -51,7 +56,7 @@ export default function LoginForm() {
       const res = await login(uid, pw, device_id);
       if (res.status === "ok") {
         saveToken(res.token);
-        router.replace("/casts/today");
+        router.replace(resolvePostLoginPath());
         return;
       }
       if (res.status === "challenge") {
@@ -79,14 +84,14 @@ export default function LoginForm() {
         // デモ時に OTP ダイアログを開くことは想定外だが、開いた場合も成功扱いにする
         saveToken("demo-token");
         setOtpOpen(false);
-        router.replace("/casts/today");
+        router.replace(resolvePostLoginPath());
         return;
       }
       if (!txId) throw new Error("tx_id が取得できていません");
       const v = await verifyChallenge(txId, code, device_id);
       saveToken(v.token);
       setOtpOpen(false);
-      router.replace("/casts/today");
+      router.replace(resolvePostLoginPath());
     } catch (ex: any) {
       setErr(ex?.message ?? "確認コードが正しくありません");
     } finally {

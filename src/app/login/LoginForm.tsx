@@ -12,7 +12,7 @@ import { isCurrentPhoneDevice } from "@/lib/mobile-device";
 const DEMO = process.env.NEXT_PUBLIC_DEMO_LOGIN === "1";
 
 function resolvePostLoginPath() {
-  return isCurrentPhoneDevice() ? "/m/chat" : "/";
+  return isCurrentPhoneDevice() ? "/m/chat" : "/dashboard";
 }
 
 export default function LoginForm() {

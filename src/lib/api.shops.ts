@@ -1,7 +1,7 @@
 // src/lib/api.shops.ts
 "use client";
 
-import { apiFetch } from "./api";
+import { API_BASE, apiFetch } from "./api";
 
 /** x-user-id を付与（localStorage 'tiara:user_id' or 環境変数） */
 function withUser(init?: RequestInit): RequestInit {
@@ -315,10 +315,6 @@ export async function deleteShop(id: string): Promise<void> {
 
 export async function importShopsExcel(file: File) {
   // apiFetch は JSON 前提なのでここは fetch を直接使う
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const form = new FormData();
   form.append("file", file);
 
@@ -329,7 +325,7 @@ export async function importShopsExcel(file: File) {
     "";
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const res = await fetch(`${RAW_BASE}/shops/import-excel`, {
+  const res = await fetch(`${API_BASE}/shops/import-excel`, {
     method: "POST",
     body: form,
     headers,

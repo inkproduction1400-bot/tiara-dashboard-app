@@ -1,7 +1,7 @@
 // src/lib/api.casts.ts
 "use client";
 
-import { apiFetch } from "./api";
+import { API_BASE, apiFetch } from "./api";
 import { getToken } from "./device";
 
 /** x-user-id を付与（localStorage 'tiara:user_id' or 環境変数） */
@@ -622,10 +622,6 @@ export function updateCast(
  * - 返り値は { url?: string, urls?: string[] } を許容（API実装に寄せる）
  */
 export async function uploadCastProfilePhoto(castId: string, file: File): Promise<{ url: string; urls?: string[] }> {
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const form = new FormData();
   form.append("file", file);
 
@@ -642,7 +638,7 @@ export async function uploadCastProfilePhoto(castId: string, file: File): Promis
   if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const res = await fetch(`${RAW_BASE}/casts/${castId}/profile-photos`, {
+  const res = await fetch(`${API_BASE}/casts/${castId}/profile-photos`, {
     method: "POST",
     body: form,
     headers,
@@ -664,10 +660,6 @@ export async function deleteCastProfilePhoto(
   castId: string,
   url: string,
 ): Promise<{ urls: string[] }> {
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const rawToken = getToken();
   const token =
     rawToken && rawToken !== "null" && rawToken !== "undefined"
@@ -683,7 +675,7 @@ export async function deleteCastProfilePhoto(
     "";
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const u = new URL(`${RAW_BASE}/casts/${castId}/profile-photos`);
+  const u = new URL(`${API_BASE}/casts/${castId}/profile-photos`);
   u.searchParams.set("url", url);
 
   const res = await fetch(u.toString(), {
@@ -811,10 +803,6 @@ export async function deleteCast(id: string): Promise<void> {
 
 // ===== 本籍地記載書類（2枠） =====
 export async function uploadCastIdDocWithFace(castId: string, file: File) {
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const form = new FormData();
   form.append("file", file);
 
@@ -828,7 +816,7 @@ export async function uploadCastIdDocWithFace(castId: string, file: File) {
   if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const res = await fetch(`${RAW_BASE}/casts/${castId}/id-docs/with-face`, {
+  const res = await fetch(`${API_BASE}/casts/${castId}/id-docs/with-face`, {
     method: "POST",
     body: form,
     headers,
@@ -843,10 +831,6 @@ export async function uploadCastIdDocWithFace(castId: string, file: File) {
 }
 
 export async function uploadCastIdDocWithoutFace(castId: string, file: File) {
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const form = new FormData();
   form.append("file", file);
 
@@ -860,7 +844,7 @@ export async function uploadCastIdDocWithoutFace(castId: string, file: File) {
   if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const res = await fetch(`${RAW_BASE}/casts/${castId}/id-docs/without-face`, {
+  const res = await fetch(`${API_BASE}/casts/${castId}/id-docs/without-face`, {
     method: "POST",
     body: form,
     headers,
@@ -879,10 +863,6 @@ export async function deleteCastIdDoc(
   kind: "with-face" | "without-face",
   url?: string,
 ) {
-  const RAW_BASE = (
-    process.env.NEXT_PUBLIC_API_URL ?? "https://tiara-api.vercel.app/api/v1"
-  ).replace(/\/+$/, "");
-
   const headers: HeadersInit = {};
   const token = getToken();
   const uid =
@@ -893,7 +873,7 @@ export async function deleteCastIdDoc(
   if (token) (headers as any)["Authorization"] = `Bearer ${token}`;
   if (uid) (headers as any)["x-user-id"] = uid;
 
-  const u = new URL(`${RAW_BASE}/casts/${castId}/id-docs`);
+  const u = new URL(`${API_BASE}/casts/${castId}/id-docs`);
   u.searchParams.set("kind", kind);
   if (url) u.searchParams.set("url", url);
 

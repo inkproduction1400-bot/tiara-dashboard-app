@@ -12,9 +12,26 @@ export function PwaBootstrap() {
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
-    void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-      return undefined;
-    });
+    // 白画面復旧のため一時的に Service Worker を停止する。
+    // 既存 SW が古い bundle / cache を掴んだまま再登録されると、
+    // ログイン後も壊れたアセットを返し続けるため、起動時に全解除する。
+    void (async () => {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      } catch {
+        return;
+      }
+
+      if (!("caches" in window)) return;
+
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      } catch {
+        return;
+      }
+    })();
   }, []);
 
   useEffect(() => {

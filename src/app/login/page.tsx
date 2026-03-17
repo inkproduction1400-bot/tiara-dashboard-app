@@ -1,6 +1,9 @@
 import Logo from "@/components/Logo";
 import LoginForm from "./LoginForm";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function LoginPage() {
   return (
     <main className="grid place-items-center min-h-dvh px-6">

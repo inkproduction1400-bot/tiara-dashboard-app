@@ -274,7 +274,7 @@ export default function ChatListPageClient() {
   );
 
   return (
-    <MobileShell>
+    <MobileShell edgeToEdge>
       <MobileHeader
         title="担当チャット"
         subtitle="自分担当を初期表示。担当者を複数選択で再絞り込みできます。"

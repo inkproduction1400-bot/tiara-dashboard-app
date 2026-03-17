@@ -149,7 +149,7 @@ export default function ChatDetailPageClient({
   };
 
   return (
-    <MobileShell>
+    <MobileShell edgeToEdge>
       <MobileHeader
         title={room?.castName ?? "トーク詳細"}
         subtitle={

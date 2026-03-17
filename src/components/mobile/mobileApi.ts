@@ -19,6 +19,10 @@ export type MobileChatRoom = {
   assignmentStatus: string;
 };
 
+const MOBILE_CHAT_ROOMS_LIMIT = 20;
+const MOBILE_CHAT_MESSAGES_LIMIT = 30;
+const MOBILE_CHAT_ROOMS_CACHE_KEY = "tiara:m:chat-rooms";
+
 export type MobileChatMessage = {
   id: string;
   from: "staff" | "cast";
@@ -58,10 +62,6 @@ type ApiRoom = {
     status?: string | null;
     shifts?: { status?: string | null }[] | null;
   } | null;
-};
-
-type ApiUnreadResponse = {
-  unreadForStaff: number;
 };
 
 type ApiSendMessageResponse = {
@@ -139,6 +139,82 @@ function mapAssignmentStatus(room: ApiRoom): string {
   return room.cast?.ownerStaffName ? "担当あり" : "未担当";
 }
 
+function deriveUnreadCount(room: ApiRoom, lastMessageAt: string): number {
+  const latestMessage = Array.isArray(room.messages) ? room.messages[0] : null;
+  const latestSenderType = latestMessage?.sender?.userType ?? "";
+  if (latestSenderType !== "cast") return 0;
+
+  if (!room.staffLastReadAt) return 1;
+
+  const lastReadAt = new Date(room.staffLastReadAt);
+  const latestAt = new Date(lastMessageAt);
+  if (Number.isNaN(lastReadAt.getTime()) || Number.isNaN(latestAt.getTime())) {
+    return 0;
+  }
+
+  return latestAt.getTime() > lastReadAt.getTime() ? 1 : 0;
+}
+
+function mapMobileChatRoom(room: ApiRoom, index: number): MobileChatRoom | null {
+  const castId = pickCastId(room);
+  if (!castId) return null;
+
+  const latestMessage = Array.isArray(room.messages) ? room.messages[0] : null;
+  const lastMessage =
+    latestMessage?.text?.trim() ||
+    room.lastMessage?.text?.trim() ||
+    "メッセージはまだありません";
+  const lastMessageAt =
+    latestMessage?.createdAt ||
+    room.lastMessage?.createdAt ||
+    room.updatedAt ||
+    room.createdAt ||
+    new Date(0).toISOString();
+  const castCode =
+    room.cast?.castCode ?? room.cast?.managementNumber ?? `CAST-${index + 1}`;
+  const castName =
+    room.cast?.displayName ??
+    (castCode ? `キャスト ${castCode}` : `キャスト ${index + 1}`);
+
+  return {
+    id: room.id,
+    castId,
+    castName,
+    castCode,
+    staffName: room.cast?.ownerStaffName ?? "未設定",
+    lastMessage,
+    lastMessageAt,
+    // rooms API に unreadCount が無いので、初回表示は最新1件から未読有無だけ推定する。
+    unreadCount: deriveUnreadCount(room, lastMessageAt),
+    shiftStatus: mapShiftStatus(room),
+    assignmentStatus: mapAssignmentStatus(room),
+  } satisfies MobileChatRoom;
+}
+
+function writeMobileChatRoomsCache(rooms: MobileChatRoom[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      MOBILE_CHAT_ROOMS_CACHE_KEY,
+      JSON.stringify(rooms),
+    );
+  } catch {
+    // noop
+  }
+}
+
+export function readMobileChatRoomsCache(): MobileChatRoom[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(MOBILE_CHAT_ROOMS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as MobileChatRoom[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 function authorizedFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const { token, userId } = getAuthSnapshot();
   return fetch(`${API_BASE}${path}`, {
@@ -160,74 +236,31 @@ function authorizedFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
 }
 
-export async function fetchMobileChatRooms(): Promise<MobileChatRoom[]> {
+export async function fetchMobileChatRooms(options?: {
+  limit?: number | null;
+}): Promise<MobileChatRoom[]> {
   const rooms = await authorizedFetch<ApiRoom[]>("/chat/staff/rooms");
-  const baseRooms = rooms
-    .map((room, index) => {
-      const castId = pickCastId(room);
-      if (!castId) return null;
+  const limit =
+    options?.limit === undefined ? MOBILE_CHAT_ROOMS_LIMIT : options.limit;
+  const nextRooms = rooms
+    .map((room, index) => mapMobileChatRoom(room, index))
+    .filter((room): room is MobileChatRoom => room !== null)
+    .sort(
+      (a, b) =>
+        new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
+    );
 
-      const fallbackMessages = Array.isArray(room.messages) ? room.messages : [];
-      const latestFallback = [...fallbackMessages]
-        .filter((item) => item?.createdAt)
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )[0];
-      const lastMessage =
-        latestFallback?.text?.trim() ||
-        room.lastMessage?.text?.trim() ||
-        "メッセージはまだありません";
-      const lastMessageAt =
-        latestFallback?.createdAt ||
-        room.lastMessage?.createdAt ||
-        room.updatedAt ||
-        room.createdAt ||
-        new Date(0).toISOString();
-      const castCode =
-        room.cast?.castCode ?? room.cast?.managementNumber ?? `CAST-${index + 1}`;
-      const castName =
-        room.cast?.displayName ??
-        (castCode ? `キャスト ${castCode}` : `キャスト ${index + 1}`);
-
-      return {
-        id: room.id,
-        castId,
-        castName,
-        castCode,
-        staffName: room.cast?.ownerStaffName ?? "未設定",
-        lastMessage,
-        lastMessageAt,
-        unreadCount: 0,
-        shiftStatus: mapShiftStatus(room),
-        assignmentStatus: mapAssignmentStatus(room),
-      } satisfies MobileChatRoom;
-    })
-    .filter((room): room is MobileChatRoom => room !== null);
-
-  const unreadResults = await Promise.allSettled(
-    baseRooms.map((room) =>
-      authorizedFetch<ApiUnreadResponse>(`/chat/staff/rooms/${room.id}/unread`),
-    ),
-  );
-
-  return baseRooms.map((room, index) => {
-    const unread = unreadResults[index];
-    return {
-      ...room,
-      unreadCount:
-        unread?.status === "fulfilled"
-          ? Math.max(0, Number(unread.value.unreadForStaff) || 0)
-          : room.unreadCount,
-    };
-  });
+  const sliced = typeof limit === "number" ? nextRooms.slice(0, limit) : nextRooms;
+  writeMobileChatRoomsCache(sliced);
+  return sliced;
 }
 
 export async function fetchMobileChatMessages(
   castId: string,
+  limit = MOBILE_CHAT_MESSAGES_LIMIT,
 ): Promise<MobileChatMessage[]> {
   const messages = await authorizedFetch<ApiMessage[]>(
-    `/chat/staff/rooms/${castId}/messages?limit=50`,
+    `/chat/staff/rooms/${castId}/messages?limit=${limit}`,
   );
 
   return messages.map((item) => {

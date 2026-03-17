@@ -10,6 +10,7 @@ import {
   fetchMobileChatMessages,
   fetchMobileChatRooms,
   markMobileChatRead,
+  readMobileChatRoomsCache,
   sendMobileChatMessage,
   type MobileChatMessage,
   type MobileChatRoom,
@@ -27,7 +28,7 @@ type ChatDetailPageClientProps = {
 export default function ChatDetailPageClient({
   roomId,
 }: ChatDetailPageClientProps) {
-  const [rooms, setRooms] = useState<MobileChatRoom[]>([]);
+  const [rooms, setRooms] = useState<MobileChatRoom[]>(() => readMobileChatRoomsCache());
   const [messages, setMessages] = useState<MobileChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,16 +46,21 @@ export default function ChatDetailPageClient({
   }, [messages]);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(messages.length === 0);
     setError(null);
     try {
-      const nextRooms = await fetchMobileChatRooms();
-      setRooms(nextRooms);
-      const target = nextRooms.find((item) => item.id === roomId);
+      let target = rooms.find((item) => item.id === roomId) ?? null;
+
+      if (!target) {
+        const nextRooms = await fetchMobileChatRooms({ limit: null });
+        setRooms(nextRooms);
+        target = nextRooms.find((item) => item.id === roomId) ?? null;
+      }
+
       if (!target) {
         throw new Error("指定のトークが見つかりません");
       }
-      const nextMessages = await fetchMobileChatMessages(target.castId);
+      const nextMessages = await fetchMobileChatMessages(target.castId, 30);
       setMessages(nextMessages);
       await markMobileChatRead(target.id).catch(() => undefined);
     } catch (loadError) {
@@ -62,7 +68,7 @@ export default function ChatDetailPageClient({
     } finally {
       setLoading(false);
     }
-  }, [roomId]);
+  }, [messages.length, roomId, rooms]);
 
   useEffect(() => {
     void load();
@@ -131,7 +137,7 @@ export default function ChatDetailPageClient({
 
     try {
       await sendMobileChatMessage(room.castId, text);
-      const nextMessages = await fetchMobileChatMessages(room.castId);
+      const nextMessages = await fetchMobileChatMessages(room.castId, 30);
       setMessages(nextMessages);
       await markMobileChatRead(room.id).catch(() => undefined);
     } catch (sendError) {
@@ -156,7 +162,32 @@ export default function ChatDetailPageClient({
       />
 
       {loading ? (
-        <div className="px-4 py-10 text-sm text-slate-500">読み込み中...</div>
+        <>
+          <div className="border-b border-slate-100 px-4 pb-4">
+            <div className="tiara-mobile-card animate-pulse border px-4 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="h-4 w-28 rounded bg-slate-200" />
+                  <div className="h-3 w-20 rounded bg-slate-100" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-6 w-16 rounded-full bg-slate-100" />
+                  <div className="h-6 w-16 rounded-full bg-slate-100" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-1 flex-col gap-3 px-4 py-5">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className={`flex ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
+              >
+                <div className="h-14 w-52 animate-pulse rounded-3xl bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        </>
       ) : error ? (
         <div className="px-4 py-10 text-sm text-rose-500">{error}</div>
       ) : room ? (

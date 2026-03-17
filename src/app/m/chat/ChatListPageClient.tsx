@@ -7,6 +7,7 @@ import { ChatList } from "@/components/mobile/ChatList";
 import {
   fetchMobileChatRooms,
   getAuthSnapshot,
+  readMobileChatRoomsCache,
   type MobileChatRoom,
 } from "@/components/mobile/mobileApi";
 import { getToken } from "@/lib/device";
@@ -28,14 +29,17 @@ function inferDefaultStaffs(rooms: MobileChatRoom[]) {
 }
 
 export default function ChatListPageClient() {
-  const [rooms, setRooms] = useState<MobileChatRoom[]>([]);
+  const [rooms, setRooms] = useState<MobileChatRoom[]>(() => readMobileChatRoomsCache());
   const [query, setQuery] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(rooms.length === 0);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background ?? false;
+    if (!background) {
+      setLoading((current) => current || rooms.length === 0);
+    }
     setError(null);
     try {
       const nextRooms = await fetchMobileChatRooms();
@@ -47,13 +51,19 @@ export default function ChatListPageClient() {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "読み込み失敗");
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [rooms.length]);
 
   useEffect(() => {
+    if (rooms.length > 0) {
+      void load({ background: true });
+      return;
+    }
     void load();
-  }, [load]);
+  }, [load, rooms.length]);
 
   useEffect(() => {
     if (!getToken()) return;
@@ -65,7 +75,7 @@ export default function ChatListPageClient() {
       if (intervalId !== null) return;
       intervalId = window.setInterval(() => {
         if (document.visibilityState === "visible" && active) {
-          void load();
+          void load({ background: true });
         }
       }, 10_000);
     };
@@ -79,7 +89,7 @@ export default function ChatListPageClient() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void load();
+        void load({ background: true });
         startPolling();
         return;
       }
@@ -130,7 +140,32 @@ export default function ChatListPageClient() {
         onRefresh={() => void load()}
       />
       {loading ? (
-        <div className="px-4 py-10 text-sm text-slate-500">読み込み中...</div>
+        <div className="flex flex-1 flex-col gap-3 px-4 py-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="tiara-mobile-card animate-pulse border px-4 py-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-14 w-14 rounded-2xl bg-slate-200" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="h-4 w-32 rounded bg-slate-200" />
+                      <div className="h-3 w-24 rounded bg-slate-100" />
+                    </div>
+                    <div className="h-3 w-14 rounded bg-slate-100" />
+                  </div>
+                  <div className="mt-3 h-3 w-10/12 rounded bg-slate-100" />
+                  <div className="mt-3 flex gap-2">
+                    <div className="h-6 w-16 rounded-full bg-slate-100" />
+                    <div className="h-6 w-16 rounded-full bg-slate-100" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : error ? (
         <div className="px-4 py-10 text-sm text-rose-500">{error}</div>
       ) : (

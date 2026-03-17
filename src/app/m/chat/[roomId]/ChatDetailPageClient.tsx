@@ -194,16 +194,16 @@ export default function ChatDetailPageClient({
         <>
           <div className="border-b border-slate-100 px-4 pb-4">
             <div className="tiara-mobile-card border px-4 py-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{room.castName}</p>
-                  <p className="text-xs text-slate-500">担当 {room.staffName}</p>
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900">{room.castName}</p>
+                  <p className="truncate text-xs text-slate-500">担当 {room.staffName}</p>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2 text-[11px] font-semibold">
-                  <span className="tiara-mobile-pill bg-slate-100 px-2.5 py-1 text-slate-600">
+                <div className="flex min-w-0 flex-wrap justify-end gap-2 text-[11px] font-semibold">
+                  <span className="tiara-mobile-pill max-w-full truncate bg-slate-100 px-2.5 py-1 text-slate-600">
                     {room.shiftStatus}
                   </span>
-                  <span className="tiara-mobile-pill bg-[#0b8ef3]/10 px-2.5 py-1 text-[#0b8ef3]">
+                  <span className="tiara-mobile-pill max-w-full truncate bg-[#0b8ef3]/10 px-2.5 py-1 text-[#0b8ef3]">
                     {room.assignmentStatus}
                   </span>
                 </div>
@@ -212,7 +212,7 @@ export default function ChatDetailPageClient({
           </div>
 
           <div className="tiara-mobile-chat-bg flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+            <div className="flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-4 py-5">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}

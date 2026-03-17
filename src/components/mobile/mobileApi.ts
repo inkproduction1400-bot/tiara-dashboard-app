@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE } from "@/lib/api";
+import { getCast, getCastSignedPhotoUrl } from "@/lib/api.casts";
 import { getToken } from "@/lib/device";
 import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import { listShopOrders, type ShopOrderRecord } from "@/lib/api.shop-orders";
@@ -19,11 +20,13 @@ export type MobileChatRoom = {
   assignmentStatus: string;
   genreText: string;
   wageText: string;
+  photoUrl: string | null;
 };
 
 const MOBILE_CHAT_ROOMS_LIMIT = 20;
 const MOBILE_CHAT_MESSAGES_LIMIT = 30;
 const MOBILE_CHAT_ROOMS_CACHE_KEY = "tiara:m:chat-rooms";
+const MOBILE_CHAT_CAST_PROFILE_CACHE_KEY = "tiara:m:chat-cast-profiles";
 
 export type MobileChatMessage = {
   id: string;
@@ -31,6 +34,19 @@ export type MobileChatMessage = {
   text: string;
   sentAt: string;
   read?: boolean;
+};
+
+export type MobileChatCastProfile = {
+  castId: string;
+  castName: string;
+  castCode: string;
+  managementNumber: string;
+  staffName: string;
+  genreText: string;
+  wageText: string;
+  shiftStatus: string;
+  assignmentStatus: string;
+  photoUrl: string | null;
 };
 
 type ApiMessage = {
@@ -197,6 +213,7 @@ function mapMobileChatRoom(room: ApiRoom, index: number): MobileChatRoom | null 
       .filter(Boolean)
       .join(" "),
     wageText: String(room.cast?.preferences?.[0]?.desiredHourly ?? "").trim(),
+    photoUrl: null,
   } satisfies MobileChatRoom;
 }
 
@@ -222,6 +239,108 @@ export function readMobileChatRoomsCache(): MobileChatRoom[] {
   } catch {
     return [];
   }
+}
+
+function writeMobileChatCastProfileCache(
+  profiles: Record<string, MobileChatCastProfile>,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      MOBILE_CHAT_CAST_PROFILE_CACHE_KEY,
+      JSON.stringify(profiles),
+    );
+  } catch {
+    // noop
+  }
+}
+
+export function readMobileChatCastProfileCache(): Record<string, MobileChatCastProfile> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.sessionStorage.getItem(MOBILE_CHAT_CAST_PROFILE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, MobileChatCastProfile>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function pickRawProfilePhoto(detail: Awaited<ReturnType<typeof getCast>>): string | null {
+  const urls = [
+    ...(Array.isArray(detail.profilePhotos) ? detail.profilePhotos : []),
+    detail.profilePhotoUrl,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  return urls[0] ?? null;
+}
+
+function toWageText(value: number | string | null | undefined): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toLocaleString("ja-JP");
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return "";
+}
+
+export async function fetchMobileChatCastProfile(
+  room: MobileChatRoom,
+): Promise<MobileChatCastProfile> {
+  const detail = await getCast(room.castId);
+  const rawPhoto = pickRawProfilePhoto(detail);
+  const photoUrl = rawPhoto
+    ? /^https?:\/\//i.test(rawPhoto)
+      ? rawPhoto
+      : await getCastSignedPhotoUrl({
+          castId: room.castId,
+          purpose: "profile",
+          urlOrPath: rawPhoto,
+        })
+    : null;
+
+  return {
+    castId: room.castId,
+    castName: detail.displayName || room.castName,
+    castCode: detail.castCode ?? room.castCode,
+    managementNumber: detail.managementNumber ?? "",
+    staffName: detail.ownerStaffName ?? room.staffName,
+    genreText: Array.isArray(detail.background?.genres)
+      ? detail.background?.genres.filter(Boolean).join(" ")
+      : room.genreText,
+    wageText: toWageText(detail.preferences?.desiredHourly ?? room.wageText),
+    shiftStatus: room.shiftStatus,
+    assignmentStatus: room.assignmentStatus,
+    photoUrl,
+  };
+}
+
+export async function fetchMobileChatCastProfiles(
+  rooms: MobileChatRoom[],
+  existing: Record<string, MobileChatCastProfile>,
+): Promise<Record<string, MobileChatCastProfile>> {
+  const missingRooms = rooms.filter((room) => !existing[room.castId]);
+  if (missingRooms.length === 0) return existing;
+
+  const entries = await Promise.allSettled(
+    missingRooms.map(async (room) => [room.castId, await fetchMobileChatCastProfile(room)] as const),
+  );
+
+  const nextProfiles = { ...existing };
+  for (const entry of entries) {
+    if (entry.status !== "fulfilled") continue;
+    const [castId, profile] = entry.value;
+    nextProfiles[castId] = profile;
+  }
+
+  writeMobileChatCastProfileCache(nextProfiles);
+  return nextProfiles;
 }
 
 function authorizedFetch<T>(path: string, init?: RequestInit): Promise<T> {

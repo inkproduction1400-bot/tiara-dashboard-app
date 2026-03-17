@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { ChatListItem } from "./ChatListItem";
-import type { MobileChatRoom } from "./mobileApi";
+import type { MobileChatCastProfile, MobileChatRoom } from "./mobileApi";
 
 type ChatListProps = {
   rooms: MobileChatRoom[];
@@ -14,6 +14,8 @@ type ChatListProps = {
   onApplyStaffs: (values: string[]) => void;
   onTogglePin: (roomId: string) => void;
   pinnedRoomIds: string[];
+  onOpenProfile: (room: MobileChatRoom) => void;
+  castProfiles: Record<string, MobileChatCastProfile>;
 };
 
 export function ChatList({
@@ -25,6 +27,8 @@ export function ChatList({
   onApplyStaffs,
   onTogglePin,
   pinnedRoomIds,
+  onOpenProfile,
+  castProfiles,
 }: ChatListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [draftStaffs, setDraftStaffs] = useState<string[]>(selectedStaffs);
@@ -43,7 +47,7 @@ export function ChatList({
         : `担当者: ${selectedStaffs.length}名選択中`;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-4 pb-6">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden px-4 pb-6">
       <div className="tiara-mobile-card mt-1 border px-3 py-3">
         <label className="flex items-center gap-3">
           <Search className="h-4 w-4 text-slate-400" />
@@ -73,7 +77,7 @@ export function ChatList({
         </button>
       </div>
 
-      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto">
         {rooms.length > 0 ? (
           rooms.map((room) => (
             <ChatListItem
@@ -81,6 +85,8 @@ export function ChatList({
               room={room}
               pinned={pinnedRoomIds.includes(room.id)}
               onTogglePin={onTogglePin}
+              onOpenProfile={onOpenProfile}
+              profile={castProfiles[room.castId] ?? null}
             />
           ))
         ) : (
@@ -91,8 +97,9 @@ export function ChatList({
       </div>
 
       {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-900/35">
-          <div className="mx-auto flex max-h-[85dvh] w-full max-w-[420px] flex-col rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex overflow-x-hidden bg-slate-900/35">
+          <div className="mx-auto flex w-full max-w-[420px] items-end px-3">
+            <div className="flex max-h-[85dvh] w-full max-w-full min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
             <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
             <div className="mt-4 flex items-center justify-between">
               <div>
@@ -128,7 +135,7 @@ export function ChatList({
                         : "bg-slate-50 text-slate-700"
                     }`}
                   >
-                    <span>{staff}</span>
+                    <span className="min-w-0 flex-1 truncate pr-3">{staff}</span>
                     <span className="text-xs">{active ? "選択中" : "未選択"}</span>
                   </button>
                 );
@@ -155,6 +162,7 @@ export function ChatList({
               </button>
             </div>
           </div>
+        </div>
         </div>
       ) : null}
     </div>

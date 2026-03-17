@@ -4,10 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { ChatList } from "@/components/mobile/ChatList";
+import { MobileCastProfileSheet } from "@/components/mobile/MobileCastProfileSheet";
 import {
+  fetchMobileChatCastProfile,
+  fetchMobileChatCastProfiles,
   fetchMobileChatRooms,
   getAuthSnapshot,
+  readMobileChatCastProfileCache,
   readMobileChatRoomsCache,
+  type MobileChatCastProfile,
   type MobileChatRoom,
 } from "@/components/mobile/mobileApi";
 import { getToken } from "@/lib/device";
@@ -35,6 +40,11 @@ export default function ChatListPageClient() {
   const [query, setQuery] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState<string[]>([]);
   const [pinnedRoomIds, setPinnedRoomIds] = useState<string[]>([]);
+  const [castProfiles, setCastProfiles] = useState<Record<string, MobileChatCastProfile>>(
+    () => readMobileChatCastProfileCache(),
+  );
+  const [profileRoom, setProfileRoom] = useState<MobileChatRoom | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [loading, setLoading] = useState(rooms.length === 0);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,6 +143,31 @@ export default function ChatListPageClient() {
     };
   }, [load]);
 
+  useEffect(() => {
+    let active = true;
+
+    void fetchMobileChatCastProfiles(rooms, castProfiles).then((nextProfiles) => {
+      if (!active) return;
+      if (nextProfiles !== castProfiles) {
+        setCastProfiles(nextProfiles);
+      }
+      setRooms((current) => {
+        const nextRooms = current.map((room) => ({
+          ...room,
+          photoUrl: nextProfiles[room.castId]?.photoUrl ?? room.photoUrl,
+        }));
+        const changed = nextRooms.some(
+          (room, index) => room.photoUrl !== current[index]?.photoUrl,
+        );
+        return changed ? nextRooms : current;
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [castProfiles, rooms]);
+
   const staffOptions = useMemo(
     () =>
       rooms
@@ -211,6 +246,33 @@ export default function ChatListPageClient() {
     setSelectedStaffs(values);
   }, []);
 
+  const handleOpenProfile = useCallback(
+    (room: MobileChatRoom) => {
+      setProfileRoom(room);
+      if (castProfiles[room.castId]) return;
+
+      setProfileLoading(true);
+      void fetchMobileChatCastProfile(room)
+        .then((profile) => {
+          setCastProfiles((current) => ({
+            ...current,
+            [room.castId]: profile,
+          }));
+          setRooms((current) =>
+            current.map((item) =>
+              item.castId === room.castId
+                ? { ...item, photoUrl: profile.photoUrl ?? item.photoUrl }
+                : item,
+            ),
+          );
+        })
+        .finally(() => {
+          setProfileLoading(false);
+        });
+    },
+    [castProfiles],
+  );
+
   return (
     <MobileShell>
       <MobileHeader
@@ -257,8 +319,19 @@ export default function ChatListPageClient() {
           onApplyStaffs={applySelectedStaffs}
           onTogglePin={togglePinnedRoom}
           pinnedRoomIds={pinnedRoomIds}
+          onOpenProfile={handleOpenProfile}
+          castProfiles={castProfiles}
         />
       )}
+      <MobileCastProfileSheet
+        open={Boolean(profileRoom)}
+        profile={profileRoom ? castProfiles[profileRoom.castId] ?? null : null}
+        loading={profileLoading}
+        onClose={() => {
+          setProfileLoading(false);
+          setProfileRoom(null);
+        }}
+      />
     </MobileShell>
   );
 }

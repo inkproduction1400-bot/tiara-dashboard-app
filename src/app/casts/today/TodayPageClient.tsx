@@ -1388,8 +1388,24 @@ export default function Page() {
           };
         });
 
+        const seededPhotoMap = Object.fromEntries(
+          [...todayList, ...allList]
+            .filter((cast) => typeof cast.photoUrl === "string" && cast.photoUrl)
+            .map((cast) => [cast.id, cast.photoUrl as string]),
+        );
+        const seededPhotoFallbackMap = Object.fromEntries(
+          [...todayList, ...allList]
+            .filter(
+              (cast) =>
+                typeof cast.photoUrlRaw === "string" && cast.photoUrlRaw,
+            )
+            .map((cast) => [cast.id, cast.photoUrlRaw as string]),
+        );
+
         setTodayCasts(todayList);
         setAllCasts(allList);
+        setPhotoByCastId(seededPhotoMap);
+        setPhotoFallbackByCastId(seededPhotoFallbackMap);
       } catch (e: any) {
         console.error(e);
         if (!cancelled) {

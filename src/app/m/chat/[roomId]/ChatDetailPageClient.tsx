@@ -159,78 +159,80 @@ export default function ChatDetailPageClient({
         }
         backHref="/m/chat"
         onRefresh={() => void load()}
+        contentClassName="max-w-[420px] px-3"
       />
-
-      {loading ? (
-        <>
-          <div className="border-b border-slate-100 px-4 pb-4">
-            <div className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4">
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0 space-y-2">
-                  <div className="h-4 w-28 rounded bg-slate-200" />
-                  <div className="h-3 w-20 rounded bg-slate-100" />
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <div className="h-6 w-16 rounded-full bg-slate-100" />
-                  <div className="h-6 w-16 rounded-full bg-slate-100" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-1 flex-col gap-3 px-4 py-5">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={index}
-                className={`flex ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
-              >
-                <div className="h-14 w-52 animate-pulse rounded-3xl bg-slate-100" />
-              </div>
-            ))}
-          </div>
-        </>
-      ) : error ? (
-        <div className="px-4 py-10 text-sm text-rose-500">{error}</div>
-      ) : room ? (
-        <>
-          <div className="border-b border-slate-100 px-4 pb-4">
-            <div className="tiara-mobile-card w-full min-w-0 max-w-full overflow-hidden border px-4 py-4">
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-slate-900">{room.castName}</p>
-                  <p className="truncate text-xs text-slate-500">担当 {room.staffName}</p>
-                </div>
-                <div className="flex min-w-0 max-w-[48%] flex-wrap justify-end gap-2 overflow-hidden text-[11px] font-semibold">
-                  <span className="tiara-mobile-pill max-w-full truncate bg-slate-100 px-2.5 py-1 text-slate-600">
-                    {room.shiftStatus}
-                  </span>
-                  <span className="tiara-mobile-pill max-w-full truncate bg-[#0b8ef3]/10 px-2.5 py-1 text-[#0b8ef3]">
-                    {room.assignmentStatus}
-                  </span>
+      <div className="mx-auto flex w-full min-w-0 max-w-[420px] flex-1 flex-col px-3">
+        {loading ? (
+          <>
+            <div className="border-b border-slate-100 pb-4">
+              <div className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="min-w-0 space-y-2">
+                    <div className="h-4 w-28 rounded bg-slate-200" />
+                    <div className="h-3 w-20 rounded bg-slate-100" />
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <div className="h-6 w-16 rounded-full bg-slate-100" />
+                    <div className="h-6 w-16 rounded-full bg-slate-100" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="tiara-mobile-chat-bg flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-4 py-5">
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
+            <div className="flex flex-1 flex-col gap-3 py-5">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`flex ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
+                >
+                  <div className="h-14 w-52 animate-pulse rounded-3xl bg-slate-100" />
+                </div>
               ))}
-              <div ref={endRef} />
             </div>
-            <ChatComposer
-              value={draft}
-              onChange={setDraft}
-              onSend={() => void handleSend()}
-              sending={sending}
-            />
+          </>
+        ) : error ? (
+          <div className="py-10 text-sm text-rose-500">{error}</div>
+        ) : room ? (
+          <>
+            <div className="border-b border-slate-100 pb-4">
+              <div className="tiara-mobile-card w-full min-w-0 max-w-full overflow-hidden border px-4 py-4">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-slate-900">{room.castName}</p>
+                    <p className="truncate text-xs text-slate-500">担当 {room.staffName}</p>
+                  </div>
+                  <div className="flex min-w-0 max-w-[48%] flex-wrap justify-end gap-2 overflow-hidden text-[11px] font-semibold">
+                    <span className="tiara-mobile-pill max-w-full truncate bg-slate-100 px-2.5 py-1 text-slate-600">
+                      {room.shiftStatus}
+                    </span>
+                    <span className="tiara-mobile-pill max-w-full truncate bg-[#0b8ef3]/10 px-2.5 py-1 text-[#0b8ef3]">
+                      {room.assignmentStatus}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="tiara-mobile-chat-bg flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex-1 space-y-4 overflow-x-hidden overflow-y-auto px-4 py-5">
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))}
+                <div ref={endRef} />
+              </div>
+              <ChatComposer
+                value={draft}
+                onChange={setDraft}
+                onSend={() => void handleSend()}
+                sending={sending}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="py-10 text-sm text-slate-500">
+            指定のトークが見つかりません
           </div>
-        </>
-      ) : (
-        <div className="px-4 py-10 text-sm text-slate-500">
-          指定のトークが見つかりません
-        </div>
-      )}
+        )}
+      </div>
     </MobileShell>
   );
 }

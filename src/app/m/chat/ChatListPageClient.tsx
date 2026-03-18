@@ -279,50 +279,53 @@ export default function ChatListPageClient() {
         title="担当チャット"
         subtitle="自分担当を初期表示。担当者を複数選択で再絞り込みできます。"
         onRefresh={() => void load()}
+        contentClassName="max-w-[420px] px-3"
       />
-      {loading ? (
-        <div className="flex w-full min-w-0 max-w-full flex-1 flex-col gap-3 px-4 py-4">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div
-              key={index}
-              className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4"
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                <div className="h-14 w-14 rounded-2xl bg-slate-200" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="h-4 w-32 rounded bg-slate-200" />
-                      <div className="h-3 w-24 rounded bg-slate-100" />
+      <div className="mx-auto flex w-full min-w-0 max-w-[420px] flex-1 flex-col px-3">
+        {loading ? (
+          <div className="flex w-full min-w-0 max-w-full flex-1 flex-col gap-3 py-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="tiara-mobile-card w-full min-w-0 max-w-full animate-pulse overflow-hidden border px-4 py-4"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="h-14 w-14 rounded-2xl bg-slate-200" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-4 w-32 rounded bg-slate-200" />
+                        <div className="h-3 w-24 rounded bg-slate-100" />
+                      </div>
+                      <div className="h-3 w-14 rounded bg-slate-100" />
                     </div>
-                    <div className="h-3 w-14 rounded bg-slate-100" />
-                  </div>
-                  <div className="mt-3 h-3 w-10/12 rounded bg-slate-100" />
-                  <div className="mt-3 flex gap-2">
-                    <div className="h-6 w-16 rounded-full bg-slate-100" />
-                    <div className="h-6 w-16 rounded-full bg-slate-100" />
+                    <div className="mt-3 h-3 w-10/12 rounded bg-slate-100" />
+                    <div className="mt-3 flex gap-2">
+                      <div className="h-6 w-16 rounded-full bg-slate-100" />
+                      <div className="h-6 w-16 rounded-full bg-slate-100" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : error ? (
-        <div className="px-4 py-10 text-sm text-rose-500">{error}</div>
-      ) : (
-        <ChatList
-          rooms={sortedRooms}
-          query={query}
-          onQueryChange={setQuery}
-          staffOptions={staffOptions}
-          selectedStaffs={selectedStaffs}
-          onApplyStaffs={applySelectedStaffs}
-          onTogglePin={togglePinnedRoom}
-          pinnedRoomIds={pinnedRoomIds}
-          onOpenProfile={handleOpenProfile}
-          castProfiles={castProfiles}
-        />
-      )}
+            ))}
+          </div>
+        ) : error ? (
+          <div className="py-10 text-sm text-rose-500">{error}</div>
+        ) : (
+          <ChatList
+            rooms={sortedRooms}
+            query={query}
+            onQueryChange={setQuery}
+            staffOptions={staffOptions}
+            selectedStaffs={selectedStaffs}
+            onApplyStaffs={applySelectedStaffs}
+            onTogglePin={togglePinnedRoom}
+            pinnedRoomIds={pinnedRoomIds}
+            onOpenProfile={handleOpenProfile}
+            castProfiles={castProfiles}
+          />
+        )}
+      </div>
       <MobileCastProfileSheet
         open={Boolean(profileRoom)}
         profile={profileRoom ? castProfiles[profileRoom.castId] ?? null : null}

@@ -47,7 +47,7 @@ export function ChatList({
         : `担当者: ${selectedStaffs.length}名選択中`;
 
   return (
-    <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden px-4 pb-6">
+    <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-6">
       <div className="tiara-mobile-card mt-1 w-full min-w-0 max-w-full overflow-hidden border px-3 py-3">
         <label className="flex min-w-0 items-center gap-3">
           <Search className="h-4 w-4 text-slate-400" />

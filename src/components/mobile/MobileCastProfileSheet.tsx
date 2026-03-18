@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { MobileChatCastProfile } from "./mobileApi";
 
 type MobileCastProfileSheetProps = {
@@ -24,6 +25,12 @@ export function MobileCastProfileSheet({
   loading = false,
   onClose,
 }: MobileCastProfileSheetProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profile?.photoUrl, profile?.castId]);
+
   if (!open) return null;
 
   return (
@@ -50,12 +57,13 @@ export function MobileCastProfileSheet({
             <div className="tiara-mobile-card border px-4 py-4">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="tiara-mobile-soft flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden bg-[#0b8ef3]/12 text-lg font-bold text-[#0b8ef3]">
-                  {profile?.photoUrl ? (
+                  {profile?.photoUrl && !imageFailed ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={profile.photoUrl}
                       alt={profile.castName}
                       className="h-full w-full object-cover"
+                      onError={() => setImageFailed(true)}
                     />
                   ) : (
                     initials(profile?.castName ?? "")

@@ -19,6 +19,8 @@ import {
   uploadCastIdDocWithoutFace,
   deleteCastIdDoc,
   getCastSignedPhotoUrl,
+  isHttpUrl,
+  normalizeCastPhotoUrl,
   getCastShiftRequests,
   type CastShiftRequestSelection,
 } from "@/lib/api.casts";
@@ -1339,7 +1341,9 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       ...v1,
       ...((misc ?? []) as any[]),
       ...single,
-    ].filter((u) => typeof u === "string" && u.length > 0);
+    ]
+      .map((u) => normalizeCastPhotoUrl(typeof u === "string" ? u : null))
+      .filter((u): u is string => Boolean(u));
 
     // 重複排除（順序維持）
     const uniq: string[] = [];
@@ -1369,7 +1373,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     return photoUrls
       .map((raw) => {
         if (!raw) return null;
-        if (isLocalPreviewUrl(raw)) {
+        if (isLocalPreviewUrl(raw) || isHttpUrl(raw)) {
           return { raw, display: raw };
         }
         const signed = signedPhotoByUrl[raw];
@@ -1381,7 +1385,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
   useEffect(() => {
     if (!resolvedCastId) return;
     const targets = photoUrls.filter(
-      (raw) => raw && !isLocalPreviewUrl(raw) && !signedPhotoByUrl[raw],
+      (raw) => raw && !isLocalPreviewUrl(raw) && !isHttpUrl(raw) && !signedPhotoByUrl[raw],
     );
     if (targets.length === 0) return;
     let cancelled = false;

@@ -706,8 +706,58 @@ const buildSignedCacheKey = (
   urlOrPath: string,
 ) => `${castId}:${purpose}:${urlOrPath}`;
 
-const isLocalPreviewUrl = (value: string) =>
+export const isLocalPreviewUrl = (value: string) =>
   value.startsWith("blob:") || value.startsWith("data:");
+
+export const isHttpUrl = (value?: string | null) =>
+  typeof value === "string" &&
+  (value.startsWith("http://") || value.startsWith("https://"));
+
+export const normalizeCastPhotoUrl = (value?: string | null): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "null" || lowered === "undefined") return null;
+  return trimmed;
+};
+
+export function resolveCastPhotoSource(input: any): string | null {
+  const direct = [
+    input?.profilePhotoUrl,
+    input?.profile_photo_url,
+    input?.photoUrl,
+    input?.photo_url,
+    input?.imageUrl,
+    input?.image_url,
+  ];
+
+  for (const value of direct) {
+    const normalized = normalizeCastPhotoUrl(value);
+    if (normalized) return normalized;
+  }
+
+  const arrays = [
+    input?.profilePhotos,
+    input?.profile_photos,
+    input?.photoUrls,
+    input?.profilePhotoUrls,
+    input?.photo_urls,
+    input?.photos,
+    input?.images,
+    input?.image_urls,
+  ];
+
+  for (const arr of arrays) {
+    if (!Array.isArray(arr)) continue;
+    for (const value of arr) {
+      const normalized = normalizeCastPhotoUrl(value);
+      if (normalized) return normalized;
+    }
+  }
+
+  return null;
+}
 
 export async function getCastSignedPhotoUrl(input: {
   castId: string;
@@ -745,6 +795,24 @@ export async function getCastSignedPhotoUrl(input: {
   } catch {
     return null;
   }
+}
+
+export async function resolveCastPhotoDisplayUrl(input: {
+  castId: string;
+  purpose?: CastPhotoSignedPurpose;
+  urlOrPath?: string | null;
+}): Promise<string | null> {
+  const raw = normalizeCastPhotoUrl(input.urlOrPath);
+  if (!raw) return null;
+  if (isLocalPreviewUrl(raw) || isHttpUrl(raw)) return raw;
+
+  return (
+    (await getCastSignedPhotoUrl({
+      castId: input.castId,
+      purpose: input.purpose ?? "profile",
+      urlOrPath: raw,
+    })) ?? null
+  );
 }
 
 

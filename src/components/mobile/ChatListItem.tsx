@@ -66,12 +66,17 @@ export function ChatListItem({
   } | null>(null);
   const suppressTapRef = useRef(false);
   const [offsetX, setOffsetX] = useState(swipeOpen ? SWIPE_ACTION_WIDTH : 0);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     if (!touchState.current) {
       setOffsetX(swipeOpen ? SWIPE_ACTION_WIDTH : 0);
     }
   }, [swipeOpen]);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profile?.photoUrl, room.castId]);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -194,13 +199,14 @@ export function ChatListItem({
             className="tiara-mobile-avatar relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden bg-[#0b8ef3]/12 text-sm font-bold text-[#0b8ef3]"
             aria-label={`${room.castName}の詳細を表示`}
           >
-            {profile?.photoUrl ? (
+            {profile?.photoUrl && !imageFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profile.photoUrl}
                 alt={room.castName}
                 className="h-full w-full object-cover"
                 loading="lazy"
+                onError={() => setImageFailed(true)}
               />
             ) : (
               initials(room.castName)

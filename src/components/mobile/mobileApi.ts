@@ -1,7 +1,11 @@
 "use client";
 
 import { API_BASE } from "@/lib/api";
-import { getCast, getCastSignedPhotoUrl } from "@/lib/api.casts";
+import {
+  getCast,
+  resolveCastPhotoDisplayUrl,
+  resolveCastPhotoSource,
+} from "@/lib/api.casts";
 import { getToken } from "@/lib/device";
 import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import { listShopOrders, type ShopOrderRecord } from "@/lib/api.shop-orders";
@@ -269,15 +273,6 @@ export function readMobileChatCastProfileCache(): Record<string, MobileChatCastP
   }
 }
 
-function pickRawProfilePhoto(detail: Awaited<ReturnType<typeof getCast>>): string | null {
-  const urls = [
-    ...(Array.isArray(detail.profilePhotos) ? detail.profilePhotos : []),
-    detail.profilePhotoUrl,
-  ].filter((value): value is string => typeof value === "string" && value.length > 0);
-
-  return urls[0] ?? null;
-}
-
 function toWageText(value: number | string | null | undefined): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value.toLocaleString("ja-JP");
@@ -294,16 +289,12 @@ export async function fetchMobileChatCastProfile(
   room: MobileChatRoom,
 ): Promise<MobileChatCastProfile> {
   const detail = await getCast(room.castId);
-  const rawPhoto = pickRawProfilePhoto(detail);
-  const photoUrl = rawPhoto
-    ? /^https?:\/\//i.test(rawPhoto)
-      ? rawPhoto
-      : await getCastSignedPhotoUrl({
-          castId: room.castId,
-          purpose: "profile",
-          urlOrPath: rawPhoto,
-        })
-    : null;
+  const rawPhoto = resolveCastPhotoSource(detail);
+  const photoUrl = await resolveCastPhotoDisplayUrl({
+    castId: room.castId,
+    purpose: "profile",
+    urlOrPath: rawPhoto,
+  });
 
   return {
     castId: room.castId,

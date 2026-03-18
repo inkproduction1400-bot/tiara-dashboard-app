@@ -8,7 +8,8 @@ import {
   listTodayCasts,
   listCasts as fetchCastList,
   getCast,
-  getCastSignedPhotoUrl,
+  resolveCastPhotoDisplayUrl,
+  resolveCastPhotoSource,
 } from "@/lib/api.casts";
 import {
   listShopOrders,
@@ -333,37 +334,8 @@ const shopKanaKey = (shop: Shop): string => {
   return shop.name ?? "";
 };
 
-const resolvePhotoUrl = (item: any): string | undefined => {
-  const direct =
-    item?.profilePhotoUrl ??
-    item?.profile_photo_url ??
-    item?.photoUrl ??
-    item?.photo_url ??
-    item?.imageUrl ??
-    item?.image_url ??
-    null;
-  if (typeof direct === "string" && direct.trim()) return direct.trim();
-
-  const arrays = [
-    item?.profilePhotos,
-    item?.profile_photos,
-    item?.photoUrls,
-    item?.photo_urls,
-    item?.images,
-    item?.image_urls,
-  ];
-  for (const arr of arrays) {
-    if (Array.isArray(arr) && arr.length > 0) {
-      const first = arr.find((u: any) => typeof u === "string" && u.trim());
-      if (first) return String(first).trim();
-    }
-  }
-  return undefined;
-};
-
-const isLocalPreviewUrl = (value?: string) =>
-  typeof value === "string" &&
-  (value.startsWith("blob:") || value.startsWith("data:"));
+const resolvePhotoUrl = (item: any): string | undefined =>
+  resolveCastPhotoSource(item) ?? undefined;
 
 const parseWageMinFromLabel = (label?: string | null): number | null => {
   if (!label) return null;
@@ -2576,15 +2548,13 @@ export default function Page() {
           try {
             const detail = await getCast(c.id);
             const rawUrl = resolvePhotoUrl(detail);
-            const signedUrl = rawUrl
-              ? await getCastSignedPhotoUrl({
+            const finalUrl = rawUrl
+              ? await resolveCastPhotoDisplayUrl({
                   castId: c.id,
                   purpose: "profile",
                   urlOrPath: rawUrl,
                 })
               : null;
-            const finalUrl =
-              signedUrl ?? (isLocalPreviewUrl(rawUrl) ? rawUrl : null);
             if (finalUrl && !cancelled) {
               setPhotoByCastId((prev) =>
                 prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
@@ -2635,13 +2605,11 @@ export default function Page() {
         targets.map(async (c) => {
           const rawUrl = resolvePhotoUrl(c);
           if (!rawUrl) return;
-          const signedUrl = await getCastSignedPhotoUrl({
+          const finalUrl = await resolveCastPhotoDisplayUrl({
             castId: c.id,
             purpose: "profile",
             urlOrPath: rawUrl,
           });
-          const finalUrl =
-            signedUrl ?? (isLocalPreviewUrl(rawUrl) ? rawUrl : null);
           if (finalUrl && !cancelled) {
             setPhotoByCastId((prev) =>
               prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },

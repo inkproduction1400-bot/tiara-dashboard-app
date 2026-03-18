@@ -1,7 +1,7 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { Pin } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MobileChatCastProfile, MobileChatRoom } from "./mobileApi";
 
 type ChatListItemProps = {
@@ -16,7 +16,9 @@ type ChatListItemProps = {
 };
 
 const SWIPE_ACTION_WIDTH = 80;
-const SWIPE_OPEN_THRESHOLD = 36;
+const SWIPE_INTENT_THRESHOLD = 8;
+const SWIPE_TAP_GUARD_THRESHOLD = 10;
+const SWIPE_OPEN_THRESHOLD = 28;
 
 function formatListTime(value: string) {
   const date = new Date(value);
@@ -56,85 +58,97 @@ export function ChatListItem({
   swipeOpen = false,
   onSwipeOpenChange,
 }: ChatListItemProps) {
-  const pointerState = useRef<{
-    id: number;
+  const touchState = useRef<{
     startX: number;
     startY: number;
-    dragging: boolean;
-    horizontal: boolean;
+    baseOffset: number;
+    swiping: boolean;
   } | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
+  const suppressTapRef = useRef(false);
+  const [offsetX, setOffsetX] = useState(swipeOpen ? SWIPE_ACTION_WIDTH : 0);
 
   useEffect(() => {
-    if (!swipeOpen) {
-      setDragOffset(0);
+    if (!touchState.current) {
+      setOffsetX(swipeOpen ? SWIPE_ACTION_WIDTH : 0);
     }
   }, [swipeOpen]);
 
-  const translateX = useMemo(() => {
-    if (dragOffset > 0) {
-      return Math.min(dragOffset, SWIPE_ACTION_WIDTH);
-    }
-    return swipeOpen ? SWIPE_ACTION_WIDTH : 0;
-  }, [dragOffset, swipeOpen]);
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
 
-  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    pointerState.current = {
-      id: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      dragging: true,
-      horizontal: false,
+    touchState.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      baseOffset: swipeOpen ? SWIPE_ACTION_WIDTH : 0,
+      swiping: false,
     };
+    suppressTapRef.current = false;
   };
 
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = pointerState.current;
-    if (!state || state.id !== event.pointerId || !state.dragging) return;
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const state = touchState.current;
+    const touch = event.touches[0];
+    if (!state || !touch) return;
 
-    const deltaX = event.clientX - state.startX;
-    const deltaY = event.clientY - state.startY;
+    const deltaX = touch.clientX - state.startX;
+    const deltaY = touch.clientY - state.startY;
 
-    if (!state.horizontal) {
-      if (Math.abs(deltaY) > 10 && Math.abs(deltaY) > Math.abs(deltaX)) {
-        pointerState.current = null;
-        setDragOffset(0);
+    if (!state.swiping) {
+      if (Math.abs(deltaX) < SWIPE_INTENT_THRESHOLD) {
         return;
       }
-      if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
-        state.horizontal = true;
+
+      if (deltaX > 0 && Math.abs(deltaX) >= Math.abs(deltaY) * 0.65) {
+        state.swiping = true;
+      } else if (deltaX < 0 && state.baseOffset > 0 && Math.abs(deltaX) >= Math.abs(deltaY) * 0.65) {
+        state.swiping = true;
+      } else if (Math.abs(deltaY) > SWIPE_INTENT_THRESHOLD * 1.5) {
+        touchState.current = null;
+        return;
       } else {
         return;
       }
     }
 
     event.preventDefault();
-    if (deltaX <= 0) {
-      setDragOffset(0);
-      if (swipeOpen && Math.abs(deltaX) > SWIPE_OPEN_THRESHOLD) {
-        onSwipeOpenChange?.(false);
-      }
-      return;
+    const nextOffset = Math.max(
+      0,
+      Math.min(state.baseOffset + deltaX, SWIPE_ACTION_WIDTH),
+    );
+    setOffsetX(nextOffset);
+
+    if (Math.abs(deltaX) > SWIPE_TAP_GUARD_THRESHOLD) {
+      suppressTapRef.current = true;
     }
-
-    setDragOffset(Math.min(deltaX, SWIPE_ACTION_WIDTH));
   };
 
-  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = pointerState.current;
-    if (!state || state.id !== event.pointerId) return;
-
-    const deltaX = event.clientX - state.startX;
-    const shouldOpen = deltaX > SWIPE_OPEN_THRESHOLD;
+  const finalizeSwipe = () => {
+    const shouldOpen = offsetX >= SWIPE_OPEN_THRESHOLD;
     onSwipeOpenChange?.(shouldOpen);
-    setDragOffset(0);
-    pointerState.current = null;
+    setOffsetX(shouldOpen ? SWIPE_ACTION_WIDTH : 0);
+    touchState.current = null;
   };
 
-  const handlePointerCancel = () => {
-    pointerState.current = null;
-    setDragOffset(0);
+  const handleTouchEnd = () => {
+    if (!touchState.current) return;
+    finalizeSwipe();
+  };
+
+  const handleTouchCancel = () => {
+    if (!touchState.current) return;
+    setOffsetX(swipeOpen ? SWIPE_ACTION_WIDTH : 0);
+    touchState.current = null;
+  };
+
+  const suppressIfDragged = (event: React.SyntheticEvent) => {
+    if (!suppressTapRef.current) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    window.setTimeout(() => {
+      suppressTapRef.current = false;
+    }, 0);
+    return true;
   };
 
   return (
@@ -158,19 +172,20 @@ export function ChatListItem({
 
       <div
         className={clsx(
-          "tiara-mobile-card relative z-10 w-full min-w-0 max-w-full overflow-hidden border transition-transform duration-200 ease-out",
+          "tiara-mobile-card relative z-10 w-full min-w-0 max-w-full touch-pan-y overflow-hidden border transition-transform duration-200 ease-out select-none",
           active ? "border-[#0b8ef3]/40 bg-[#f2f9ff]" : "border-white/70",
         )}
-        style={{ transform: `translateX(${translateX}px)` }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        onPointerCancel={handlePointerCancel}
+        style={{ transform: `translateX(${offsetX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
       >
         <div className="flex w-full min-w-0 max-w-full items-center gap-3 px-3 py-2.5">
           <button
             type="button"
             onClick={(event) => {
+              if (suppressIfDragged(event)) return;
               event.preventDefault();
               event.stopPropagation();
               onSwipeOpenChange?.(false);
@@ -195,7 +210,10 @@ export function ChatListItem({
           <Link
             href={`/m/chat/${room.id}`}
             className="block min-w-0 flex-1 overflow-hidden"
-            onClick={() => onSwipeOpenChange?.(false)}
+            onClick={(event) => {
+              if (suppressIfDragged(event)) return;
+              onSwipeOpenChange?.(false);
+            }}
           >
             <div className="flex min-w-0 items-start gap-3">
               <div className="min-w-0 flex-1">

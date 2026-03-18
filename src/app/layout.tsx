@@ -16,14 +16,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0b8ef3" />
       </head>
-      <body className="min-h-dvh text-ink antialiased">
+      <body className="min-h-dvh w-full max-w-full overflow-x-hidden text-ink antialiased">
         {/* 背景グラデーション（ライトテーマ固定） */}
         <div className="tiara-bg" aria-hidden />
 
         <PwaBootstrap />
 
         {/* コンテンツ */}
-        {children}
+        <div className="min-h-dvh w-full max-w-full overflow-x-hidden">{children}</div>
 
         {/* フッターマーク */}
         <div className="fixed bottom-2 right-3 text-xs text-muted">© TIARA</div>

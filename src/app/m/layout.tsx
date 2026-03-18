@@ -13,5 +13,5 @@ export default function MobileLayout({
     redirect("/dashboard");
   }
 
-  return <div className="tiara-mobile-scope">{children}</div>;
+  return <div className="tiara-mobile-scope w-full max-w-full overflow-x-hidden">{children}</div>;
 }

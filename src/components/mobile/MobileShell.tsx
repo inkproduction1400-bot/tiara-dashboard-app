@@ -37,19 +37,19 @@ export function MobileShell({
   return (
     <div
       className={clsx(
-        "min-h-dvh w-full max-w-full overflow-x-clip pb-24",
+        "min-h-dvh w-full max-w-full overflow-x-hidden pb-24",
         edgeToEdge ? "pt-0" : "px-3 pt-3",
       )}
     >
       <div
         className={clsx(
-          "mx-auto w-full min-w-0 overflow-x-clip",
+          "mx-auto w-full min-w-0 max-w-full overflow-x-hidden",
           edgeToEdge ? "max-w-full" : "max-w-[420px]",
         )}
       >
         <div
           className={clsx(
-            "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip overflow-y-hidden",
+            "min-h-dvh w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden",
             edgeToEdge
               ? "bg-white"
               : "tiara-mobile-surface min-h-[calc(100dvh-1.5rem)]",

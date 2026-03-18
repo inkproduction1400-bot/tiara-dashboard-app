@@ -32,6 +32,7 @@ export function ChatList({
 }: ChatListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [draftStaffs, setDraftStaffs] = useState<string[]>(selectedStaffs);
+  const [activeSwipeRoomId, setActiveSwipeRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!filterOpen) {
@@ -89,6 +90,10 @@ export function ChatList({
               onTogglePin={onTogglePin}
               onOpenProfile={onOpenProfile}
               profile={castProfiles[room.castId] ?? null}
+              swipeOpen={activeSwipeRoomId === room.id}
+              onSwipeOpenChange={(open) =>
+                setActiveSwipeRoomId((current) => (open ? room.id : current === room.id ? null : current))
+              }
             />
           ))
         ) : (

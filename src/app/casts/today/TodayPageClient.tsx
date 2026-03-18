@@ -8,6 +8,8 @@ import {
   listTodayCasts,
   listCasts as fetchCastList,
   getCast,
+  isHttpUrl,
+  isLocalPreviewUrl,
   resolveCastPhotoDisplayUrl,
   resolveCastPhotoSource,
 } from "@/lib/api.casts";
@@ -336,6 +338,12 @@ const shopKanaKey = (shop: Shop): string => {
 
 const resolvePhotoUrl = (item: any): string | undefined =>
   resolveCastPhotoSource(item) ?? undefined;
+
+const resolveImmediateDisplayPhotoUrl = (item: any): string | undefined => {
+  const raw = resolvePhotoUrl(item);
+  if (!raw) return undefined;
+  return isLocalPreviewUrl(raw) || isHttpUrl(raw) ? raw : undefined;
+};
 
 const parseWageMinFromLabel = (label?: string | null): number | null => {
   if (!label) return null;
@@ -1307,7 +1315,7 @@ export default function Page() {
         const allPhotoMap = new Map<string, string | undefined>(
           (allResp.items ?? []).map((item: any) => [
             item.userId ?? item.id ?? "",
-            resolvePhotoUrl(item),
+            resolveImmediateDisplayPhotoUrl(item),
           ]),
         );
 
@@ -1324,7 +1332,9 @@ export default function Page() {
             (item as any).drinkLevel ?? (item as any).drinkOk,
           ),
           photoUrl:
-            resolvePhotoUrl(item) ?? allPhotoMap.get(item.castId) ?? undefined,
+            resolveImmediateDisplayPhotoUrl(item) ??
+            allPhotoMap.get(item.castId) ??
+            undefined,
           hasExclusive: getCastExclusiveFlag(item),
           hasNominated: getCastNominatedFlag(item),
           exclusiveShopId: getCastExclusiveShopId(item),
@@ -1351,7 +1361,7 @@ export default function Page() {
             drinkLevel: mapDrinkLevel(
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
-            photoUrl: resolvePhotoUrl(item) ?? undefined,
+            photoUrl: resolveImmediateDisplayPhotoUrl(item) ?? undefined,
             hasExclusive: getCastExclusiveFlag(item),
             hasNominated: getCastNominatedFlag(item),
             exclusiveShopId: getCastExclusiveShopId(item),
@@ -2002,7 +2012,7 @@ export default function Page() {
           prev[castId] ? prev : { ...prev, [castId]: detail },
         );
         const url = resolvePhotoUrl(detail);
-        if (url) {
+        if (url && (isLocalPreviewUrl(url) || isHttpUrl(url))) {
           setPhotoByCastId((prev) =>
             prev[castId] ? prev : { ...prev, [castId]: url },
           );

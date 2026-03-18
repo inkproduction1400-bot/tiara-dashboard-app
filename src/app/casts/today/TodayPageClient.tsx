@@ -4,12 +4,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { CastPhotoImage } from "@/components/CastPhotoImage";
 import {
   listTodayCasts,
   listCasts as fetchCastList,
   getCast,
   isHttpUrl,
   isLocalPreviewUrl,
+  resolveLegacyPhotoFallbackUrl,
   resolveCastPhotoDisplayUrl,
   resolveCastPhotoSource,
 } from "@/lib/api.casts";
@@ -90,6 +92,7 @@ type Cast = {
   /** 飲酒レベル: NG / 弱い / 普通 / 強い / 未登録(null) */
   drinkLevel: DrinkLevel;
   photoUrl?: string;
+  photoUrlRaw?: string;
   hasExclusive?: boolean;
   hasNominated?: boolean;
   /** 専属店舗ID（キャスト側に紐付けがある場合） */
@@ -885,6 +888,9 @@ export default function Page() {
   const [photoByCastId, setPhotoByCastId] = useState<Record<string, string>>(
     {},
   );
+  const [photoFallbackByCastId, setPhotoFallbackByCastId] = useState<Record<string, string>>(
+    {},
+  );
   const [castDetailById, setCastDetailById] = useState<Record<string, any>>(
     {},
   );
@@ -1318,6 +1324,12 @@ export default function Page() {
             resolveImmediateDisplayPhotoUrl(item),
           ]),
         );
+        const allPhotoFallbackMap = new Map<string, string | undefined>(
+          (allResp.items ?? []).map((item: any) => [
+            item.userId ?? item.id ?? "",
+            resolveLegacyPhotoFallbackUrl(item) ?? undefined,
+          ]),
+        );
 
         // 本日出勤キャスト
         const todayList: Cast[] = todayResp.items.map((item) => ({
@@ -1334,6 +1346,10 @@ export default function Page() {
           photoUrl:
             resolveImmediateDisplayPhotoUrl(item) ??
             allPhotoMap.get(item.castId) ??
+            undefined,
+          photoUrlRaw:
+            resolveLegacyPhotoFallbackUrl(item) ??
+            allPhotoFallbackMap.get(item.castId) ??
             undefined,
           hasExclusive: getCastExclusiveFlag(item),
           hasNominated: getCastNominatedFlag(item),
@@ -1362,6 +1378,7 @@ export default function Page() {
               (item as any).drinkLevel ?? (item as any).drinkOk,
             ),
             photoUrl: resolveImmediateDisplayPhotoUrl(item) ?? undefined,
+            photoUrlRaw: resolveLegacyPhotoFallbackUrl(item) ?? undefined,
             hasExclusive: getCastExclusiveFlag(item),
             hasNominated: getCastNominatedFlag(item),
             exclusiveShopId: getCastExclusiveShopId(item),
@@ -2558,6 +2575,7 @@ export default function Page() {
           try {
             const detail = await getCast(c.id);
             const rawUrl = resolvePhotoUrl(detail);
+            const fallbackUrl = resolveLegacyPhotoFallbackUrl(detail) ?? c.photoUrlRaw ?? null;
             const finalUrl = rawUrl
               ? await resolveCastPhotoDisplayUrl({
                   castId: c.id,
@@ -2568,6 +2586,11 @@ export default function Page() {
             if (finalUrl && !cancelled) {
               setPhotoByCastId((prev) =>
                 prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
+              );
+            }
+            if (fallbackUrl && !cancelled) {
+              setPhotoFallbackByCastId((prev) =>
+                prev[c.id] ? prev : { ...prev, [c.id]: fallbackUrl },
               );
             }
             if (!cancelled) {
@@ -2615,6 +2638,7 @@ export default function Page() {
         targets.map(async (c) => {
           const rawUrl = resolvePhotoUrl(c);
           if (!rawUrl) return;
+          const fallbackUrl = resolveLegacyPhotoFallbackUrl(c);
           const finalUrl = await resolveCastPhotoDisplayUrl({
             castId: c.id,
             purpose: "profile",
@@ -2623,6 +2647,11 @@ export default function Page() {
           if (finalUrl && !cancelled) {
             setPhotoByCastId((prev) =>
               prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
+            );
+          }
+          if (fallbackUrl && !cancelled) {
+            setPhotoFallbackByCastId((prev) =>
+              prev[c.id] ? prev : { ...prev, [c.id]: fallbackUrl },
             );
           }
         }),
@@ -3192,7 +3221,9 @@ export default function Page() {
               >
               {!loading &&
                 filteredCasts.map((cast: Cast) => {
-                  const photoUrl = photoByCastId[cast.id] ?? "";
+                  const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl ?? "";
+                  const photoFallbackUrl =
+                    photoFallbackByCastId[cast.id] ?? cast.photoUrlRaw ?? "";
                   const badgeIcons = getCastBadgeIcons(cast);
                   const isFixed =
                     !!selectedShop &&
@@ -3214,11 +3245,16 @@ export default function Page() {
                       >
                       <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden relative">
                         {photoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <CastPhotoImage
                             src={photoUrl}
+                            fallbackSrc={photoFallbackUrl || undefined}
                             alt={cast.name}
                             className="w-full h-full object-cover"
+                            fallback={
+                              <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                                PHOTO
+                              </div>
+                            }
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
@@ -3587,14 +3623,13 @@ export default function Page() {
                   return (
                     <>
                       <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
-                        {photoByCastId[selectedCast.id] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={
-                              photoByCastId[selectedCast.id]
-                            }
+                        {(photoByCastId[selectedCast.id] ?? selectedCast.photoUrl) ? (
+                          <CastPhotoImage
+                            src={photoByCastId[selectedCast.id] ?? selectedCast.photoUrl}
+                            fallbackSrc={photoFallbackByCastId[selectedCast.id] ?? selectedCast.photoUrlRaw}
                             alt={selectedCast.name}
                             className="w-full h-full object-cover"
+                            fallback={<span className="text-xs text-gray-500">NO PHOTO</span>}
                           />
                         ) : (
                           <span className="text-xs text-gray-500">NO PHOTO</span>
@@ -4403,12 +4438,17 @@ export default function Page() {
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-9 h-9 overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {photoByCastId[c.id] ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={photoByCastId[c.id]}
+                            {(photoByCastId[c.id] ?? c.photoUrl) ? (
+                              <CastPhotoImage
+                                src={photoByCastId[c.id] ?? c.photoUrl}
+                                fallbackSrc={photoFallbackByCastId[c.id] ?? c.photoUrlRaw}
                                 alt={c.name}
                                 className="w-full h-full object-cover"
+                                fallback={
+                                  <span className="text-[10px] text-ink/80">
+                                    {c.name.slice(0, 2)}
+                                  </span>
+                                }
                               />
                             ) : (
                               <span className="text-[10px] text-ink/80">

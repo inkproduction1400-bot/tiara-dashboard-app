@@ -41,6 +41,8 @@ export type CastListItem = {
   desiredHourly?: number | null;
   /** NEW: キャストID（英字+数字ランダム） */
   castCode?: string | null;
+  photoUrl?: string | null;
+  photoUrlRaw?: string | null;
 };
 
 export type CastListResponse = {
@@ -225,7 +227,10 @@ export type CastDetail = {
   drinkOk: boolean | null;
   hasExperience: boolean | null;
   note: string | null;
+  photoUrlRaw?: string | null;
+  profilePhotoUrlRaw?: string | null;
   profilePhotoUrl: string | null;
+  profilePhotosRaw?: string[];
 
   /** NEW: 写真URL配列（profile / 身分証） */
   profilePhotos: string[];
@@ -554,6 +559,8 @@ export async function listCasts(
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
     castCode: it.castCode ?? null,
+    photoUrl: normalizeCastPhotoUrl(it.photoUrl ?? null),
+    photoUrlRaw: normalizeCastPhotoUrl(it.photoUrlRaw ?? null),
   });
 
   if (Array.isArray(raw)) {
@@ -764,6 +771,37 @@ export function resolveCastPhotoSource(input: any): string | null {
   return null;
 }
 
+export function resolveCastPhotoRawSource(input: any): string | null {
+  const direct = [
+    input?.photoUrlRaw,
+    input?.profilePhotoUrlRaw,
+    input?.photo_url_raw,
+    input?.profile_photo_url_raw,
+  ];
+
+  for (const value of direct) {
+    const normalized = normalizeCastPhotoUrl(value);
+    if (normalized) return normalized;
+  }
+
+  const arrays = [
+    input?.profilePhotosRaw,
+    input?.profile_photos_raw,
+    input?.photoUrlsRaw,
+    input?.photo_urls_raw,
+  ];
+
+  for (const arr of arrays) {
+    if (!Array.isArray(arr)) continue;
+    for (const value of arr) {
+      const normalized = normalizeCastPhotoUrl(value);
+      if (normalized) return normalized;
+    }
+  }
+
+  return null;
+}
+
 export function extractLegacyStorageKey(input?: string | null): string | null {
   const normalized = normalizeCastPhotoUrl(input);
   if (!normalized) return null;
@@ -862,6 +900,12 @@ export async function resolveCastPhotoDisplayUrl(input: {
       urlOrPath: raw,
     })) ?? null
   );
+}
+
+export function resolveLegacyPhotoFallbackUrl(input: any): string | null {
+  const raw = resolveCastPhotoRawSource(input);
+  if (!raw) return null;
+  return isHttpUrl(raw) && extractLegacyStorageKey(raw) ? raw : null;
 }
 
 

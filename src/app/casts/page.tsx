@@ -5,6 +5,7 @@
 import React from "react";
 import { useMemo, useState, useEffect, type MouseEvent, useCallback, type Dispatch, type SetStateAction, type ReactNode, useRef } from "react";
 import AppShell from "@/components/AppShell";
+import { CastPhotoImage } from "@/components/CastPhotoImage";
 import { createPortal } from "react-dom";
 import {
   listCasts,
@@ -22,6 +23,7 @@ import {
   getCastSignedPhotoUrl,
   isHttpUrl,
   normalizeCastPhotoUrl,
+  resolveLegacyPhotoFallbackUrl,
   getCastShiftRequests,
   type CastShiftRequestSelection,
 } from "@/lib/api.casts";
@@ -32,12 +34,12 @@ import { apiPost } from "@/lib/api";
 const isLocalPreviewUrl = (value: string) =>
   value.startsWith("blob:") || value.startsWith("data:");
 type PhotoSliderProps = {
-  urls: string[];
+  entries: { display: string; fallback: string | null }[];
   onOpen?: (index: number) => void;
   className?: string;
 };
 
-function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
+function PhotoSlider({ entries, onOpen, className }: PhotoSliderProps) {
   const [active, setActive] = useState(0);
   // Swipe
   const touchRef = useRef<{ x: number; y: number; at: number } | null>(null);
@@ -46,18 +48,18 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
   const SWIPE_MAX_MS = 700; // ms
 
   const goPrev = React.useCallback(() => {
-    setActive((v) => (v - 1 + urls.length) % urls.length);
-  }, [urls.length]);
+    setActive((v) => (v - 1 + entries.length) % entries.length);
+  }, [entries.length]);
 
   const goNext = React.useCallback(() => {
-    setActive((v) => (v + 1) % urls.length);
-  }, [urls.length]);
+    setActive((v) => (v + 1) % entries.length);
+  }, [entries.length]);
 
   useEffect(() => {
-    if (active >= urls.length) setActive(0);
-  }, [active, urls.length]);
+    if (active >= entries.length) setActive(0);
+  }, [active, entries.length]);
 
-  if (!urls || urls.length === 0) {
+  if (!entries || entries.length === 0) {
     return (
       <div
         className={
@@ -70,7 +72,7 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
     );
   }
 
-  const current = urls[active];
+  const current = entries[active];
 
   const ArrowLeftIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -136,17 +138,24 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
           else goNext();
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current}
-          alt={`写真 ${active + 1}`}
-          className="w-full h-full object-cover cursor-zoom-in"
+        <button
+          type="button"
+          className="h-full w-full"
           onClick={() => onOpen?.(active)}
-          draggable={false}
-        />
+          aria-label={`写真 ${active + 1} を拡大`}
+        >
+          <CastPhotoImage
+            src={current?.display}
+            fallbackSrc={current?.fallback}
+            alt={`写真 ${active + 1}`}
+            className="w-full h-full object-cover cursor-zoom-in"
+            draggable={false}
+            fallback={<div className="h-full w-full bg-neutral-100" />}
+          />
+        </button>
 
         {/* 左右アイコンボタン（2枚以上のときだけ表示） */}
-        {urls.length > 1 && (
+        {entries.length > 1 && (
           <>
             <button
               type="button"
@@ -168,7 +177,7 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
 
             {/* インジケータ（●●●） */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-full bg-black/35">
-              {urls.map((_, i) => (
+              {entries.map((_, i) => (
                 <button
                   key={"dot-" + i}
                   type="button"
@@ -186,12 +195,12 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
       </div>
 
       {/* サムネ（2枚以上のとき） */}
-      {urls.length > 1 && (
+      {entries.length > 1 && (
         <div className="mt-3 flex items-center justify-center">
           <div className="flex items-center gap-2 overflow-x-auto max-w-full px-1">
-            {urls.map((u, i) => (
+            {entries.map((entry, i) => (
               <button
-                key={u + i}
+                key={`${entry.display}-${i}`}
                 type="button"
                 className={[
                   "w-12 h-12 rounded-xl overflow-hidden border shrink-0",
@@ -200,8 +209,14 @@ function PhotoSlider({ urls, onOpen, className }: PhotoSliderProps) {
                 onClick={() => setActive(i)}
                 aria-label={`写真 ${i + 1} を表示`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={u} alt="" className="w-full h-full object-cover" draggable={false} />
+                <CastPhotoImage
+                  src={entry.display}
+                  fallbackSrc={entry.fallback}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                  fallback={<div className="h-full w-full bg-neutral-100" />}
+                />
               </button>
             ))}
           </div>
@@ -1310,14 +1325,21 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       : [];
 
     // ✅ 本番API: buildCastDetail が返す（camelCase）
-    const v2 = Array.isArray(c.profilePhotos) ? c.profilePhotos : [];
+    const v2 =
+      Array.isArray(c.profilePhotosRaw) && c.profilePhotosRaw.length > 0
+        ? c.profilePhotosRaw
+        : Array.isArray(c.profilePhotos)
+          ? c.profilePhotos
+          : [];
 
     // ✅ 旧/暫定: snake_case（過去DB/実装の名残）もフォールバックで吸収
     const v1 = Array.isArray(c.profile_photos) ? c.profile_photos : [];
 
     // ✅ さらに旧: 単発URL（camelCase / snake_case どちらも吸収）
     const singleRaw =
-      typeof c.profilePhotoUrl === "string"
+      typeof c.profilePhotoUrlRaw === "string"
+        ? c.profilePhotoUrlRaw
+        : typeof c.profilePhotoUrl === "string"
         ? c.profilePhotoUrl
         : typeof c.profile_photo_url === "string"
           ? c.profile_photo_url
@@ -1374,13 +1396,14 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
     return photoUrls
       .map((raw) => {
         if (!raw) return null;
+        const fallback = resolveLegacyPhotoFallbackUrl({ photoUrlRaw: raw });
         if (isLocalPreviewUrl(raw) || (isHttpUrl(raw) && !extractLegacyStorageKey(raw))) {
-          return { raw, display: raw };
+          return { raw, display: raw, fallback: null };
         }
         const signed = signedPhotoByUrl[raw];
-        return signed ? { raw, display: signed } : null;
+        return signed ? { raw, display: signed, fallback } : null;
       })
-      .filter(Boolean) as { raw: string; display: string }[];
+      .filter(Boolean) as { raw: string; display: string; fallback: string | null }[];
   }, [photoUrls, signedPhotoByUrl]);
 
   useEffect(() => {
@@ -2334,7 +2357,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
                     <div className="space-y-2">
             <PhotoSlider
-              urls={photoEntries.map((p) => p.display)}
+              entries={photoEntries}
               onOpen={(i) => {
                 setActivePhotoIndex(i);
                 setPhotoModalOpen(true);
@@ -3273,11 +3296,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
 
             <div className="w-full rounded-2xl overflow-hidden bg-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <CastPhotoImage
                 src={photoEntries[activePhotoIndex]?.display}
+                fallbackSrc={photoEntries[activePhotoIndex]?.fallback}
                 alt="拡大写真"
                 className="w-full h-auto object-contain max-h-[75vh]"
+                fallback={<div className="h-[40vh] w-full bg-black" />}
+                loading="eager"
               />
             </div>
           </div>

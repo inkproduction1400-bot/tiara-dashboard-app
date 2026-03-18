@@ -4,7 +4,9 @@ import { API_BASE } from "@/lib/api";
 import {
   extractLegacyStorageKey,
   getCast,
+  resolveCastPhotoRawSource,
   resolveCastPhotoDisplayUrl,
+  resolveLegacyPhotoFallbackUrl,
   resolveCastPhotoSource,
 } from "@/lib/api.casts";
 import { getToken } from "@/lib/device";
@@ -26,6 +28,7 @@ export type MobileChatRoom = {
   genreText: string;
   wageText: string;
   photoUrl: string | null;
+  photoUrlRaw: string | null;
 };
 
 const MOBILE_CHAT_ROOMS_LIMIT = 20;
@@ -52,6 +55,7 @@ export type MobileChatCastProfile = {
   shiftStatus: string;
   assignmentStatus: string;
   photoUrl: string | null;
+  photoUrlRaw: string | null;
 };
 
 type ApiMessage = {
@@ -219,6 +223,7 @@ function mapMobileChatRoom(room: ApiRoom, index: number): MobileChatRoom | null 
       .join(" "),
     wageText: String(room.cast?.preferences?.[0]?.desiredHourly ?? "").trim(),
     photoUrl: null,
+    photoUrlRaw: null,
   } satisfies MobileChatRoom;
 }
 
@@ -277,6 +282,7 @@ export function readMobileChatCastProfileCache(): Record<string, MobileChatCastP
             profile?.photoUrl && extractLegacyStorageKey(profile.photoUrl)
               ? null
               : profile?.photoUrl ?? null,
+          photoUrlRaw: resolveLegacyPhotoFallbackUrl(profile),
         },
       ],
     );
@@ -304,6 +310,12 @@ export async function fetchMobileChatCastProfile(
 ): Promise<MobileChatCastProfile> {
   const detail = await getCast(room.castId);
   const rawPhoto = resolveCastPhotoSource(detail);
+  const rawFallbackPhoto =
+    resolveLegacyPhotoFallbackUrl(detail) ??
+    resolveLegacyPhotoFallbackUrl(room) ??
+    (resolveCastPhotoRawSource(detail) === rawPhoto
+      ? resolveLegacyPhotoFallbackUrl({ photoUrlRaw: rawPhoto })
+      : null);
   const photoUrl = await resolveCastPhotoDisplayUrl({
     castId: room.castId,
     purpose: "profile",
@@ -323,6 +335,7 @@ export async function fetchMobileChatCastProfile(
     shiftStatus: room.shiftStatus,
     assignmentStatus: room.assignmentStatus,
     photoUrl,
+    photoUrlRaw: rawFallbackPhoto,
   };
 }
 

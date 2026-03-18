@@ -161,7 +161,7 @@ export default function ChatDetailPageClient({
         onRefresh={() => void load()}
         contentClassName="max-w-[420px] px-3"
       />
-      <div className="mx-auto flex w-full min-w-0 max-w-[420px] flex-1 flex-col px-3">
+      <div className="mx-auto box-border flex w-full min-w-0 max-w-[420px] flex-1 flex-col px-3">
         {loading ? (
           <>
             <div className="border-b border-slate-100 pb-4">

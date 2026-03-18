@@ -20,25 +20,27 @@ export function MobileBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="tiara-mobile-card tiara-mobile-pill fixed inset-x-3 bottom-4 z-40 mx-auto flex max-w-[420px] items-center justify-around border px-2 py-2 backdrop-blur">
-      {ITEMS.map(({ href, label, match, Icon }) => {
-        const active = pathname === match || pathname?.startsWith(`${match}/`);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={clsx(
-              "tiara-mobile-pill flex min-w-0 flex-1 flex-col items-center gap-1 px-2 py-2 text-[11px] font-semibold transition",
-              active
-                ? "bg-[#0b8ef3] text-white shadow-[0_10px_24px_rgba(11,142,243,0.35)]"
-                : "text-slate-500",
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="truncate">{label}</span>
-          </Link>
-        );
-      })}
-    </nav>
+    <div className="fixed inset-x-0 bottom-4 z-40 flex w-full max-w-full justify-center overflow-x-hidden px-3">
+      <nav className="tiara-mobile-card tiara-mobile-pill flex w-full max-w-[420px] items-center justify-around border px-2 py-2 backdrop-blur">
+        {ITEMS.map(({ href, label, match, Icon }) => {
+          const active = pathname === match || pathname?.startsWith(`${match}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={clsx(
+                "tiara-mobile-pill flex min-w-0 flex-1 flex-col items-center gap-1 px-2 py-2 text-[11px] font-semibold transition",
+                active
+                  ? "bg-[#0b8ef3] text-white shadow-[0_10px_24px_rgba(11,142,243,0.35)]"
+                  : "text-slate-500",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="truncate">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
 }

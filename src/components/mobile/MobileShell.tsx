@@ -60,8 +60,10 @@ export function MobileShell({
       </div>
       {withBottomNav ? <MobileBottomNav /> : null}
       {toast ? (
-        <div className="tiara-mobile-pill fixed inset-x-4 top-4 z-50 mx-auto box-border max-w-[360px] truncate bg-slate-900/92 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
-          {toast}
+        <div className="fixed inset-x-0 top-4 z-50 flex w-full max-w-full justify-center overflow-x-hidden px-4">
+          <div className="tiara-mobile-pill box-border w-full max-w-[360px] truncate bg-slate-900/92 px-4 py-2 text-center text-xs font-semibold text-white shadow-lg">
+            {toast}
+          </div>
         </div>
       ) : null}
     </div>

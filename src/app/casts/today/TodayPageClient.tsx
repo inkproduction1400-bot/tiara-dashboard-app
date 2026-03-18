@@ -2028,10 +2028,18 @@ export default function Page() {
         setCastDetailById((prev) =>
           prev[castId] ? prev : { ...prev, [castId]: detail },
         );
-        const url = resolvePhotoUrl(detail);
-        if (url && (isLocalPreviewUrl(url) || isHttpUrl(url))) {
+        const detailPhotoUrl =
+          resolveImmediateDisplayPhotoUrl(detail) ?? undefined;
+        const detailPhotoFallback =
+          resolveLegacyPhotoFallbackUrl(detail) ?? undefined;
+        if (detailPhotoUrl) {
           setPhotoByCastId((prev) =>
-            prev[castId] ? prev : { ...prev, [castId]: url },
+            prev[castId] ? prev : { ...prev, [castId]: detailPhotoUrl },
+          );
+        }
+        if (detailPhotoFallback) {
+          setPhotoFallbackByCastId((prev) =>
+            prev[castId] ? prev : { ...prev, [castId]: detailPhotoFallback },
           );
         }
         const drinkLevel = getDrinkLevelFromDetail(detail);
@@ -2051,6 +2059,8 @@ export default function Page() {
                   heightCm,
                   bodyType,
                   genres,
+                  photoUrl: detailPhotoUrl ?? c.photoUrl,
+                  photoUrlRaw: detailPhotoFallback ?? c.photoUrlRaw,
                 }
               : c,
           ),
@@ -2066,6 +2076,8 @@ export default function Page() {
                   heightCm,
                   bodyType,
                   genres,
+                  photoUrl: detailPhotoUrl ?? c.photoUrl,
+                  photoUrlRaw: detailPhotoFallback ?? c.photoUrlRaw,
                 }
               : c,
           ),
@@ -2080,6 +2092,8 @@ export default function Page() {
                 heightCm,
                 bodyType,
                 genres,
+                photoUrl: detailPhotoUrl ?? prev.photoUrl,
+                photoUrlRaw: detailPhotoFallback ?? prev.photoUrlRaw,
               }
             : prev,
         );
@@ -2575,6 +2589,8 @@ export default function Page() {
           try {
             const detail = await getCast(c.id);
             const rawUrl = resolvePhotoUrl(detail);
+            const detailPhotoUrl =
+              resolveImmediateDisplayPhotoUrl(detail) ?? undefined;
             const fallbackUrl = resolveLegacyPhotoFallbackUrl(detail) ?? c.photoUrlRaw ?? null;
             const finalUrl = rawUrl
               ? await resolveCastPhotoDisplayUrl({
@@ -2603,14 +2619,28 @@ export default function Page() {
               setAllCasts((prev) =>
                 prev.map((item) =>
                   item.id === c.id
-                    ? { ...item, drinkLevel, hasExclusive, hasNominated }
+                    ? {
+                        ...item,
+                        drinkLevel,
+                        hasExclusive,
+                        hasNominated,
+                        photoUrl: detailPhotoUrl ?? finalUrl ?? item.photoUrl,
+                        photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
+                      }
                     : item,
                 ),
               );
               setTodayCasts((prev) =>
                 prev.map((item) =>
                   item.id === c.id
-                    ? { ...item, drinkLevel, hasExclusive, hasNominated }
+                    ? {
+                        ...item,
+                        drinkLevel,
+                        hasExclusive,
+                        hasNominated,
+                        photoUrl: detailPhotoUrl ?? finalUrl ?? item.photoUrl,
+                        photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
+                      }
                     : item,
                 ),
               );

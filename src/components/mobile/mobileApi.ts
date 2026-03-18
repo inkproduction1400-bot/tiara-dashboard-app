@@ -2,6 +2,7 @@
 
 import { API_BASE } from "@/lib/api";
 import {
+  extractLegacyStorageKey,
   getCast,
   resolveCastPhotoDisplayUrl,
   resolveCastPhotoSource,
@@ -265,9 +266,22 @@ export function readMobileChatCastProfileCache(): Record<string, MobileChatCastP
     const raw = window.sessionStorage.getItem(MOBILE_CHAT_CAST_PROFILE_CACHE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, MobileChatCastProfile>)
-      : {};
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const entries = Object.entries(parsed as Record<string, MobileChatCastProfile>).map(
+      ([castId, profile]) => [
+        castId,
+        {
+          ...profile,
+          photoUrl:
+            profile?.photoUrl && extractLegacyStorageKey(profile.photoUrl)
+              ? null
+              : profile?.photoUrl ?? null,
+        },
+      ],
+    );
+
+    return Object.fromEntries(entries) as Record<string, MobileChatCastProfile>;
   } catch {
     return {};
   }

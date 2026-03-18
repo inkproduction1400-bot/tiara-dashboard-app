@@ -3224,6 +3224,7 @@ export default function Page() {
                   const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl ?? "";
                   const photoFallbackUrl =
                     photoFallbackByCastId[cast.id] ?? cast.photoUrlRaw ?? "";
+                  const displayPhotoUrl = photoUrl || photoFallbackUrl;
                   const badgeIcons = getCastBadgeIcons(cast);
                   const isFixed =
                     !!selectedShop &&
@@ -3244,9 +3245,9 @@ export default function Page() {
                         onClick={() => openCastDetail(cast)}
                       >
                       <div className="w-full aspect-[4/3] bg-gray-200 overflow-hidden relative">
-                        {photoUrl ? (
+                        {displayPhotoUrl ? (
                           <CastPhotoImage
-                            src={photoUrl}
+                            src={displayPhotoUrl}
                             fallbackSrc={photoFallbackUrl || undefined}
                             alt={cast.name}
                             className="w-full h-full object-cover"
@@ -3620,13 +3621,20 @@ export default function Page() {
                     hasExclusive,
                     hasNominated,
                   } as Cast);
+                  const photoUrl =
+                    photoByCastId[selectedCast.id] ?? selectedCast.photoUrl ?? "";
+                  const photoFallbackUrl =
+                    photoFallbackByCastId[selectedCast.id] ??
+                    selectedCast.photoUrlRaw ??
+                    "";
+                  const displayPhotoUrl = photoUrl || photoFallbackUrl;
                   return (
                     <>
                       <div className="w-full aspect-[3/4] overflow-hidden bg-gray-200 flex items-center justify-center">
-                        {(photoByCastId[selectedCast.id] ?? selectedCast.photoUrl) ? (
+                        {displayPhotoUrl ? (
                           <CastPhotoImage
-                            src={photoByCastId[selectedCast.id] ?? selectedCast.photoUrl}
-                            fallbackSrc={photoFallbackByCastId[selectedCast.id] ?? selectedCast.photoUrlRaw}
+                            src={displayPhotoUrl}
+                            fallbackSrc={photoFallbackUrl || undefined}
                             alt={selectedCast.name}
                             className="w-full h-full object-cover"
                             fallback={<span className="text-xs text-gray-500">NO PHOTO</span>}
@@ -4431,17 +4439,22 @@ export default function Page() {
                   </div>
                 ) : (
                   orderItems.flatMap((order) =>
-                    (orderAssignments[order.id] ?? []).map((c: Cast) => (
+                    (orderAssignments[order.id] ?? []).map((c: Cast) => {
+                      const photoUrl = photoByCastId[c.id] ?? c.photoUrl ?? "";
+                      const photoFallbackUrl =
+                        photoFallbackByCastId[c.id] ?? c.photoUrlRaw ?? "";
+                      const displayPhotoUrl = photoUrl || photoFallbackUrl;
+                      return (
                       <div
                         key={`${order.id}-${c.id}`}
                         className="border border-gray-200 bg-white px-2 py-1.5 text-xs flex items-center justify-between gap-2"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-9 h-9 overflow-hidden bg-gray-200 flex items-center justify-center">
-                            {(photoByCastId[c.id] ?? c.photoUrl) ? (
+                            {displayPhotoUrl ? (
                               <CastPhotoImage
-                                src={photoByCastId[c.id] ?? c.photoUrl}
-                                fallbackSrc={photoFallbackByCastId[c.id] ?? c.photoUrlRaw}
+                                src={displayPhotoUrl}
+                                fallbackSrc={photoFallbackUrl || undefined}
                                 alt={c.name}
                                 className="w-full h-full object-cover"
                                 fallback={
@@ -4467,7 +4480,8 @@ export default function Page() {
                           </div>
                         </div>
                       </div>
-                    )),
+                      );
+                    }),
                   )
                 )}
               </div>

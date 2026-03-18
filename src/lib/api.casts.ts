@@ -699,6 +699,7 @@ type SignedUrlResponse = {
 };
 
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+const DEFAULT_SUPABASE_BUCKET = "cast-photos-demo";
 
 const buildSignedCacheKey = (
   castId: string,
@@ -712,6 +713,10 @@ export const isLocalPreviewUrl = (value: string) =>
 export const isHttpUrl = (value?: string | null) =>
   typeof value === "string" &&
   (value.startsWith("http://") || value.startsWith("https://"));
+
+const getLegacySupabaseBucket = () =>
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET_CAST_PHOTOS ||
+  DEFAULT_SUPABASE_BUCKET;
 
 export const normalizeCastPhotoUrl = (value?: string | null): string | null => {
   if (typeof value !== "string") return null;
@@ -759,16 +764,59 @@ export function resolveCastPhotoSource(input: any): string | null {
   return null;
 }
 
+export function extractLegacyStorageKey(input?: string | null): string | null {
+  const normalized = normalizeCastPhotoUrl(input);
+  if (!normalized) return null;
+
+  if (!isHttpUrl(normalized)) {
+    return normalized;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    const marker = "/storage/v1/object/";
+    if (!parsed.pathname.includes(marker)) return null;
+
+    const [, tail] = parsed.pathname.split(marker, 2);
+    if (!tail) return null;
+
+    const parts = tail.split("/").filter(Boolean);
+    if (parts.length < 2) return null;
+
+    const scope = parts[0];
+    let bucketFromUrl: string | undefined;
+    let objectPath: string | undefined;
+
+    if (scope === "public" || scope === "sign") {
+      bucketFromUrl = parts[1];
+      objectPath = parts.slice(2).join("/");
+    } else {
+      bucketFromUrl = parts[0];
+      objectPath = parts.slice(1).join("/");
+    }
+
+    if (!bucketFromUrl || bucketFromUrl !== getLegacySupabaseBucket()) return null;
+    if (!objectPath) return null;
+
+    return objectPath.replace(/^\/+/, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCastSignedPhotoUrl(input: {
   castId: string;
   purpose: CastPhotoSignedPurpose;
   urlOrPath: string;
 }): Promise<string | null> {
   const { castId, purpose, urlOrPath } = input;
-  if (!urlOrPath || typeof urlOrPath !== "string") return null;
-  if (isLocalPreviewUrl(urlOrPath)) return urlOrPath;
+  const normalized = normalizeCastPhotoUrl(urlOrPath);
+  if (!normalized) return null;
+  if (isLocalPreviewUrl(normalized)) return normalized;
 
-  const key = buildSignedCacheKey(castId, purpose, urlOrPath);
+  const signTarget = extractLegacyStorageKey(normalized) ?? normalized;
+
+  const key = buildSignedCacheKey(castId, purpose, signTarget);
   const cached = signedUrlCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.url;
@@ -780,7 +828,7 @@ export async function getCastSignedPhotoUrl(input: {
       withUser({
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ purpose, urlOrPath }),
+        body: JSON.stringify({ purpose, urlOrPath: signTarget }),
       }),
     );
 
@@ -804,7 +852,8 @@ export async function resolveCastPhotoDisplayUrl(input: {
 }): Promise<string | null> {
   const raw = normalizeCastPhotoUrl(input.urlOrPath);
   if (!raw) return null;
-  if (isLocalPreviewUrl(raw) || isHttpUrl(raw)) return raw;
+  if (isLocalPreviewUrl(raw)) return raw;
+  if (isHttpUrl(raw) && !extractLegacyStorageKey(raw)) return raw;
 
   return (
     (await getCastSignedPhotoUrl({

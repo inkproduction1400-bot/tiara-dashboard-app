@@ -3267,9 +3267,17 @@ export default function Page() {
               >
               {!loading &&
                 filteredCasts.map((cast: Cast) => {
-                  const photoUrl = photoByCastId[cast.id] ?? cast.photoUrl ?? "";
+                  const detail = castDetailById[cast.id];
+                  const photoUrl =
+                    photoByCastId[cast.id] ??
+                    cast.photoUrl ??
+                    resolveImmediateDisplayPhotoUrl(detail) ??
+                    "";
                   const photoFallbackUrl =
-                    photoFallbackByCastId[cast.id] ?? cast.photoUrlRaw ?? "";
+                    photoFallbackByCastId[cast.id] ??
+                    cast.photoUrlRaw ??
+                    resolveLegacyPhotoFallbackUrl(detail) ??
+                    "";
                   const displayPhotoUrl = photoUrl || photoFallbackUrl;
                   const badgeIcons = getCastBadgeIcons(cast);
                   const isFixed =
@@ -3668,10 +3676,14 @@ export default function Page() {
                     hasNominated,
                   } as Cast);
                   const photoUrl =
-                    photoByCastId[selectedCast.id] ?? selectedCast.photoUrl ?? "";
+                    photoByCastId[selectedCast.id] ??
+                    selectedCast.photoUrl ??
+                    resolveImmediateDisplayPhotoUrl(detail) ??
+                    "";
                   const photoFallbackUrl =
                     photoFallbackByCastId[selectedCast.id] ??
                     selectedCast.photoUrlRaw ??
+                    resolveLegacyPhotoFallbackUrl(detail) ??
                     "";
                   const displayPhotoUrl = photoUrl || photoFallbackUrl;
                   return (
@@ -4486,9 +4498,17 @@ export default function Page() {
                 ) : (
                   orderItems.flatMap((order) =>
                     (orderAssignments[order.id] ?? []).map((c: Cast) => {
-                      const photoUrl = photoByCastId[c.id] ?? c.photoUrl ?? "";
+                      const detail = castDetailById[c.id];
+                      const photoUrl =
+                        photoByCastId[c.id] ??
+                        c.photoUrl ??
+                        resolveImmediateDisplayPhotoUrl(detail) ??
+                        "";
                       const photoFallbackUrl =
-                        photoFallbackByCastId[c.id] ?? c.photoUrlRaw ?? "";
+                        photoFallbackByCastId[c.id] ??
+                        c.photoUrlRaw ??
+                        resolveLegacyPhotoFallbackUrl(detail) ??
+                        "";
                       const displayPhotoUrl = photoUrl || photoFallbackUrl;
                       return (
                       <div

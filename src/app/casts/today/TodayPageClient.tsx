@@ -743,6 +743,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pickMode = searchParams?.get("pick") === "1";
+  const debugMatchingCard = searchParams?.get("debugMatchingCard") === "1";
   const pickReturnTo = searchParams?.get("return") || "/assignments";
   const pickShopId = searchParams?.get("shopId") || "";
   const pickOrderId = searchParams?.get("orderId") || "";
@@ -938,6 +939,87 @@ export default function Page() {
     if (typeof window === "undefined") return;
     setBuildStamp(new Date().toLocaleString());
   }, []);
+
+  const formatMatchingDebugValue = useCallback((value: unknown): string => {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return JSON.stringify(value);
+    }
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      const summary = {
+        keys: Object.keys(record),
+        id:
+          record.id ??
+          record.userId ??
+          record.castId ??
+          record.managementNumber ??
+          null,
+        photoUrl:
+          typeof record.photoUrl === "string" ? record.photoUrl : undefined,
+        photoUrlRaw:
+          typeof record.photoUrlRaw === "string" ? record.photoUrlRaw : undefined,
+        profilePhotoUrl:
+          typeof record.profilePhotoUrl === "string"
+            ? record.profilePhotoUrl
+            : undefined,
+        profilePhotoUrlRaw:
+          typeof record.profilePhotoUrlRaw === "string"
+            ? record.profilePhotoUrlRaw
+            : undefined,
+      };
+      return JSON.stringify(summary);
+    }
+    return String(value);
+  }, []);
+
+  const renderMatchingPhotoDebug = useCallback(
+    (
+      scope: string,
+      payload: {
+        id?: string | null;
+        castId?: string | null;
+        userId?: string | null;
+        photoUrl?: string | null;
+        photoUrlRaw?: string | null;
+        mapPhotoUrl?: string | null;
+        mapPhotoFallback?: string | null;
+        detail?: unknown;
+        detailDisplayUrl?: string | null;
+        detailFallbackUrl?: string | null;
+        finalSrc?: string | null;
+        finalFallbackSrc?: string | null;
+      },
+    ) => {
+      if (!debugMatchingCard) return null;
+      return (
+        <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-[10px] leading-tight text-amber-950">
+          <div className="font-semibold">debug: {scope}</div>
+          <pre className="mt-1 whitespace-pre-wrap break-all">
+            {[
+              `id=${formatMatchingDebugValue(payload.id)}`,
+              `castId=${formatMatchingDebugValue(payload.castId)}`,
+              `userId=${formatMatchingDebugValue(payload.userId)}`,
+              `cast.photoUrl=${formatMatchingDebugValue(payload.photoUrl)}`,
+              `cast.photoUrlRaw=${formatMatchingDebugValue(payload.photoUrlRaw)}`,
+              `photoByCastId=${formatMatchingDebugValue(payload.mapPhotoUrl)}`,
+              `photoFallbackByCastId=${formatMatchingDebugValue(payload.mapPhotoFallback)}`,
+              `castDetailById=${formatMatchingDebugValue(payload.detail)}`,
+              `detailDisplay=${formatMatchingDebugValue(payload.detailDisplayUrl)}`,
+              `detailFallback=${formatMatchingDebugValue(payload.detailFallbackUrl)}`,
+              `finalSrc=${formatMatchingDebugValue(payload.finalSrc)}`,
+              `finalFallbackSrc=${formatMatchingDebugValue(payload.finalFallbackSrc)}`,
+            ].join("\n")}
+          </pre>
+        </div>
+      );
+    },
+    [debugMatchingCard, formatMatchingDebugValue],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3275,7 +3357,7 @@ export default function Page() {
                 style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
               >
               {!loading &&
-                filteredCasts.map((cast: Cast) => {
+                filteredCasts.map((cast: Cast, index: number) => {
                   const detail = castDetailById[cast.id];
                   const photoUrl =
                     photoByCastId[cast.id] ??
@@ -3288,6 +3370,7 @@ export default function Page() {
                     resolveLegacyPhotoFallbackUrl(detail) ??
                     "";
                   const displayPhotoUrl = photoUrl || photoFallbackUrl;
+                  const shouldShowDebugCard = debugMatchingCard && index < 5;
                   const badgeIcons = getCastBadgeIcons(cast);
                   const isFixed =
                     !!selectedShop &&
@@ -3314,6 +3397,7 @@ export default function Page() {
                             fallbackSrc={photoFallbackUrl || undefined}
                             alt={cast.name}
                             className="w-full h-full object-cover"
+                            debugPhoto={shouldShowDebugCard}
                             fallback={
                               <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
                                 PHOTO
@@ -3359,6 +3443,24 @@ export default function Page() {
                           <div className="text-[10px] text-slate-400 leading-tight">
                             {formatDrinkLabel(cast)}
                           </div>
+                          {shouldShowDebugCard &&
+                            renderMatchingPhotoDebug("list", {
+                              id: cast.id,
+                              castId: cast.id,
+                              userId: cast.id,
+                              photoUrl: cast.photoUrl ?? null,
+                              photoUrlRaw: cast.photoUrlRaw ?? null,
+                              mapPhotoUrl: photoByCastId[cast.id] ?? null,
+                              mapPhotoFallback:
+                                photoFallbackByCastId[cast.id] ?? null,
+                              detail,
+                              detailDisplayUrl:
+                                resolveImmediateDisplayPhotoUrl(detail) ?? null,
+                              detailFallbackUrl:
+                                resolveLegacyPhotoFallbackUrl(detail) ?? null,
+                              finalSrc: displayPhotoUrl || null,
+                              finalFallbackSrc: photoFallbackUrl || null,
+                            })}
                         </div>
                       </div>
                     );
@@ -3704,12 +3806,30 @@ export default function Page() {
                             fallbackSrc={photoFallbackUrl || undefined}
                             alt={selectedCast.name}
                             className="w-full h-full object-cover"
+                            debugPhoto={debugMatchingCard}
                             fallback={<span className="text-xs text-gray-500">NO PHOTO</span>}
                           />
                         ) : (
                           <span className="text-xs text-gray-500">NO PHOTO</span>
                         )}
                       </div>
+                      {renderMatchingPhotoDebug("detail", {
+                        id: selectedCast.id,
+                        castId: selectedCast.id,
+                        userId: selectedCast.id,
+                        photoUrl: selectedCast.photoUrl ?? null,
+                        photoUrlRaw: selectedCast.photoUrlRaw ?? null,
+                        mapPhotoUrl: photoByCastId[selectedCast.id] ?? null,
+                        mapPhotoFallback:
+                          photoFallbackByCastId[selectedCast.id] ?? null,
+                        detail,
+                        detailDisplayUrl:
+                          resolveImmediateDisplayPhotoUrl(detail) ?? null,
+                        detailFallbackUrl:
+                          resolveLegacyPhotoFallbackUrl(detail) ?? null,
+                        finalSrc: displayPhotoUrl || null,
+                        finalFallbackSrc: photoFallbackUrl || null,
+                      })}
                       {icons.length > 0 && (
                         <div className="mt-2 flex flex-wrap items-center gap-1">
                           {icons.map((icon) => (
@@ -4519,6 +4639,7 @@ export default function Page() {
                         resolveLegacyPhotoFallbackUrl(detail) ??
                         "";
                       const displayPhotoUrl = photoUrl || photoFallbackUrl;
+                      const shouldShowDebugCard = debugMatchingCard;
                       return (
                       <div
                         key={`${order.id}-${c.id}`}
@@ -4532,6 +4653,7 @@ export default function Page() {
                                 fallbackSrc={photoFallbackUrl || undefined}
                                 alt={c.name}
                                 className="w-full h-full object-cover"
+                                debugPhoto={shouldShowDebugCard}
                                 fallback={
                                   <span className="text-[10px] text-ink/80">
                                     {c.name.slice(0, 2)}
@@ -4553,6 +4675,24 @@ export default function Page() {
                               {c.desiredHourly.toLocaleString()}
                             </span>
                           </div>
+                          {shouldShowDebugCard &&
+                            renderMatchingPhotoDebug("assigned", {
+                              id: c.id,
+                              castId: c.id,
+                              userId: c.id,
+                              photoUrl: c.photoUrl ?? null,
+                              photoUrlRaw: c.photoUrlRaw ?? null,
+                              mapPhotoUrl: photoByCastId[c.id] ?? null,
+                              mapPhotoFallback:
+                                photoFallbackByCastId[c.id] ?? null,
+                              detail,
+                              detailDisplayUrl:
+                                resolveImmediateDisplayPhotoUrl(detail) ?? null,
+                              detailFallbackUrl:
+                                resolveLegacyPhotoFallbackUrl(detail) ?? null,
+                              finalSrc: displayPhotoUrl || null,
+                              finalFallbackSrc: photoFallbackUrl || null,
+                            })}
                         </div>
                       </div>
                       );

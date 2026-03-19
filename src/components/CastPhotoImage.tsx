@@ -10,6 +10,7 @@ type CastPhotoImageProps = {
   draggable?: boolean;
   loading?: "eager" | "lazy";
   fallback: ReactNode;
+  debugPhoto?: boolean;
 };
 
 export function CastPhotoImage({
@@ -20,6 +21,7 @@ export function CastPhotoImage({
   draggable = false,
   loading = "lazy",
   fallback,
+  debugPhoto = false,
 }: CastPhotoImageProps) {
   const [currentSrc, setCurrentSrc] = useState<string | null>(src ?? null);
   const [usedFallback, setUsedFallback] = useState(false);
@@ -41,6 +43,11 @@ export function CastPhotoImage({
       className={className}
       draggable={draggable}
       loading={loading}
+      data-debug-photo-src={debugPhoto ? (src ?? "") : undefined}
+      data-debug-photo-fallback={debugPhoto ? (fallbackSrc ?? "") : undefined}
+      data-debug-photo-state={
+        debugPhoto ? (usedFallback ? "fallback" : "primary") : undefined
+      }
       onError={() => {
         if (!usedFallback && fallbackSrc && fallbackSrc !== currentSrc) {
           setCurrentSrc(fallbackSrc);

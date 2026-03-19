@@ -842,6 +842,37 @@ export function extractLegacyStorageKey(input?: string | null): string | null {
   }
 }
 
+function extractStorageProxyKey(input?: string | null): string | null {
+  const normalized = normalizeCastPhotoUrl(input);
+  if (!normalized) return null;
+
+  const extractFromPath = (path: string): string | null => {
+    const marker = "/api/v1/storage/object/";
+    const idx = path.indexOf(marker);
+    if (idx === -1) return null;
+    const encoded = path.slice(idx + marker.length).split("?")[0].split("#")[0];
+    if (!encoded) return null;
+    try {
+      return decodeURIComponent(encoded).replace(/^\/+/, "") || null;
+    } catch {
+      return null;
+    }
+  };
+
+  if (normalized.startsWith("/api/v1/storage/object/")) {
+    return extractFromPath(normalized);
+  }
+
+  if (!isHttpUrl(normalized)) return null;
+
+  try {
+    const parsed = new URL(normalized);
+    return extractFromPath(parsed.pathname);
+  } catch {
+    return null;
+  }
+}
+
 export async function getCastSignedPhotoUrl(input: {
   castId: string;
   purpose: CastPhotoSignedPurpose;
@@ -891,6 +922,18 @@ export async function resolveCastPhotoDisplayUrl(input: {
   const raw = normalizeCastPhotoUrl(input.urlOrPath);
   if (!raw) return null;
   if (isLocalPreviewUrl(raw)) return raw;
+
+  const storageProxyKey = extractStorageProxyKey(raw);
+  if (storageProxyKey) {
+    return (
+      (await getCastSignedPhotoUrl({
+        castId: input.castId,
+        purpose: input.purpose ?? "profile",
+        urlOrPath: storageProxyKey,
+      })) ?? null
+    );
+  }
+
   if (isHttpUrl(raw) && !extractLegacyStorageKey(raw)) return raw;
 
   return (

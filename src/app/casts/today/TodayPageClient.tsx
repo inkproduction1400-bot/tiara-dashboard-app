@@ -2757,7 +2757,7 @@ export default function Page() {
   }, [filteredCasts, photoByCastId]);
 
   useEffect(() => {
-    const targets = filteredCasts.slice(0, 48);
+    const targets = filteredCasts;
     if (targets.length === 0) return;
     targets.forEach((cast) => {
       if (castDetailById[cast.id]) return;

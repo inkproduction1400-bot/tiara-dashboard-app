@@ -934,7 +934,6 @@ export default function Page() {
   const [orderShopQuery, setOrderShopQuery] = useState<string>("");
   const [orderShopOpen, setOrderShopOpen] = useState(false);
   const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
-  const backgroundFetchIndexRef = useRef(0);
   const lastEditingShopIdRef = useRef<string>("");
   const [shopFilterExclusive, setShopFilterExclusive] = useState<YesNoFilter>(
     "",
@@ -2708,84 +2707,6 @@ export default function Page() {
   useEffect(() => {
     let cancelled = false;
     const targets = filteredCasts.filter(
-      (c) => !c.photoUrl && !photoByCastId[c.id],
-    );
-    if (targets.length === 0) return;
-    const run = async () => {
-      await Promise.all(
-        targets.map(async (c) => {
-          try {
-            const detail = await getCast(c.id);
-            const rawUrl = resolvePhotoUrl(detail);
-            const fallbackUrl = resolveLegacyPhotoFallbackUrl(detail) ?? c.photoUrlRaw ?? null;
-            const finalUrl = rawUrl
-              ? await resolveCastPhotoDisplayUrl({
-                  castId: c.id,
-                  purpose: "profile",
-                  urlOrPath: rawUrl,
-                })
-              : null;
-            if (finalUrl && !cancelled) {
-              setPhotoByCastId((prev) =>
-                prev[c.id] ? prev : { ...prev, [c.id]: finalUrl },
-              );
-            }
-            if (fallbackUrl && !cancelled) {
-              setPhotoFallbackByCastId((prev) =>
-                prev[c.id] ? prev : { ...prev, [c.id]: fallbackUrl },
-              );
-            }
-            if (!cancelled) {
-              setCastDetailById((prev) =>
-                prev[c.id] ? prev : { ...prev, [c.id]: detail },
-              );
-              const drinkLevel = getDrinkLevelFromDetail(detail);
-              const hasExclusive = getCastExclusiveFlag(detail);
-              const hasNominated = getCastNominatedFlag(detail);
-              setAllCasts((prev) =>
-                prev.map((item) =>
-                  item.id === c.id
-                    ? {
-                        ...item,
-                        drinkLevel,
-                        hasExclusive,
-                        hasNominated,
-                        photoUrl: finalUrl ?? item.photoUrl,
-                        photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
-                      }
-                    : item,
-                ),
-              );
-              setTodayCasts((prev) =>
-                prev.map((item) =>
-                  item.id === c.id
-                    ? {
-                        ...item,
-                        drinkLevel,
-                        hasExclusive,
-                        hasNominated,
-                        photoUrl: finalUrl ?? item.photoUrl,
-                        photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
-                      }
-                    : item,
-                ),
-              );
-            }
-          } catch {
-            // ignore photo fetch errors
-          }
-        }),
-      );
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [filteredCasts, photoByCastId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const targets = filteredCasts.filter(
       (c) => !photoByCastId[c.id] && resolvePhotoUrl(c),
     );
     if (targets.length === 0) return;
@@ -2843,33 +2764,6 @@ export default function Page() {
       void ensureCastDetail(cast.id);
     });
   }, [filteredCasts, castDetailById, ensureCastDetail]);
-
-  useEffect(() => {
-    if (allCasts.length === 0) return;
-    let cancelled = false;
-    const batchSize = 8;
-    const tick = async () => {
-      if (cancelled) return;
-      let processed = 0;
-      while (
-        backgroundFetchIndexRef.current < allCasts.length &&
-        processed < batchSize
-      ) {
-        const cast = allCasts[backgroundFetchIndexRef.current];
-        backgroundFetchIndexRef.current += 1;
-        if (!cast || castDetailById[cast.id]) continue;
-        await ensureCastDetail(cast.id);
-        processed += 1;
-      }
-      if (backgroundFetchIndexRef.current < allCasts.length) {
-        setTimeout(tick, 300);
-      }
-    };
-    void tick();
-    return () => {
-      cancelled = true;
-    };
-  }, [allCasts, castDetailById, ensureCastDetail]);
 
   useEffect(() => {
     if (floatPos) return;

@@ -940,10 +940,24 @@ export default function Page() {
       const signature = JSON.stringify(payload);
       if (matchingPhotoDebugRef.current[refKey] === signature) return;
       matchingPhotoDebugRef.current[refKey] = signature;
-      console.log("[matching-photo-debug]", scope, payload);
+      console.warn("[matching-photo-debug]", scope, payload);
     },
     [debugMatchingPhotos],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const locationHasDebug = window.location.search.includes(
+      "debugMatchingPhotos=1",
+    );
+    if (!debugMatchingPhotos && !locationHasDebug) return;
+    console.warn("[matching-photo-debug:init]", {
+      href: window.location.href,
+      search: window.location.search,
+      hookEnabled: debugMatchingPhotos,
+      locationHasDebug,
+    });
+  }, [debugMatchingPhotos]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

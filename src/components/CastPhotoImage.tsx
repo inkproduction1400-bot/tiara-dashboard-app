@@ -25,14 +25,27 @@ export function CastPhotoImage({
 }: CastPhotoImageProps) {
   const [currentSrc, setCurrentSrc] = useState<string | null>(src ?? null);
   const [usedFallback, setUsedFallback] = useState(false);
+  const [debugState, setDebugState] = useState("idle");
 
   useEffect(() => {
     setCurrentSrc(src ?? null);
     setUsedFallback(false);
+    setDebugState(src ? "mounted-primary" : "empty");
   }, [src, fallbackSrc]);
 
   if (!currentSrc) {
-    return <>{fallback}</>;
+    if (!debugPhoto) {
+      return <>{fallback}</>;
+    }
+    return (
+      <span
+        data-debug-photo-src={src ?? ""}
+        data-debug-photo-fallback={fallbackSrc ?? ""}
+        data-debug-photo-state={debugState}
+      >
+        {fallback}
+      </span>
+    );
   }
 
   return (
@@ -45,16 +58,20 @@ export function CastPhotoImage({
       loading={loading}
       data-debug-photo-src={debugPhoto ? (src ?? "") : undefined}
       data-debug-photo-fallback={debugPhoto ? (fallbackSrc ?? "") : undefined}
-      data-debug-photo-state={
-        debugPhoto ? (usedFallback ? "fallback" : "primary") : undefined
-      }
+      data-debug-photo-state={debugPhoto ? debugState : undefined}
+      onLoad={() => {
+        setDebugState(usedFallback ? "loaded-fallback" : "loaded-primary");
+      }}
       onError={() => {
+        setDebugState(usedFallback ? "error-fallback" : "error-primary");
         if (!usedFallback && fallbackSrc && fallbackSrc !== currentSrc) {
           setCurrentSrc(fallbackSrc);
           setUsedFallback(true);
+          setDebugState("mounted-fallback");
           return;
         }
         setCurrentSrc(null);
+        setDebugState("placeholder");
       }}
     />
   );

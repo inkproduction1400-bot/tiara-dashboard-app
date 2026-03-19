@@ -342,8 +342,23 @@ const shopKanaKey = (shop: Shop): string => {
 const resolvePhotoUrl = (item: any): string | undefined =>
   resolveCastPhotoSource(item) ?? undefined;
 
+const isStorageProxyPhotoUrl = (value: string): boolean => {
+  if (!value) return false;
+  if (value.startsWith("/api/v1/storage/object/")) return true;
+  if (!isHttpUrl(value)) return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname.startsWith("/api/v1/storage/object/");
+  } catch {
+    return false;
+  }
+};
+
 const isDisplayablePhotoUrl = (value: string): boolean =>
-  isLocalPreviewUrl(value) || isHttpUrl(value) || value.startsWith("/");
+  (isLocalPreviewUrl(value) ||
+    isHttpUrl(value) ||
+    value.startsWith("/")) &&
+  !isStorageProxyPhotoUrl(value);
 
 const resolveImmediateDisplayPhotoUrl = (item: any): string | undefined => {
   const raw = resolvePhotoUrl(item);
@@ -2135,8 +2150,14 @@ export default function Page() {
         setCastDetailById((prev) =>
           prev[castId] ? prev : { ...prev, [castId]: detail },
         );
-        const detailPhotoUrl =
-          resolveImmediateDisplayPhotoUrl(detail) ?? undefined;
+        const rawUrl = resolvePhotoUrl(detail);
+        const detailPhotoUrl = rawUrl
+          ? await resolveCastPhotoDisplayUrl({
+              castId,
+              purpose: "profile",
+              urlOrPath: rawUrl,
+            })
+          : null;
         const detailPhotoFallback =
           resolveLegacyPhotoFallbackUrl(detail) ?? undefined;
         if (detailPhotoUrl) {
@@ -2696,8 +2717,6 @@ export default function Page() {
           try {
             const detail = await getCast(c.id);
             const rawUrl = resolvePhotoUrl(detail);
-            const detailPhotoUrl =
-              resolveImmediateDisplayPhotoUrl(detail) ?? undefined;
             const fallbackUrl = resolveLegacyPhotoFallbackUrl(detail) ?? c.photoUrlRaw ?? null;
             const finalUrl = rawUrl
               ? await resolveCastPhotoDisplayUrl({
@@ -2731,7 +2750,7 @@ export default function Page() {
                         drinkLevel,
                         hasExclusive,
                         hasNominated,
-                        photoUrl: detailPhotoUrl ?? finalUrl ?? item.photoUrl,
+                        photoUrl: finalUrl ?? item.photoUrl,
                         photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
                       }
                     : item,
@@ -2745,7 +2764,7 @@ export default function Page() {
                         drinkLevel,
                         hasExclusive,
                         hasNominated,
-                        photoUrl: detailPhotoUrl ?? finalUrl ?? item.photoUrl,
+                        photoUrl: finalUrl ?? item.photoUrl,
                         photoUrlRaw: fallbackUrl ?? item.photoUrlRaw,
                       }
                     : item,

@@ -342,10 +342,13 @@ const shopKanaKey = (shop: Shop): string => {
 const resolvePhotoUrl = (item: any): string | undefined =>
   resolveCastPhotoSource(item) ?? undefined;
 
+const isDisplayablePhotoUrl = (value: string): boolean =>
+  isLocalPreviewUrl(value) || isHttpUrl(value) || value.startsWith("/");
+
 const resolveImmediateDisplayPhotoUrl = (item: any): string | undefined => {
   const raw = resolvePhotoUrl(item);
   if (!raw) return undefined;
-  return isLocalPreviewUrl(raw) || isHttpUrl(raw) ? raw : undefined;
+  return isDisplayablePhotoUrl(raw) ? raw : undefined;
 };
 
 const parseWageMinFromLabel = (label?: string | null): number | null => {
@@ -745,7 +748,6 @@ export default function Page() {
   const pickOrderId = searchParams?.get("orderId") || "";
   const pickOrderStartTime = searchParams?.get("orderStartTime") || "";
   const initialTab = searchParams?.get("tab");
-  const debugMatchingPhotos = searchParams?.get("debugMatchingPhotos") === "1";
   // 本日出勤キャスト一覧（/casts/today）
   const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
   // 全キャスト（シフトに関係なく /casts から取得）
@@ -896,7 +898,6 @@ export default function Page() {
     {},
   );
   const castDetailFetchRef = useRef<Set<string>>(new Set());
-  const matchingPhotoDebugRef = useRef<Record<string, string>>({});
   const photoCacheSaveTimer = useRef<number | null>(null);
   const prefetchedImageUrlsRef = useRef<Set<string>>(new Set());
   const [orderSelectOpen, setOrderSelectOpen] = useState(false);
@@ -931,33 +932,12 @@ export default function Page() {
   const [shopFilterContact, setShopFilterContact] =
     useState<ContactMethodFilter>("");
 
-  const buildStamp = useMemo(() => new Date().toLocaleString(), []);
-
-  const debugMatchingPhoto = useCallback(
-    (scope: string, key: string, payload: Record<string, unknown>) => {
-      if (!debugMatchingPhotos || typeof window === "undefined") return;
-      const refKey = `${scope}:${key}`;
-      const signature = JSON.stringify(payload);
-      if (matchingPhotoDebugRef.current[refKey] === signature) return;
-      matchingPhotoDebugRef.current[refKey] = signature;
-      console.warn("[matching-photo-debug]", scope, payload);
-    },
-    [debugMatchingPhotos],
-  );
+  const [buildStamp, setBuildStamp] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const locationHasDebug = window.location.search.includes(
-      "debugMatchingPhotos=1",
-    );
-    if (!debugMatchingPhotos && !locationHasDebug) return;
-    console.warn("[matching-photo-debug:init]", {
-      href: window.location.href,
-      search: window.location.search,
-      hookEnabled: debugMatchingPhotos,
-      locationHasDebug,
-    });
-  }, [debugMatchingPhotos]);
+    setBuildStamp(new Date().toLocaleString());
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1813,86 +1793,6 @@ export default function Page() {
     sortKana,
     sortNumberSmallFirst,
     sortNumberLargeFirst,
-  ]);
-
-  useEffect(() => {
-    if (!debugMatchingPhotos) return;
-    filteredCasts.slice(0, 20).forEach((cast) => {
-      const detail = castDetailById[cast.id];
-      debugMatchingPhoto("list", cast.id, {
-        id: cast.id,
-        castId: (cast as any).castId ?? null,
-        userId: (cast as any).userId ?? null,
-        photoUrl: cast.photoUrl ?? null,
-        photoUrlRaw: cast.photoUrlRaw ?? null,
-        mapPhotoUrl: photoByCastId[cast.id] ?? null,
-        mapPhotoUrlRaw: photoFallbackByCastId[cast.id] ?? null,
-        hasDetail: !!detail,
-        detailPhotoUrl: resolveImmediateDisplayPhotoUrl(detail) ?? null,
-        detailPhotoUrlRaw: resolveLegacyPhotoFallbackUrl(detail) ?? null,
-      });
-    });
-  }, [
-    castDetailById,
-    debugMatchingPhoto,
-    debugMatchingPhotos,
-    filteredCasts,
-    photoByCastId,
-    photoFallbackByCastId,
-  ]);
-
-  useEffect(() => {
-    if (!debugMatchingPhotos || !selectedCast) return;
-    const detail = castDetailById[selectedCast.id];
-    debugMatchingPhoto("detail", selectedCast.id, {
-      id: selectedCast.id,
-      castId: (selectedCast as any).castId ?? null,
-      userId: (selectedCast as any).userId ?? null,
-      photoUrl: selectedCast.photoUrl ?? null,
-      photoUrlRaw: selectedCast.photoUrlRaw ?? null,
-      mapPhotoUrl: photoByCastId[selectedCast.id] ?? null,
-      mapPhotoUrlRaw: photoFallbackByCastId[selectedCast.id] ?? null,
-      hasDetail: !!detail,
-      detailPhotoUrl: resolveImmediateDisplayPhotoUrl(detail) ?? null,
-      detailPhotoUrlRaw: resolveLegacyPhotoFallbackUrl(detail) ?? null,
-    });
-  }, [
-    castDetailById,
-    debugMatchingPhoto,
-    debugMatchingPhotos,
-    photoByCastId,
-    photoFallbackByCastId,
-    selectedCast,
-  ]);
-
-  useEffect(() => {
-    if (!debugMatchingPhotos) return;
-    Object.entries(orderAssignments)
-      .flatMap(([orderId, casts]) => casts.map((cast) => ({ orderId, cast })))
-      .slice(0, 20)
-      .forEach(({ orderId, cast }) => {
-        const detail = castDetailById[cast.id];
-        debugMatchingPhoto("assigned", `${orderId}:${cast.id}`, {
-          orderId,
-          id: cast.id,
-          castId: (cast as any).castId ?? null,
-          userId: (cast as any).userId ?? null,
-          photoUrl: cast.photoUrl ?? null,
-          photoUrlRaw: cast.photoUrlRaw ?? null,
-          mapPhotoUrl: photoByCastId[cast.id] ?? null,
-          mapPhotoUrlRaw: photoFallbackByCastId[cast.id] ?? null,
-          hasDetail: !!detail,
-          detailPhotoUrl: resolveImmediateDisplayPhotoUrl(detail) ?? null,
-          detailPhotoUrlRaw: resolveLegacyPhotoFallbackUrl(detail) ?? null,
-        });
-      });
-  }, [
-    castDetailById,
-    debugMatchingPhoto,
-    debugMatchingPhotos,
-    orderAssignments,
-    photoByCastId,
-    photoFallbackByCastId,
   ]);
 
   const formatDrinkLabel = (cast: Cast) => {

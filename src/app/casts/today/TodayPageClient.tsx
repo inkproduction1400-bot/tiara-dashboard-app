@@ -44,6 +44,14 @@ import {
   updateMatchingSettings,
   type MatchingSettings,
 } from "@/lib/api.matching";
+import {
+  confirmDispatchSheet,
+  confirmDispatchSheetRow,
+  getDispatchSheet,
+  upsertDispatchSheetRow,
+  type DispatchSheetRow,
+  type DispatchSheetShop,
+} from "@/lib/api.dispatch-sheet";
 
 // ====== 追加: 型定義 ======
 
@@ -829,6 +837,18 @@ export default function Page() {
   // 店舗選択モーダル用
   const [shopModalOpen, setShopModalOpen] = useState(false);
   const [shopSearch, setShopSearch] = useState("");
+  const [dispatchRows, setDispatchRows] = useState<DispatchSheetRow[]>([]);
+  const [dispatchShops, setDispatchShops] = useState<DispatchSheetShop[]>([]);
+  const [dispatchLoading, setDispatchLoading] = useState(false);
+  const [dispatchSavingKey, setDispatchSavingKey] = useState<string | null>(
+    null,
+  );
+  const [dispatchShopPickerCastId, setDispatchShopPickerCastId] = useState<
+    string | null
+  >(null);
+  const [dispatchShopQuery, setDispatchShopQuery] = useState("");
+  const [dispatchOwnerFilter, setDispatchOwnerFilter] = useState("");
+  const [dispatchGenreFilter, setDispatchGenreFilter] = useState("");
 
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
@@ -953,6 +973,25 @@ export default function Page() {
     if (typeof window === "undefined") return;
     setBuildStamp(new Date().toLocaleString());
   }, []);
+
+  const loadDispatchSheet = useCallback(async () => {
+    try {
+      setDispatchLoading(true);
+      const res = await getDispatchSheet(todayKey());
+      setDispatchRows(res.rows ?? []);
+      setDispatchShops(res.shops ?? []);
+    } catch (err) {
+      console.warn("[casts/today] failed to load dispatch sheet", err);
+      setDispatchRows([]);
+      setDispatchShops([]);
+    } finally {
+      setDispatchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDispatchSheet();
+  }, [loadDispatchSheet]);
 
   const formatMatchingDebugValue = useCallback((value: unknown): string => {
     if (value == null) return "";
@@ -2107,6 +2146,150 @@ export default function Page() {
 
     return list;
   }, [todayShops, ngFilterGenre, ngFilterName, ngFilterCode, ngSortKey]);
+
+  const dispatchOwnerOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const shop of dispatchShops) {
+      const owner = (shop.ownerStaff ?? "").trim();
+      if (owner) values.add(owner);
+    }
+    return Array.from(values).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [dispatchShops]);
+
+  const dispatchShopCandidates = useMemo(() => {
+    const q = dispatchShopQuery.trim().toLowerCase();
+    return dispatchShops
+      .filter((shop) => {
+        if (dispatchOwnerFilter && shop.ownerStaff !== dispatchOwnerFilter) {
+          return false;
+        }
+        if (dispatchGenreFilter && shop.genre !== dispatchGenreFilter) {
+          return false;
+        }
+        if (!q) return true;
+        const haystack = [
+          shop.name,
+          shop.code,
+          shop.nameKana,
+          shop.ownerStaff,
+          shop.addressLine,
+          shop.buildingName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      })
+      .sort((a, b) => {
+        const an = shopNumberKey({
+          id: a.id,
+          code: a.code ?? "",
+          name: a.name,
+        } as Shop);
+        const bn = shopNumberKey({
+          id: b.id,
+          code: b.code ?? "",
+          name: b.name,
+        } as Shop);
+        if (an !== bn) return an - bn;
+        return a.name.localeCompare(b.name, "ja");
+      });
+  }, [
+    dispatchShops,
+    dispatchShopQuery,
+    dispatchOwnerFilter,
+    dispatchGenreFilter,
+  ]);
+
+  const updateDispatchRowLocal = (
+    castId: string,
+    patch: Partial<DispatchSheetRow>,
+  ) => {
+    setDispatchRows((prev) =>
+      prev.map((row) => (row.castId === castId ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const saveDispatchRow = async (
+    row: DispatchSheetRow,
+    patch: Partial<DispatchSheetRow> = {},
+  ): Promise<DispatchSheetRow[] | null> => {
+    const next = { ...row, ...patch };
+    if (!next.shopId) return null;
+    const startTime = next.startTime || "21:00";
+    setDispatchSavingKey(next.castId);
+    try {
+      const res = await upsertDispatchSheetRow({
+        date: todayKey(),
+        castId: next.castId,
+        assignmentId: next.assignmentId,
+        shopId: next.shopId,
+        startTime,
+        endTime: next.endTime || null,
+        castHourly: next.castHourly ?? null,
+        shopFee: next.shopFee ?? null,
+        note: next.note ?? null,
+        displayOrder: next.displayOrder ?? 0,
+      });
+      setDispatchRows(res.rows ?? []);
+      setDispatchShops(res.shops ?? dispatchShops);
+      return res.rows ?? [];
+    } catch (err) {
+      console.warn("[casts/today] failed to save dispatch row", err);
+      alert("派遣表の保存に失敗しました。時間をおいて再度お試しください。");
+      return null;
+    } finally {
+      setDispatchSavingKey(null);
+    }
+  };
+
+  const selectDispatchShop = async (shop: DispatchSheetShop) => {
+    const castId = dispatchShopPickerCastId;
+    if (!castId) return;
+    const row = dispatchRows.find((item) => item.castId === castId);
+    if (!row) return;
+    const patch: Partial<DispatchSheetRow> = {
+      shopId: shop.id,
+      shopName: shop.name,
+      shopNumber: shop.code,
+      startTime: row.startTime || "21:00",
+      castHourly: row.castHourly ?? row.desiredHourly ?? null,
+    };
+    updateDispatchRowLocal(castId, patch);
+    setDispatchShopPickerCastId(null);
+    await saveDispatchRow(row, patch);
+  };
+
+  const confirmOneDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.shopId) {
+      alert("派遣先を選択してください。");
+      return;
+    }
+    const savedRows = !row.assignmentId ? await saveDispatchRow(row) : null;
+    const latest =
+      savedRows?.find((item) => item.castId === row.castId) ??
+      dispatchRows.find((item) => item.castId === row.castId) ??
+      row;
+    const assignmentId = latest.assignmentId ?? row.assignmentId;
+    if (!assignmentId) {
+      alert("派遣表の保存後に確定IDを取得できませんでした。再度お試しください。");
+      return;
+    }
+    await confirmDispatchSheetRow(assignmentId);
+    await loadDispatchSheet();
+  };
+
+  const confirmAllDispatchRows = async () => {
+    const targetIds = dispatchRows
+      .filter((row) => row.assignmentId && row.shopId && row.status !== "confirmed")
+      .map((row) => row.assignmentId as string);
+    if (targetIds.length === 0) {
+      alert("確定できる派遣行がありません。");
+      return;
+    }
+    await confirmDispatchSheet({ date: todayKey(), assignmentIds: targetIds });
+    await loadDispatchSheet();
+  };
 
   const handleSelectShop = (shop: Shop) => {
     setSelectedShopId(shop.id);
@@ -3265,6 +3448,233 @@ export default function Page() {
                 )}
               </div>
 
+              {statusTab === "today" ? (
+                <div className="rounded-none border border-slate-900 bg-white">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-3 py-2">
+                    <div className="text-xs font-semibold text-slate-900">
+                      本日出勤 派遣表
+                      {dispatchLoading ? (
+                        <span className="ml-2 text-[11px] font-normal text-slate-500">
+                          読み込み中...
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-none border border-slate-900 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
+                        onClick={loadDispatchSheet}
+                      >
+                        再読込
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-none border border-slate-900 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
+                        onClick={() => window.print()}
+                      >
+                        印刷
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-none border border-emerald-700 bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                        onClick={confirmAllDispatchRows}
+                      >
+                        まとめて確定
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-auto">
+                    <table className="min-w-[980px] w-full border-collapse text-[12px] text-slate-950">
+                      <thead>
+                        <tr className="bg-white">
+                          <th className="border border-slate-900 px-2 py-1 text-left w-[92px]">
+                            源氏名
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-left min-w-[170px]">
+                            派遣先
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-center w-[82px]">
+                            時給
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-center w-[82px]">
+                            手数料
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-center w-[92px]">
+                            時間
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-left min-w-[140px]">
+                            メモ
+                          </th>
+                          <th className="border border-slate-900 px-2 py-1 text-center w-[118px]">
+                            確定
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dispatchRows.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="border border-slate-900 px-3 py-6 text-center text-slate-500"
+                            >
+                              本日出勤のキャストがありません。
+                            </td>
+                          </tr>
+                        ) : (
+                          dispatchRows.map((row) => {
+                            const saving = dispatchSavingKey === row.castId;
+                            return (
+                              <tr
+                                key={row.castId}
+                                className={
+                                  row.status === "confirmed"
+                                    ? "bg-emerald-50"
+                                    : row.isExclusiveInitial
+                                      ? "bg-amber-50"
+                                      : "bg-white"
+                                }
+                              >
+                                <td className="border border-slate-900 px-2 py-1 align-middle">
+                                  <div className="font-semibold leading-tight">
+                                    {row.displayName}
+                                  </div>
+                                  <div className="mt-0.5 font-mono text-[10px] text-slate-500">
+                                    {row.managementNumber}
+                                  </div>
+                                </td>
+                                <td className="border border-slate-900 p-1 align-middle">
+                                  <button
+                                    type="button"
+                                    className="h-8 w-full border border-slate-300 bg-white px-2 text-left text-[12px] hover:bg-slate-50"
+                                    onClick={() => {
+                                      setDispatchShopPickerCastId(row.castId);
+                                      setDispatchShopQuery("");
+                                    }}
+                                  >
+                                    {row.shopName ? (
+                                      <span>
+                                        {row.shopNumber
+                                          ? `${row.shopNumber} / `
+                                          : ""}
+                                        {row.shopName}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">
+                                        店舗を選択
+                                      </span>
+                                    )}
+                                  </button>
+                                </td>
+                                <td className="border border-slate-900 p-1 align-middle">
+                                  <input
+                                    type="number"
+                                    className="h-8 w-full border border-slate-300 px-1 text-right text-[12px]"
+                                    value={row.castHourly ?? ""}
+                                    onChange={(e) =>
+                                      updateDispatchRowLocal(row.castId, {
+                                        castHourly: e.target.value
+                                          ? Number(e.target.value)
+                                          : null,
+                                      })
+                                    }
+                                    onBlur={() =>
+                                      void saveDispatchRow(
+                                        dispatchRows.find(
+                                          (item) => item.castId === row.castId,
+                                        ) ?? row,
+                                      )
+                                    }
+                                  />
+                                </td>
+                                <td className="border border-slate-900 p-1 align-middle">
+                                  <input
+                                    type="number"
+                                    className="h-8 w-full border border-slate-300 px-1 text-right text-[12px]"
+                                    value={row.shopFee ?? ""}
+                                    onChange={(e) =>
+                                      updateDispatchRowLocal(row.castId, {
+                                        shopFee: e.target.value
+                                          ? Number(e.target.value)
+                                          : null,
+                                      })
+                                    }
+                                    onBlur={() =>
+                                      void saveDispatchRow(
+                                        dispatchRows.find(
+                                          (item) => item.castId === row.castId,
+                                        ) ?? row,
+                                      )
+                                    }
+                                  />
+                                </td>
+                                <td className="border border-slate-900 p-1 align-middle">
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="time"
+                                      className="h-8 w-full border border-slate-300 px-1 text-[12px]"
+                                      value={row.startTime || ""}
+                                      onChange={(e) =>
+                                        updateDispatchRowLocal(row.castId, {
+                                          startTime: e.target.value,
+                                        })
+                                      }
+                                      onBlur={() =>
+                                        void saveDispatchRow(
+                                          dispatchRows.find(
+                                            (item) => item.castId === row.castId,
+                                          ) ?? row,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </td>
+                                <td className="border border-slate-900 p-1 align-middle">
+                                  <input
+                                    className="h-8 w-full border border-slate-300 px-2 text-[12px]"
+                                    value={row.note ?? ""}
+                                    onChange={(e) =>
+                                      updateDispatchRowLocal(row.castId, {
+                                        note: e.target.value,
+                                      })
+                                    }
+                                    onBlur={() =>
+                                      void saveDispatchRow(
+                                        dispatchRows.find(
+                                          (item) => item.castId === row.castId,
+                                        ) ?? row,
+                                      )
+                                    }
+                                  />
+                                </td>
+                                <td className="border border-slate-900 px-2 py-1 text-center align-middle">
+                                  <button
+                                    type="button"
+                                    className={
+                                      "rounded-none border px-2 py-1 text-[11px] font-semibold " +
+                                      (row.status === "confirmed"
+                                        ? "border-emerald-700 bg-emerald-100 text-emerald-800"
+                                        : "border-slate-900 bg-white text-slate-900 hover:bg-slate-50")
+                                    }
+                                    disabled={saving}
+                                    onClick={() => void confirmOneDispatchRow(row)}
+                                  >
+                                    {saving
+                                      ? "保存中"
+                                      : row.status === "confirmed"
+                                        ? "確定済"
+                                        : "行を確定"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
               <div
                 className="grid gap-3"
                 style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
@@ -3379,6 +3789,7 @@ export default function Page() {
                     );
                   })}
               </div>
+              )}
 
             </>
         )}
@@ -3568,6 +3979,126 @@ export default function Page() {
                 {settingsSaving ? "保存中..." : "保存"}
               </button>
             </footer>
+          </div>
+        </div>
+      )}
+
+      {dispatchShopPickerCastId && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setDispatchShopPickerCastId(null)}
+          />
+          <div className="relative z-10 flex max-h-[82vh] w-full max-w-4xl flex-col border border-slate-900 bg-white shadow-2xl">
+            <header className="flex items-center justify-between border-b border-slate-900 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">
+                派遣先店舗を選択
+              </h2>
+              <button
+                type="button"
+                className="border border-slate-300 px-2 py-1 text-xs"
+                onClick={() => setDispatchShopPickerCastId(null)}
+              >
+                閉じる
+              </button>
+            </header>
+
+            <div className="grid grid-cols-1 gap-2 border-b border-slate-200 p-3 md:grid-cols-[1fr_180px_160px]">
+              <input
+                className="tiara-input h-9 text-xs"
+                placeholder="店舗名・店舗番号・住所で検索"
+                value={dispatchShopQuery}
+                onChange={(e) => setDispatchShopQuery(e.target.value)}
+              />
+              <select
+                className="tiara-input h-9 text-xs"
+                value={dispatchOwnerFilter}
+                onChange={(e) => setDispatchOwnerFilter(e.target.value)}
+              >
+                <option value="">担当者：すべて</option>
+                {dispatchOwnerOptions.map((owner) => (
+                  <option key={owner} value={owner}>
+                    {owner}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="tiara-input h-9 text-xs"
+                value={dispatchGenreFilter}
+                onChange={(e) => setDispatchGenreFilter(e.target.value)}
+              >
+                <option value="">ジャンル：すべて</option>
+                <option value="club">クラブ</option>
+                <option value="cabaret">キャバ</option>
+                <option value="snack">スナック</option>
+                <option value="gb">ガルバ</option>
+              </select>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead className="sticky top-0 bg-slate-100">
+                  <tr>
+                    <th className="border border-slate-300 px-2 py-2 text-left w-[90px]">
+                      番号
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left">
+                      店舗名
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left w-[120px]">
+                      担当者
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left w-[100px]">
+                      ジャンル
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left">
+                      住所
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dispatchShopCandidates.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="border border-slate-300 px-3 py-5 text-center text-slate-500"
+                      >
+                        条件に一致する店舗がありません。
+                      </td>
+                    </tr>
+                  ) : (
+                    dispatchShopCandidates.map((shop) => (
+                      <tr
+                        key={shop.id}
+                        className="cursor-pointer hover:bg-sky-50"
+                        onClick={() => void selectDispatchShop(shop)}
+                      >
+                        <td className="border border-slate-300 px-2 py-2 font-mono">
+                          {shop.code ?? "-"}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 font-semibold">
+                          {shop.name}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2">
+                          {shop.ownerStaff ?? "-"}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2">
+                          {(shop.genre &&
+                            SHOP_GENRE_LABEL[shop.genre as ShopGenre]) ||
+                            shop.genre ||
+                            "-"}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2">
+                          {[shop.addressLine, shop.buildingName]
+                            .filter(Boolean)
+                            .join(" ") || "-"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

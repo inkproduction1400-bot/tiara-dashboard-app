@@ -99,12 +99,6 @@ export default function Sidebar() {
           active: isActiveDeep("/casts/today"),
         },
         {
-          // 割当確認 → 割当リスト
-          label: "割当リスト",
-          href: "/assignments",
-          active: isActiveDeep("/assignments"),
-        },
-        {
           label: "領収書",
           href: "/receipts",
           active: isActiveDeep("/receipts"),

@@ -209,6 +209,14 @@ const formatJapaneseDate = (dateKey: string) => {
   return `${year}年${Number(month)}月${Number(day)}日`;
 };
 
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
 
@@ -2300,6 +2308,144 @@ export default function Page() {
     await loadDispatchSheet();
   };
 
+  const printDispatchSheet = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, dispatchRows.length);
+    const slots = Array.from({ length: slotCount }, (_, slotIndex) => {
+      const row = dispatchRows[slotIndex];
+      const shopName = row?.shopName
+        ? `${row.shopNumber ? `${row.shopNumber} / ` : ""}${row.shopName}`
+        : "";
+      return `
+        <div class="slot">
+          <table>
+            <tbody>
+              <tr>
+                <th>源氏名</th>
+                <td><div class="name-cell"><strong>${escapeHtml(row?.displayName)}</strong><span>${escapeHtml(row?.managementNumber)}</span></div></td>
+              </tr>
+              <tr>
+                <th>派遣先</th>
+                <td>${escapeHtml(shopName)}</td>
+              </tr>
+              <tr>
+                <th>時給・手数料</th>
+                <td><div class="two-col"><span>${escapeHtml(row?.castHourly)}</span><span>${escapeHtml(row?.shopFee)}</span></div></td>
+              </tr>
+              <tr>
+                <th>時間</th>
+                <td>${escapeHtml(row?.startTime)}</td>
+              </tr>
+              <tr>
+                <th>メモ</th>
+                <td>${escapeHtml(row?.note)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }).join("");
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(printDateLabel)} 派遣表</title>
+          <style>
+            @page { size: A4 landscape; margin: 8mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #020617;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            h1 {
+              margin: 0 0 5mm;
+              text-align: center;
+              font-size: 12px;
+              line-height: 1.2;
+            }
+            .grid {
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+              gap: 0;
+              background: #020617;
+            }
+            .slot {
+              border: 1.5px solid #020617;
+              background: #fff;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            table {
+              width: 100%;
+              table-layout: fixed;
+              border-collapse: collapse;
+              font-size: 9px;
+              line-height: 1.15;
+            }
+            th {
+              width: 15mm;
+              border-right: 1px solid #94a3b8;
+              border-bottom: 1px solid #94a3b8;
+              background: #f1f5f9;
+              padding: 1.1mm 1mm;
+              text-align: left;
+              font-weight: 700;
+            }
+            td {
+              min-height: 4.4mm;
+              border-bottom: 1px solid #94a3b8;
+              padding: 1.1mm 1mm;
+              vertical-align: middle;
+              overflow: hidden;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+            }
+            tr:last-child th,
+            tr:last-child td {
+              border-bottom: 0;
+            }
+            .name-cell,
+            .two-col {
+              display: grid;
+              grid-template-columns: minmax(0, 1fr) auto;
+              gap: 1mm;
+              align-items: center;
+            }
+            .name-cell span {
+              color: #64748b;
+              font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+              font-size: 8px;
+            }
+            .two-col span {
+              min-height: 3mm;
+              text-align: right;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(printDateLabel)} 派遣表</h1>
+          <div class="grid">${slots}</div>
+          <script>
+            window.addEventListener("load", () => {
+              window.focus();
+              window.print();
+            });
+          </script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  }, [dispatchRows, printDateLabel]);
+
   const handleSelectShop = (shop: Shop) => {
     setSelectedShopId(shop.id);
     setShopModalOpen(false);
@@ -3450,7 +3596,7 @@ export default function Page() {
                       <button
                         type="button"
                         className="rounded-none border border-slate-900 bg-white px-3 h-7 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
-                        onClick={() => window.print()}
+                        onClick={printDispatchSheet}
                       >
                         印刷
                       </button>

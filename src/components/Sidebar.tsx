@@ -119,7 +119,6 @@ export default function Sidebar() {
           active: isActiveExact("/casts"),
         },
         { label: "店舗管理", href: "/shops", active: isActiveDeep("/shops") },
-        { label: "備品管理", href: "/assets", active: isActiveDeep("/assets") },
         { label: "送迎管理", href: "/rides", active: isActiveDeep("/rides") },
       ],
     },

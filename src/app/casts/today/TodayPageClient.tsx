@@ -3002,45 +3002,6 @@ export default function Page() {
   return (
     <AppShell>
       <div className="casts-today h-full flex flex-col gap-3">
-        {/* 上部：統計バー & コントロール（タイトル文言は非表示） */}
-        <section className="tiara-panel rounded-none p-3 flex flex-col gap-2" style={{ borderRadius: 0 }}>
-          <header className="flex items-center justify-between">
-            <div />
-            <button
-              type="button"
-              className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
-              onClick={() => {
-                setSettingsDraft(effectiveMatchingSettings);
-                setSettingsError(null);
-                setSettingsOpen(true);
-              }}
-            >
-              build: {buildStamp}
-            </button>
-          </header>
-
-          <div className="flex flex-wrap items-start gap-3 text-xs">
-            <div className="border border-slate-200 bg-white px-3 py-2">
-              <div className="font-semibold">オーダー数</div>
-              <div className="mt-1 text-[11px]">{orderSummary.count} 件</div>
-            </div>
-            <div className="border border-slate-200 bg-white px-3 py-2">
-              <div className="font-semibold">オーダー人数</div>
-              <div className="mt-1 text-[11px]">{orderSummary.headcount} 人</div>
-            </div>
-            <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
-              <div className="font-semibold">時給別（本日出勤予定）</div>
-              <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
-                {WAGE_BUCKETS.map((wage) => (
-                  <span key={`today-${wage}`}>
-                    ・{wage}円　{todayWageCounts[wage] ?? 0}名
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section
           className="tiara-panel rounded-none p-3 pt-6 flex flex-col gap-3 relative"
           style={{ borderRadius: 0 }}
@@ -3313,37 +3274,52 @@ export default function Page() {
                     <option value="40-49">40〜49歳</option>
                     <option value="50-">50歳以上</option>
                   </select>
-                  <label className="inline-flex items-center gap-1 text-[10px]">
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={sortKana}
-                      onChange={(e) => setSortKana(e.target.checked)}
-                    />
-                    50音
-                  </label>
-                  <label className="inline-flex items-center gap-1 text-[10px]">
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={sortNumberSmallFirst}
-                      onChange={(e) =>
-                        setSortNumberSmallFirst(e.target.checked)
-                      }
-                    />
-                    番号↑
-                  </label>
-                  <label className="inline-flex items-center gap-1 text-[10px]">
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={sortNumberLargeFirst}
-                      onChange={(e) =>
-                        setSortNumberLargeFirst(e.target.checked)
-                      }
-                    />
-                    番号↓
-                  </label>
+                  <div className="ml-auto flex flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+                      onClick={() => {
+                        setSettingsDraft(effectiveMatchingSettings);
+                        setSettingsError(null);
+                        setSettingsOpen(true);
+                      }}
+                    >
+                      build: {buildStamp}
+                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <label className="inline-flex items-center gap-1 text-[10px]">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortKana}
+                          onChange={(e) => setSortKana(e.target.checked)}
+                        />
+                        50音
+                      </label>
+                      <label className="inline-flex items-center gap-1 text-[10px]">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortNumberSmallFirst}
+                          onChange={(e) =>
+                            setSortNumberSmallFirst(e.target.checked)
+                          }
+                        />
+                        番号↑
+                      </label>
+                      <label className="inline-flex items-center gap-1 text-[10px]">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortNumberLargeFirst}
+                          onChange={(e) =>
+                            setSortNumberLargeFirst(e.target.checked)
+                          }
+                        />
+                        番号↓
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -3398,6 +3374,25 @@ export default function Page() {
                     >
                       →
                     </button>
+                  </div>
+
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[11px]">
+                    <div className="border border-slate-200 bg-white px-2 py-1">
+                      <span className="font-semibold">オーダー数</span>
+                      <span className="ml-2">{orderSummary.count} 件</span>
+                    </div>
+                    <div className="border border-slate-200 bg-white px-2 py-1">
+                      <span className="font-semibold">オーダー人数</span>
+                      <span className="ml-2">{orderSummary.headcount} 人</span>
+                    </div>
+                    <div className="border border-slate-200 bg-white px-2 py-1">
+                      <span className="font-semibold">時給別（本日出勤予定）</span>
+                      <span className="ml-2 text-muted">
+                        {WAGE_BUCKETS.map(
+                          (wage) => `${wage}円 ${todayWageCounts[wage] ?? 0}名`,
+                        ).join(" / ")}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

@@ -3003,37 +3003,28 @@ export default function Page() {
     <AppShell>
       <div className="casts-today h-full flex flex-col gap-3">
         <section
-          className="tiara-panel rounded-none p-3 pt-6 flex flex-col gap-3 relative"
+          className="tiara-panel rounded-none p-2 flex flex-col gap-2 relative"
           style={{ borderRadius: 0 }}
         >
-          <div className="absolute -top-4 left-3 inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm">
-            <button
-              type="button"
-              className={`px-4 py-1.5 ${
-                panelTab === "casts"
-                  ? "bg-sky-600 text-white"
-                  : "bg-transparent text-gray-700"
-              }`}
-              onClick={() => setPanelTab("casts")}
-            >
-              キャスト一覧
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-1.5 border-l border-slate-200 ${
-                panelTab === "shops"
-                  ? "bg-sky-600 text-white"
-                  : "bg-transparent text-gray-700"
-              }`}
-              onClick={() => setPanelTab("shops")}
-            >
-              店舗一覧
-            </button>
-          </div>
-
           {panelTab === "shops" ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
+                  <button
+                    type="button"
+                    className="px-4 h-8 bg-transparent text-gray-700"
+                    onClick={() => setPanelTab("casts")}
+                  >
+                    キャスト一覧
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 h-8 border-l border-slate-200 bg-sky-600 text-white"
+                    onClick={() => setPanelTab("shops")}
+                  >
+                    店舗一覧
+                  </button>
+                </div>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
                   value={shopFilterExclusive}
@@ -3194,8 +3185,24 @@ export default function Page() {
           ) : (
             <>
               {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
-              <div className="flex flex-col gap-2 text-xs">
+              <div className="flex flex-col gap-1.5 text-xs">
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
+                    <button
+                      type="button"
+                      className="px-4 h-8 bg-sky-600 text-white"
+                      onClick={() => setPanelTab("casts")}
+                    >
+                      キャスト一覧
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 h-8 border-l border-slate-200 bg-transparent text-gray-700"
+                      onClick={() => setPanelTab("shops")}
+                    >
+                      店舗一覧
+                    </button>
+                  </div>
                   <input
                     className="tiara-input rounded-none h-8 !w-[200px] text-[10px] leading-tight flex-none"
                     placeholder="管理番号・名前・旧ID"
@@ -3274,7 +3281,38 @@ export default function Page() {
                     <option value="40-49">40〜49歳</option>
                     <option value="50-">50歳以上</option>
                   </select>
-                  <div className="ml-auto flex flex-col items-end gap-1">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                    <label className="inline-flex items-center gap-1 text-[10px]">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={sortKana}
+                        onChange={(e) => setSortKana(e.target.checked)}
+                      />
+                      50音
+                    </label>
+                    <label className="inline-flex items-center gap-1 text-[10px]">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={sortNumberSmallFirst}
+                        onChange={(e) =>
+                          setSortNumberSmallFirst(e.target.checked)
+                        }
+                      />
+                      番号↑
+                    </label>
+                    <label className="inline-flex items-center gap-1 text-[10px]">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3"
+                        checked={sortNumberLargeFirst}
+                        onChange={(e) =>
+                          setSortNumberLargeFirst(e.target.checked)
+                        }
+                      />
+                      番号↓
+                    </label>
                     <button
                       type="button"
                       className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
@@ -3286,44 +3324,11 @@ export default function Page() {
                     >
                       build: {buildStamp}
                     </button>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <label className="inline-flex items-center gap-1 text-[10px]">
-                        <input
-                          type="checkbox"
-                          className="h-3 w-3"
-                          checked={sortKana}
-                          onChange={(e) => setSortKana(e.target.checked)}
-                        />
-                        50音
-                      </label>
-                      <label className="inline-flex items-center gap-1 text-[10px]">
-                        <input
-                          type="checkbox"
-                          className="h-3 w-3"
-                          checked={sortNumberSmallFirst}
-                          onChange={(e) =>
-                            setSortNumberSmallFirst(e.target.checked)
-                          }
-                        />
-                        番号↑
-                      </label>
-                      <label className="inline-flex items-center gap-1 text-[10px]">
-                        <input
-                          type="checkbox"
-                          className="h-3 w-3"
-                          checked={sortNumberLargeFirst}
-                          onChange={(e) =>
-                            setSortNumberLargeFirst(e.target.checked)
-                          }
-                        />
-                        番号↓
-                      </label>
-                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {[
                       { id: "today", label: "本日出勤" },
                       { id: "all", label: "全キャスト" },
@@ -3335,7 +3340,7 @@ export default function Page() {
                           key={tab.id}
                           type="button"
                           className={
-                            "px-3 py-1 border text-xs " +
+                            "px-3 h-7 border text-xs " +
                             (active
                               ? "bg-sky-600 text-white border-sky-600"
                               : "bg-white text-slate-700 border-slate-200")
@@ -3350,10 +3355,10 @@ export default function Page() {
                     })}
                   </div>
 
-                  <div className="inline-flex items-center bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 gap-2 ml-2">
+                  <div className="inline-flex h-7 items-center bg-gray-100 text-gray-800 border border-gray-300 px-2 gap-2 ml-1">
                     <button
                       type="button"
-                      className="text-xs px-2 py-0.5 border border-gray-300 disabled:opacity-40"
+                      className="text-xs px-2 h-5 border border-gray-300 disabled:opacity-40"
                       onClick={() =>
                         setCurrentPage((p) => Math.max(1, p - 1))
                       }
@@ -3366,7 +3371,7 @@ export default function Page() {
                     </span>
                     <button
                       type="button"
-                      className="text-xs px-2 py-0.5 border border-gray-300 disabled:opacity-40"
+                      className="text-xs px-2 h-5 border border-gray-300 disabled:opacity-40"
                       onClick={() =>
                         setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
@@ -3376,16 +3381,16 @@ export default function Page() {
                     </button>
                   </div>
 
-                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[11px]">
-                    <div className="border border-slate-200 bg-white px-2 py-1">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 text-[10px]">
+                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
                       <span className="font-semibold">オーダー数</span>
                       <span className="ml-2">{orderSummary.count} 件</span>
                     </div>
-                    <div className="border border-slate-200 bg-white px-2 py-1">
+                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
                       <span className="font-semibold">オーダー人数</span>
                       <span className="ml-2">{orderSummary.headcount} 人</span>
                     </div>
-                    <div className="border border-slate-200 bg-white px-2 py-1">
+                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
                       <span className="font-semibold">時給別（本日出勤予定）</span>
                       <span className="ml-2 text-muted">
                         {WAGE_BUCKETS.map(
@@ -3410,7 +3415,7 @@ export default function Page() {
 
               {statusTab === "today" ? (
                 <div className="rounded-none border border-slate-900 bg-white">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-2 py-1">
                     <div className="text-xs font-semibold text-slate-900">
                       本日出勤 派遣表
                       {dispatchLoading ? (
@@ -3422,21 +3427,21 @@ export default function Page() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="rounded-none border border-slate-900 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
+                        className="rounded-none border border-slate-900 bg-white px-3 h-7 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
                         onClick={loadDispatchSheet}
                       >
                         再読込
                       </button>
                       <button
                         type="button"
-                        className="rounded-none border border-slate-900 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
+                        className="rounded-none border border-slate-900 bg-white px-3 h-7 text-[11px] font-semibold text-slate-900 hover:bg-slate-50"
                         onClick={() => window.print()}
                       >
                         印刷
                       </button>
                       <button
                         type="button"
-                        className="rounded-none border border-emerald-700 bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                        className="rounded-none border border-emerald-700 bg-emerald-600 px-3 h-7 text-[11px] font-semibold text-white hover:bg-emerald-700"
                         onClick={confirmAllDispatchRows}
                       >
                         まとめて確定

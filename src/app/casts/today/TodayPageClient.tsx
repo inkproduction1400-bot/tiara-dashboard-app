@@ -82,6 +82,7 @@ const CAST_LIST_PAGE_SIZE = 56;
 const DISPATCH_TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
 const DISPATCH_TIME_DATALIST_ID = "dispatch-time-options";
 type DispatchStatusFilter = "" | "unassigned" | "matched";
+type CastStatusTab = "today" | "all" | "dormant";
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -122,6 +123,10 @@ type Cast = {
   oldId?: string;
   /** キャストのジャンル（クラブ / キャバ / スナック / ガルバ など複数） */
   genres?: CastGenre[];
+  /** 将来の休眠キャスト管理用ステータス */
+  lifecycleStatus?: string | null;
+  activityStatus?: string | null;
+  status?: string | null;
 };
 
 type Shop = {
@@ -690,6 +695,16 @@ const isInAgeRange = (age: number, range: AgeRangeFilter): boolean => {
   }
 };
 
+const isDormantCast = (cast: Cast): boolean => {
+  const status = (
+    cast.lifecycleStatus ??
+    cast.activityStatus ??
+    cast.status ??
+    ""
+  ).toLowerCase();
+  return status === "dormant" || status === "inactive" || status === "休眠";
+};
+
 /**
  * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
  * - 今回は NG のみで非表示にする
@@ -821,9 +836,7 @@ export default function Page() {
   const [担当者, set担当者] = useState<string>("all");
   const [dispatchStatusFilter, setDispatchStatusFilter] =
     useState<DispatchStatusFilter>("");
-  const [statusTab, setStatusTab] = useState<
-    "today" | "all" | "matched" | "unassigned"
-  >("today");
+  const [statusTab, setStatusTab] = useState<CastStatusTab>("today");
 
   // 既存ソート（年齢・時給など）
   const [sortKey, setSortKey] = useState<SortKey>("default");
@@ -1752,27 +1765,18 @@ export default function Page() {
     page: effectivePage,
   } = useMemo(() => {
     const todayIds = new Set(todayCasts.map((c) => c.id));
-    const matchedIds = matchedCastIds;
 
     // ① ベース集合の選択（タブの役割）
-    // - 未配属 / 本日出勤 / マッチ済み：本日出勤キャストのみ
+    // - 本日出勤：本日シフトがあるキャスト
     // - 全キャスト：シフトに関係なく全キャスト
+    // - 休眠キャスト：将来の休眠ステータスが付いたキャスト
     let base: Cast[];
-    if (statusTab === "all" || statusTab === "matched") {
+    if (statusTab === "all") {
       base = allCasts;
+    } else if (statusTab === "dormant") {
+      base = allCasts.filter(isDormantCast);
     } else {
       base = allCasts.filter((c) => todayIds.has(c.id));
-    }
-
-    // ② タブごとの追加フィルタ
-    if (statusTab === "unassigned") {
-      base = base.filter((c) => !matchedIds.has(c.id));
-    } else if (statusTab === "today") {
-      base = base.filter((c) => !matchedIds.has(c.id));
-    } else if (statusTab === "matched") {
-      base = base.filter((c) => matchedIds.has(c.id));
-    } else if (statusTab === "all") {
-      base = base.filter((c) => !matchedIds.has(c.id));
     }
 
     let list: Cast[] = [...base];
@@ -1937,7 +1941,6 @@ export default function Page() {
   }, [
     allCasts,
     todayCasts,
-    matchedCastIds,
     dispatchRows,
     dispatchStatusFilter,
     selectedShop,
@@ -3412,10 +3415,9 @@ export default function Page() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     {[
-                      { id: "unassigned", label: "未配属" },
                       { id: "today", label: "本日出勤" },
-                      { id: "matched", label: "マッチ済み" },
                       { id: "all", label: "全キャスト" },
+                      { id: "dormant", label: "休眠キャスト" },
                     ].map((tab) => {
                       const active = statusTab === tab.id;
                       return (
@@ -3429,7 +3431,7 @@ export default function Page() {
                               : "bg-white text-slate-700 border-slate-200")
                           }
                           onClick={() =>
-                            setStatusTab(tab.id as typeof statusTab)
+                            setStatusTab(tab.id as CastStatusTab)
                           }
                         >
                           {tab.label}

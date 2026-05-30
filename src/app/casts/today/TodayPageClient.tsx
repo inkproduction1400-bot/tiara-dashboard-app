@@ -804,10 +804,6 @@ export default function Page() {
   const [todayCasts, setTodayCasts] = useState<Cast[]>([]);
   // 全キャスト（シフトに関係なく /casts から取得）
   const [allCasts, setAllCasts] = useState<Cast[]>([]);
-  const [orderSummary, setOrderSummary] = useState<{
-    count: number;
-    headcount: number;
-  }>({ count: 0, headcount: 0 });
   const [matchedCastIds, setMatchedCastIds] = useState<Set<string>>(
     () => new Set<string>(),
   );
@@ -2068,7 +2064,13 @@ export default function Page() {
   }, [orderShopQuery]);
 
   const todayWageCounts = useMemo(() => buildWageCounts(todayCasts), [todayCasts]);
-  const systemWageCounts = useMemo(() => buildWageCounts(allCasts), [allCasts]);
+  const orderSummary = useMemo(() => {
+    const assignedRows = dispatchRows.filter((row) => Boolean(row.shopId));
+    return {
+      count: assignedRows.length,
+      headcount: assignedRows.filter((row) => row.status === "confirmed").length,
+    };
+  }, [dispatchRows]);
 
   const applyMatchedFromOrders = useCallback((orders: any[]) => {
     const set = new Set<string>();
@@ -2100,42 +2102,6 @@ export default function Page() {
       console.warn("[casts/today] load matched casts failed", { err });
     }
   }, [applyMatchedFromOrders]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const date = todayKey();
-        const orders = await listShopOrders(date);
-        if (cancelled) return;
-        const effectiveOrders = orders.filter((order) => {
-          const status = order?.status ?? order?.order_status ?? null;
-          if (status === "canceled") return false;
-          const assignedCount = Array.isArray(order?.assignments)
-            ? order.assignments.length
-            : 0;
-          return status === "confirmed" || assignedCount > 0;
-        });
-        const count = effectiveOrders.length;
-        const headcount = effectiveOrders.reduce((sum, order) => {
-          const value = Number(
-            order?.headcount ?? order?.head_count ?? order?.headCount ?? 0,
-          );
-          return sum + (Number.isFinite(value) ? value : 0);
-        }, 0);
-        setOrderSummary({ count, headcount });
-        applyMatchedFromOrders(orders);
-      } catch (err) {
-        if (cancelled) return;
-        console.warn("[casts/today] load order summary failed", { err });
-        setOrderSummary({ count: 0, headcount: 0 });
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [orderItems, orderAssignments, selectedShopId, applyMatchedFromOrders]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -3072,25 +3038,6 @@ export default function Page() {
                 ))}
               </div>
             </div>
-            <div className="border border-slate-200 bg-white px-3 py-2 min-w-[320px]">
-              <div className="font-semibold">時給別（システム登録）</div>
-              <div className="mt-1 grid grid-cols-4 gap-2 text-[11px] text-muted">
-                {WAGE_BUCKETS.map((wage) => (
-                  <span key={`system-${wage}`}>
-                    ・{wage}円　{systemWageCounts[wage] ?? 0}名
-                  </span>
-                ))}
-              </div>
-            </div>
-            {floatMinimized && (
-              <button
-                type="button"
-                className="border border-slate-300 bg-white px-3 py-2 text-[11px] h-[34px] flex items-center"
-                onClick={() => setFloatMinimized(false)}
-              >
-                オーダー画面
-              </button>
-            )}
           </div>
         </section>
 
@@ -3256,25 +3203,6 @@ export default function Page() {
                             onClick={() =>
                               setSelectedShopId((prev) => {
                                 const next = prev === shop.id ? "" : shop.id;
-                                if (next) {
-                                  if (typeof window !== "undefined") {
-                                    const width = 360;
-                                    const height = 420;
-                                    const x = Math.max(
-                                      16,
-                                      Math.round((window.innerWidth - width) / 2),
-                                    );
-                                    const y = Math.max(
-                                      16,
-                                      Math.round(
-                                        (window.innerHeight - height) / 2,
-                                      ),
-                                    );
-                                    setFloatPos({ x, y });
-                                  }
-                                  setFloatMinimized(false);
-                                  setFloatZ((z) => z + 1);
-                                }
                                 return next;
                               })
                             }
@@ -4655,8 +4583,6 @@ export default function Page() {
                     setPendingCast(selectedCast);
                     setOrderSelectOpen(true);
                   }
-                  setFloatMinimized(false);
-                  setFloatZ((z) => z + 1);
                   closeCastDetail();
                 }}
               >

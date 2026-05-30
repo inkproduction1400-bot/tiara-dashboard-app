@@ -78,6 +78,14 @@ type WageFilter =
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
 const assignmentPickStorageKey = "tiara:assignments:pick";
 const DISPATCH_SHEET_SLOT_COUNT = 100;
+const DISPATCH_TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
+const DISPATCH_TIME_DATALIST_ID = "dispatch-time-options";
+
+const normalizeDispatchTimeForSave = (value?: string | null) => {
+  const trimmed = (value ?? "").trim();
+  const withoutSuffix = trimmed.replace(/[~〜～]+$/u, "").trim();
+  return withoutSuffix || "21:00";
+};
 
 // 年齢レンジフィルタ
 type AgeRangeFilter =
@@ -2217,7 +2225,7 @@ export default function Page() {
   ): Promise<DispatchSheetRow[] | null> => {
     const next = { ...row, ...patch };
     if (!next.shopId) return null;
-    const startTime = next.startTime || "21:00";
+    const startTime = normalizeDispatchTimeForSave(next.startTime);
     setDispatchSavingKey(next.castId);
     try {
       const res = await upsertDispatchSheetRow({
@@ -3485,6 +3493,12 @@ export default function Page() {
                     </div>
                   </div>
 
+                  <datalist id={DISPATCH_TIME_DATALIST_ID}>
+                    {DISPATCH_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time} />
+                    ))}
+                  </datalist>
+
                   <div className="grid grid-cols-1 gap-0 bg-slate-950 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {Array.from({
                       length: Math.max(
@@ -3668,8 +3682,10 @@ export default function Page() {
                                   </th>
                                   <td className="border-b border-slate-400 p-0.5">
                                     <input
-                                      type="time"
+                                      type="text"
+                                      list={DISPATCH_TIME_DATALIST_ID}
                                       className="h-7 w-full border border-slate-300 px-1 text-[11px]"
+                                      placeholder="21:00~"
                                       value={row.startTime || ""}
                                       onChange={(e) =>
                                         updateDispatchRowLocal(row.castId, {

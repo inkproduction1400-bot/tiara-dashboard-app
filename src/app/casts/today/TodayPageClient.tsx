@@ -203,6 +203,12 @@ const todayKey = () => {
   return `${y}-${m}-${dd}`;
 };
 
+const formatJapaneseDate = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-");
+  if (!year || !month || !day) return dateKey;
+  return `${year}年${Number(month)}月${Number(day)}日`;
+};
+
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
 
@@ -991,6 +997,7 @@ export default function Page() {
     useState<ContactMethodFilter>("");
 
   const [buildStamp, setBuildStamp] = useState("");
+  const printDateLabel = useMemo(() => formatJapaneseDate(todayKey()), []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3422,7 +3429,7 @@ export default function Page() {
               </div>
 
               {statusTab === "today" ? (
-                <div className="rounded-none border border-slate-900 bg-white">
+                <div className="dispatch-sheet-section rounded-none border border-slate-900 bg-white">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-2 py-1">
                     <div className="text-xs font-semibold text-slate-900">
                       本日出勤 派遣表
@@ -3463,7 +3470,96 @@ export default function Page() {
                     ))}
                   </datalist>
 
-                  <div className="grid grid-cols-1 gap-0 bg-slate-950 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="dispatch-sheet-print hidden">
+                    <div className="mb-2 text-center text-sm font-semibold text-slate-950">
+                      {printDateLabel} 派遣表
+                    </div>
+                    <div className="grid grid-cols-4 gap-0 bg-slate-950">
+                      {Array.from({
+                        length: Math.max(
+                          DISPATCH_SHEET_SLOT_COUNT,
+                          dispatchRows.length,
+                        ),
+                      }).map((_, slotIndex) => {
+                        const row = dispatchRows[slotIndex];
+                        return (
+                          <div
+                            key={`dispatch-print-${row?.castId ?? slotIndex}`}
+                            className="border-2 border-slate-950 bg-white"
+                          >
+                            <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
+                              <tbody>
+                                <tr>
+                                  <th className="w-[58px] border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    源氏名
+                                  </th>
+                                  <td className="border-b border-slate-400 px-1 py-1">
+                                    <div className="flex min-w-0 items-center justify-between gap-1">
+                                      <span className="truncate font-semibold">
+                                        {row?.displayName ?? ""}
+                                      </span>
+                                      <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                                        {row?.managementNumber ?? ""}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    派遣先
+                                  </th>
+                                  <td className="border-b border-slate-400 px-1 py-1">
+                                    <div className="min-h-4 truncate">
+                                      {row?.shopName
+                                        ? `${row.shopNumber ? `${row.shopNumber} / ` : ""}${row.shopName}`
+                                        : ""}
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    時給・手数料
+                                  </th>
+                                  <td className="border-b border-slate-400 px-1 py-1">
+                                    <div className="grid grid-cols-2 gap-1">
+                                      <div className="min-h-4 text-right">
+                                        {row?.castHourly ?? ""}
+                                      </div>
+                                      <div className="min-h-4 text-right">
+                                        {row?.shopFee ?? ""}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    時間
+                                  </th>
+                                  <td className="border-b border-slate-400 px-1 py-1">
+                                    <div className="min-h-4">
+                                      {row?.startTime ?? ""}
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    メモ
+                                  </th>
+                                  <td className="px-1 py-1">
+                                    <div className="min-h-4 truncate">
+                                      {row?.note ?? ""}
+                                    </div>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="dispatch-sheet-screen grid grid-cols-1 gap-0 bg-slate-950 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {Array.from({
                       length: Math.max(
                         DISPATCH_SHEET_SLOT_COUNT,
@@ -5425,6 +5521,45 @@ export default function Page() {
       <style jsx>{`
         :global(.tiara-input) {
           border-radius: 0 !important;
+        }
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+
+          :global(body *) {
+            visibility: hidden !important;
+          }
+
+          :global(.dispatch-sheet-section),
+          :global(.dispatch-sheet-section *) {
+            visibility: visible !important;
+          }
+
+          :global(.dispatch-sheet-section) {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            border: 0 !important;
+            background: white !important;
+          }
+
+          :global(.dispatch-sheet-section > div:first-child),
+          :global(.dispatch-sheet-screen),
+          :global(datalist) {
+            display: none !important;
+          }
+
+          :global(.dispatch-sheet-print) {
+            display: block !important;
+          }
+
+          :global(.dispatch-sheet-print *) {
+            color: #020617 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
       `}</style>
     </AppShell>

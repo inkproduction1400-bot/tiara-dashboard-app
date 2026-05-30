@@ -100,6 +100,42 @@ const normalizeDispatchTimeForSave = (value?: string | null) => {
   return withoutSuffix || "21:00";
 };
 
+const buildDispatchSlots = (
+  rows: DispatchSheetRow[],
+  options: { includeCanceledTail: boolean },
+) => {
+  const activeRows = rows.filter((row) => row.status !== "canceled");
+  const canceledRows = rows.filter((row) => row.status === "canceled");
+  const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, activeRows.length);
+  const slots = Array.from<DispatchSheetRow | undefined>({
+    length: slotCount,
+  });
+  const overflow: DispatchSheetRow[] = [];
+
+  for (const row of activeRows) {
+    const index =
+      typeof row.displayOrder === "number" && row.displayOrder >= 0
+        ? row.displayOrder
+        : -1;
+    if (index >= 0 && index < slots.length && !slots[index]) {
+      slots[index] = row;
+    } else {
+      overflow.push(row);
+    }
+  }
+  for (const row of overflow) {
+    const index = slots.findIndex((item) => !item);
+    if (index >= 0) {
+      slots[index] = row;
+    } else {
+      slots.push(row);
+    }
+  }
+
+  if (!options.includeCanceledTail) return slots;
+  return [...slots, ...canceledRows];
+};
+
 // 年齢レンジフィルタ
 type AgeRangeFilter =
   | ""
@@ -2111,31 +2147,11 @@ export default function Page() {
   }, [filteredShops, shopSortKey]);
 
   const dispatchSlots = useMemo(() => {
-    const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, dispatchRows.length);
-    const slots = Array.from<DispatchSheetRow | undefined>({
-      length: slotCount,
-    });
-    const overflow: DispatchSheetRow[] = [];
-    for (const row of dispatchRows) {
-      const index =
-        typeof row.displayOrder === "number" && row.displayOrder >= 0
-          ? row.displayOrder
-          : -1;
-      if (index >= 0 && index < slots.length && !slots[index]) {
-        slots[index] = row;
-      } else {
-        overflow.push(row);
-      }
-    }
-    for (const row of overflow) {
-      const index = slots.findIndex((item) => !item);
-      if (index >= 0) {
-        slots[index] = row;
-      } else {
-        slots.push(row);
-      }
-    }
-    return slots;
+    return buildDispatchSlots(dispatchRows, { includeCanceledTail: true });
+  }, [dispatchRows]);
+
+  const dispatchPrintSlots = useMemo(() => {
+    return buildDispatchSlots(dispatchRows, { includeCanceledTail: false });
   }, [dispatchRows]);
 
   const shopWageOptions: WageFilter[] = [
@@ -2500,7 +2516,7 @@ export default function Page() {
 
   const printDispatchSheet = useCallback(() => {
     if (typeof window === "undefined") return;
-    const slots = dispatchSlots.map((row) => {
+    const slots = dispatchPrintSlots.map((row) => {
       const shopName = row?.shopName
         ? `${row.shopNumber ? `${row.shopNumber} / ` : ""}${row.shopName}`
         : "";
@@ -2632,7 +2648,7 @@ export default function Page() {
         </body>
       </html>`);
     printWindow.document.close();
-  }, [dispatchSlots, printDateLabel]);
+  }, [dispatchPrintSlots, printDateLabel]);
 
   const handleSelectShop = (shop: Shop) => {
     setSelectedShopId(shop.id);
@@ -3858,7 +3874,7 @@ export default function Page() {
                       {printDateLabel} 派遣表
                     </div>
                     <div className="grid grid-cols-4 gap-0 bg-slate-950">
-                      {dispatchSlots.map((row, slotIndex) => {
+                      {dispatchPrintSlots.map((row, slotIndex) => {
                         return (
                           <div
                             key={`dispatch-print-${row?.castId ?? slotIndex}`}
@@ -4007,6 +4023,7 @@ export default function Page() {
                           );
                         }
                         const saving = dispatchSavingKey === row.castId;
+                        const isCanceledRow = row.status === "canceled";
                         return (
                           <div
                             key={row.castId}
@@ -4015,7 +4032,7 @@ export default function Page() {
                               (row.status === "confirmed"
                                 ? "bg-emerald-50"
                                 : row.status === "canceled"
-                                  ? "bg-rose-50"
+                                  ? "bg-slate-200 text-slate-600"
                                 : row.isExclusiveInitial
                                   ? "bg-amber-50"
                                   : "bg-white")
@@ -4030,7 +4047,12 @@ export default function Page() {
                                   <td className="border-b border-slate-400 px-1 py-1">
                                     <button
                                       type="button"
-                                      className="flex w-full min-w-0 items-center justify-between gap-1 text-left hover:bg-sky-50"
+                                      className={
+                                        "flex w-full min-w-0 items-center justify-between gap-1 text-left " +
+                                        (isCanceledRow
+                                          ? "text-slate-500 hover:bg-slate-300"
+                                          : "hover:bg-sky-50")
+                                      }
                                       onClick={() => openDispatchCastDetail(row)}
                                     >
                                       <span className="truncate font-semibold">
@@ -4049,7 +4071,12 @@ export default function Page() {
                                   <td className="border-b border-slate-400 p-0.5">
                                     <button
                                       type="button"
-                                      className="h-7 w-full border border-slate-300 bg-white px-1.5 text-left text-[11px] leading-tight hover:bg-slate-50"
+                                      className={
+                                        "h-7 w-full border px-1.5 text-left text-[11px] leading-tight hover:bg-slate-50 " +
+                                        (isCanceledRow
+                                          ? "border-slate-400 bg-slate-100 text-slate-500"
+                                          : "border-slate-300 bg-white")
+                                      }
                                       onClick={() => {
                                         setDispatchShopPickerCastId(row.castId);
                                         setDispatchShopQuery("");
@@ -4078,7 +4105,12 @@ export default function Page() {
                                     <div className="grid grid-cols-2 gap-1">
                                       <input
                                         type="number"
-                                        className="h-7 w-full border border-slate-300 px-1 text-right text-[11px]"
+                                        className={
+                                          "h-7 w-full border px-1 text-right text-[11px] " +
+                                          (isCanceledRow
+                                            ? "border-slate-400 bg-slate-100 text-slate-500"
+                                            : "border-slate-300 bg-white")
+                                        }
                                         placeholder="時給"
                                         value={row.castHourly ?? ""}
                                         onChange={(e) =>
@@ -4099,7 +4131,12 @@ export default function Page() {
                                       />
                                       <input
                                         type="number"
-                                        className="h-7 w-full border border-slate-300 px-1 text-right text-[11px]"
+                                        className={
+                                          "h-7 w-full border px-1 text-right text-[11px] " +
+                                          (isCanceledRow
+                                            ? "border-slate-400 bg-slate-100 text-slate-500"
+                                            : "border-slate-300 bg-white")
+                                        }
                                         placeholder="手数料"
                                         value={row.shopFee ?? ""}
                                         onChange={(e) =>
@@ -4129,7 +4166,12 @@ export default function Page() {
                                     <input
                                       type="text"
                                       list={DISPATCH_TIME_DATALIST_ID}
-                                      className="h-7 w-full border border-slate-300 px-1 text-[11px]"
+                                      className={
+                                        "h-7 w-full border px-1 text-[11px] " +
+                                        (isCanceledRow
+                                          ? "border-slate-400 bg-slate-100 text-slate-500"
+                                          : "border-slate-300 bg-white")
+                                      }
                                       placeholder="21:00~"
                                       value={row.startTime || ""}
                                       onChange={(e) =>
@@ -4161,7 +4203,12 @@ export default function Page() {
                                       }
                                     >
                                       <input
-                                        className="h-7 w-full border border-slate-300 px-1.5 text-[11px]"
+                                        className={
+                                          "h-7 w-full border px-1.5 text-[11px] " +
+                                          (isCanceledRow
+                                            ? "border-slate-400 bg-slate-100 text-slate-500"
+                                            : "border-slate-300 bg-white")
+                                        }
                                         value={row.note ?? ""}
                                         onChange={(e) =>
                                           updateDispatchRowLocal(row.castId, {

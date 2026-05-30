@@ -14,6 +14,7 @@ export type AssignmentRow = {
   hourly?: number;
   daily?: number;
   fee?: number;
+  receiptStatus?: ReceiptStatus;
 };
 
 export type ReceiptPayload = {

@@ -2,16 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
-import { fetchReceiptTargets } from "@/lib/receipts/fetchReceiptTargets";
+import {
+  fetchReceiptTargets,
+  updateReceiptStatus,
+} from "@/lib/receipts/fetchReceiptTargets";
 import styles from "./ReceiptPreview.module.css";
 import type {
   AssignmentRow,
   ReceiptPayload,
-  ReceiptStatus,
-  ReceiptStatusEntry,
 } from "@/lib/receipts/types";
-
-const STATUS_STORAGE_KEY = "tiara:receipts:statusMap";
 
 const toDateKey = (d: Date) => {
   const y = d.getFullYear();
@@ -108,31 +107,11 @@ const toPayload = (form: ReceiptFormState): ReceiptPayload => ({
   fee: parseNumber(form.fee),
 });
 
-const loadStatusMap = (): Record<string, ReceiptStatusEntry> => {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STATUS_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, ReceiptStatusEntry>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveStatusMap = (map: Record<string, ReceiptStatusEntry>) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STATUS_STORAGE_KEY, JSON.stringify(map));
-};
-
 export default function ReceiptsPage() {
   const [businessDate, setBusinessDate] = useState(() => getBusinessDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [statusMap, setStatusMap] = useState<Record<string, ReceiptStatusEntry>>(
-    {},
-  );
   const [modalOpen, setModalOpen] = useState(false);
   const [formState, setFormState] = useState<ReceiptFormState | null>(null);
   const [activeRow, setActiveRow] = useState<AssignmentRow | null>(null);
@@ -152,10 +131,6 @@ export default function ReceiptsPage() {
   );
 
   useEffect(() => {
-    setStatusMap(loadStatusMap());
-  }, []);
-
-  useEffect(() => {
     let active = true;
     setLoading(true);
     fetchReceiptTargets(businessDate)
@@ -173,67 +148,10 @@ export default function ReceiptsPage() {
     };
   }, [businessDate]);
 
-  useEffect(() => {
-    saveStatusMap(statusMap);
-  }, [statusMap]);
-
-  const mergedRows = useMemo(() => {
-    const currentKeys = new Set(rows.map(rowKey));
-    const entries = Object.entries(statusMap);
-
-    const storedUncollected = entries
-      .filter(([, entry]) => entry.status === "uncollected" && entry.row)
-      .map(([, entry]) => entry.row as AssignmentRow)
-      .filter((row) => !currentKeys.has(rowKey(row)));
-
-    const storedIssued = entries
-      .filter(
-        ([, entry]) =>
-          entry.status === "issued" &&
-          entry.row &&
-          entry.row.businessDate === businessDate,
-      )
-      .map(([, entry]) => entry.row as AssignmentRow)
-      .filter((row) => !currentKeys.has(rowKey(row)));
-
-    return [...rows, ...storedUncollected, ...storedIssued];
-  }, [rows, statusMap, businessDate]);
-
-  const visibleRows = useMemo(() => {
-    return mergedRows.filter((row) => {
-      const entry = statusMap[rowKey(row)];
-      if (!entry) return true;
-      if (entry.status === "issued" && row.businessDate !== businessDate) {
-        return false;
-      }
-      return true;
-    });
-  }, [mergedRows, statusMap, businessDate]);
+  const visibleRows = rows;
 
   const reiwa = useMemo(() => formatReiwa(businessDate), [businessDate]);
   const weekday = useMemo(() => formatWeekday(businessDate), [businessDate]);
-
-  const updateStatus = (
-    key: string,
-    status: ReceiptStatus,
-    row?: AssignmentRow,
-    payload?: ReceiptPayload,
-  ) => {
-    setStatusMap((prev) => {
-      const next = { ...prev };
-      if (status === "none") {
-        delete next[key];
-        return next;
-      }
-      next[key] = {
-        status,
-        row,
-        payload,
-        updatedAt: new Date().toISOString(),
-      };
-      return next;
-    });
-  };
 
   const handleOpenModal = (row: AssignmentRow) => {
     setFormState(buildFormState(row, businessDate));
@@ -241,15 +159,29 @@ export default function ReceiptsPage() {
     setModalOpen(true);
   };
 
-  const handleUncollected = (row: AssignmentRow) => {
-    updateStatus(rowKey(row), "uncollected", row);
-  };
-
-  const handleCollectionChange = (
+  const handleCollectionChange = async (
     row: AssignmentRow,
     value: "uncollected" | "collected",
   ) => {
-    updateStatus(rowKey(row), value, row);
+    if (!row.assignmentId) return;
+    const previous = row.receiptStatus ?? "uncollected";
+    setRows((current) =>
+      current.map((item) =>
+        rowKey(item) === rowKey(row) ? { ...item, receiptStatus: value } : item,
+      ),
+    );
+    try {
+      await updateReceiptStatus(row.assignmentId, value);
+    } catch (err) {
+      console.error("[Receipts] receipt status update failed", err);
+      setRows((current) =>
+        current.map((item) =>
+          rowKey(item) === rowKey(row)
+            ? { ...item, receiptStatus: previous }
+            : item,
+        ),
+      );
+    }
   };
 
   const handlePrint = async () => {
@@ -272,24 +204,6 @@ export default function ReceiptsPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      updateStatus(
-        activeRow ? rowKey(activeRow) : `${payload.businessDate}|${payload.castId}|${payload.shopId}`,
-        "issued",
-        activeRow ?? {
-          businessDate: payload.businessDate,
-          castId: payload.castId,
-          castName: "",
-          shopId: payload.shopId,
-          shopName: payload.shopName,
-          shopAddress: payload.shopAddress,
-          startTime: payload.startTime,
-          endTime: payload.endTime,
-          hourly: payload.hourly,
-          daily: payload.daily,
-          fee: payload.fee,
-        },
-        payload,
-      );
       setModalOpen(false);
       setFormState(null);
       setActiveRow(null);
@@ -452,9 +366,8 @@ export default function ReceiptsPage() {
               <tbody>
                 {visibleRows.map((row, index) => {
                   const key = rowKey(row);
-                  const status = statusMap[key]?.status ?? "none";
                   const collectionValue =
-                    status === "collected" || status === "issued"
+                    row.receiptStatus === "collected"
                       ? "collected"
                       : "uncollected";
                   const rowClass =

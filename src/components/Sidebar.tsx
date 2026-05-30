@@ -7,13 +7,44 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { clearAuth } from "@/lib/device";
+import { getCurrentUser } from "@/lib/api";
 import { ListRides } from "@/lib/api.rides";
 import type { RideStatus } from "@/lib/types.rides";
+
+function normalizeUserDisplayName(params: {
+  userType?: string | null;
+  staffName?: string | null;
+  loginId?: string | null;
+  email?: string | null;
+}): string {
+  const userType = params.userType?.trim().toLowerCase() ?? "";
+  if (userType === "admin") return "アドミン";
+
+  const raw =
+    params.staffName?.trim() ||
+    params.loginId?.trim() ||
+    params.email?.split("@")[0]?.trim() ||
+    "";
+  if (!raw) return "ゲスト";
+
+  const lower = raw.toLowerCase();
+  if (lower === "admin" || lower === "admin@example.com") return "アドミン";
+  if (lower.includes("nagai")) return "永井";
+  if (lower.includes("kitamura")) return "北村";
+  return raw;
+}
+
+function getAvatarText(displayName: string): string {
+  if (!displayName || displayName === "ゲスト") return "";
+  if (displayName === "アドミン") return "A";
+  return Array.from(displayName)[0] ?? "";
+}
 
 export default function Sidebar() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const [name, setName] = useState<string>("");
+  const [avatarText, setAvatarText] = useState<string>("");
   const [ridePendingCount, setRidePendingCount] = useState(0);
 
   // NotificationsContext の形が多少違っても落ちないように吸う
@@ -36,12 +67,47 @@ export default function Sidebar() {
       : 0);
 
   useEffect(() => {
-    const local =
-      (typeof window !== "undefined" &&
-        (localStorage.getItem("tiara_user_name") ||
-          localStorage.getItem("tiara_login_id"))) ||
-      "";
-    setName(local && local.trim() ? local : "ゲスト");
+    let mounted = true;
+
+    const applyName = (displayName: string) => {
+      if (!mounted) return;
+      setName(displayName);
+      setAvatarText(getAvatarText(displayName));
+    };
+
+    const localName = () => {
+      if (typeof window === "undefined") return "ゲスト";
+      return normalizeUserDisplayName({
+        userType: localStorage.getItem("tiara:user_type"),
+        staffName: localStorage.getItem("tiara:staff_name"),
+        loginId: localStorage.getItem("tiara_login_id"),
+        email: localStorage.getItem("tiara_user_name"),
+      });
+    };
+
+    applyName(localName());
+
+    void getCurrentUser()
+      .then((user) => {
+        const displayName = normalizeUserDisplayName(user);
+        applyName(displayName);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("tiara_user_name", displayName);
+          if (user.staffName) {
+            localStorage.setItem("tiara:staff_name", user.staffName);
+          }
+          if (user.userType) {
+            localStorage.setItem("tiara:user_type", user.userType);
+          }
+        }
+      })
+      .catch(() => {
+        applyName(localName());
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -218,9 +284,11 @@ export default function Sidebar() {
         <div className="flex flex-col items-center gap-2">
           <div className="relative flex flex-col items-center -mt-0.5">
             <div
-              className="w-8 h-8 rounded-full border border-sky-400 bg-white/10"
+              className="w-8 h-8 rounded-full border border-sky-400 bg-white/10 flex items-center justify-center text-sm font-bold text-sky-700"
               aria-hidden
-            />
+            >
+              {avatarText}
+            </div>
             {headerUnread > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-[10px] font-semibold text-white flex items-center justify-center shadow-sm">
                 {headerUnread > 99 ? "99+" : headerUnread}

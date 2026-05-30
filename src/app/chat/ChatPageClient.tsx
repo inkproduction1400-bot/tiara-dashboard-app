@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, getCurrentUser } from "@/lib/api";
 import {
   updateCastChatSendDisabled,
   updateCastTodayShift,
@@ -264,9 +264,9 @@ type AgeRangeFilter =
   | "50-";
 
 const STAFF_FILTERS = [
-  { id: "all", label: "担当者" },
-  { id: "nagai", label: "永井" },
-  { id: "kitamura", label: "北村" },
+  { id: "all", label: "担当者：すべて" },
+  { id: "永井", label: "永井" },
+  { id: "北村", label: "北村" },
 ];
 
 type ApiSummaryResponse = {
@@ -306,6 +306,7 @@ function ChatContent() {
 
   const [keyword, setKeyword] = useState<string>("");
   const [staffFilter, setStaffFilter] = useState<string>("all");
+  const [currentStaffName, setCurrentStaffName] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
@@ -369,9 +370,7 @@ function ChatContent() {
     if (staffFilter !== "all") {
       list = list.filter((c) => {
         const staff = c.staffName || "";
-        if (staffFilter === "nagai") return staff.includes("永井");
-        if (staffFilter === "kitamura") return staff.includes("北村");
-        return true;
+        return staff.includes(staffFilter);
       });
     }
 
@@ -477,6 +476,19 @@ function ChatContent() {
     sortNumberLargeFirst,
   ]);
 
+  const staffFilterOptions = useMemo(() => {
+    const options = new Map(STAFF_FILTERS.map((item) => [item.id, item.label]));
+    if (currentStaffName && !options.has(currentStaffName)) {
+      options.set(currentStaffName, `${currentStaffName}（自分）`);
+    }
+    for (const room of rooms) {
+      if (room.staffName && room.staffName !== "担当者") {
+        options.set(room.staffName, room.staffName);
+      }
+    }
+    return Array.from(options.entries()).map(([id, label]) => ({ id, label }));
+  }, [currentStaffName, rooms]);
+
   const markStaffRead = async (roomId: string, signal?: AbortSignal) => {
     if (lastMarkedReadRoomIdRef.current === roomId) return;
 
@@ -563,6 +575,32 @@ function ChatContent() {
     }
   }, [selectedRoomIdFromUrl, selectedRoomId]);
 
+  useEffect(() => {
+    let mounted = true;
+    void getCurrentUser()
+      .then((user) => {
+        if (!mounted) return;
+        const userType = user.userType?.toLowerCase() ?? "";
+        const staffName = user.staffName?.trim() ?? "";
+        setCurrentStaffName(staffName);
+        if (userType !== "admin" && staffName) {
+          setStaffFilter(staffName);
+        }
+      })
+      .catch(() => {
+        if (typeof window === "undefined" || !mounted) return;
+        const storedType = localStorage.getItem("tiara:user_type") ?? "";
+        const storedStaff = localStorage.getItem("tiara:staff_name") ?? "";
+        setCurrentStaffName(storedStaff);
+        if (storedType.toLowerCase() !== "admin" && storedStaff) {
+          setStaffFilter(storedStaff);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // rooms load
   useEffect(() => {
     let mounted = true;
@@ -570,8 +608,16 @@ function ChatContent() {
 
     (async () => {
       try {
+        const qs = new URLSearchParams({
+          paged: "1",
+          limit: "500",
+          offset: "0",
+        });
+        if (staffFilter !== "all") {
+          qs.set("ownerStaffName", staffFilter);
+        }
         const apiRoomsResponse = await apiFetch<ApiRoomsResponse>(
-          "/chat/staff/rooms?paged=1&limit=500&offset=0",
+          `/chat/staff/rooms?${qs.toString()}`,
           { method: "GET" },
           { signal: ac.signal },
         );
@@ -729,7 +775,7 @@ function ChatContent() {
       ac.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [staffFilter]);
 
   // ルーム選択時：messages GET + staff既読POST + summary dispatch + 初回スクロール最下部
   useEffect(() => {
@@ -1066,7 +1112,7 @@ function ChatContent() {
           value={staffFilter}
           onChange={(e) => setStaffFilter(e.target.value)}
         >
-          {STAFF_FILTERS.map((s) => (
+          {staffFilterOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>

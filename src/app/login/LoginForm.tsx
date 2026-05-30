@@ -56,6 +56,19 @@ export default function LoginForm() {
       const res = await login(uid, pw, device_id);
       if (res.status === "ok") {
         saveToken(res.token);
+        if (res.user) {
+          localStorage.setItem("tiara:user_id", res.user.id);
+          localStorage.setItem("tiara:user_type", res.user.userType);
+          localStorage.setItem(
+            "tiara_user_name",
+            res.user.staffName || res.user.loginId || res.user.email || "ゲスト",
+          );
+          if (res.user.staffName) {
+            localStorage.setItem("tiara:staff_name", res.user.staffName);
+          } else {
+            localStorage.removeItem("tiara:staff_name");
+          }
+        }
         router.replace(resolvePostLoginPath());
         return;
       }

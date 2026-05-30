@@ -34,7 +34,7 @@ import {
   listShops,
   type ShopDetail,
 } from "@/lib/api.shops";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getCurrentUser } from "@/lib/api";
 import {
   type ScheduleShopRequest,
   loadScheduleShopRequests,
@@ -177,6 +177,7 @@ type Cast = {
   activityStatus?: string | null;
   status?: string | null;
   attendanceRequestStatus?: AttendanceRequestStatus | null;
+  ownerStaffName?: string | null;
 };
 
 type Shop = {
@@ -896,6 +897,7 @@ export default function Page() {
   const exclusiveSyncRef = useRef<Set<string>>(new Set());
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
+  const [currentStaffName, setCurrentStaffName] = useState<string>("");
   const [dispatchStatusFilter, setDispatchStatusFilter] =
     useState<DispatchStatusFilter>("");
   const [statusTab, setStatusTab] = useState<CastStatusTab>("today");
@@ -944,6 +946,32 @@ export default function Page() {
   const [pendingDispatchSlotIndex, setPendingDispatchSlotIndex] = useState<
     number | null
   >(null);
+
+  useEffect(() => {
+    let mounted = true;
+    void getCurrentUser()
+      .then((user) => {
+        if (!mounted) return;
+        const userType = user.userType?.toLowerCase() ?? "";
+        const staffName = user.staffName?.trim() ?? "";
+        setCurrentStaffName(staffName);
+        if (userType !== "admin" && staffName) {
+          set担当者(staffName);
+        }
+      })
+      .catch(() => {
+        if (typeof window === "undefined" || !mounted) return;
+        const storedType = localStorage.getItem("tiara:user_type") ?? "";
+        const storedStaff = localStorage.getItem("tiara:staff_name") ?? "";
+        setCurrentStaffName(storedStaff);
+        if (storedType.toLowerCase() !== "admin" && storedStaff) {
+          set担当者(storedStaff);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
@@ -1616,6 +1644,7 @@ export default function Page() {
           genres: getGenresFromDetail(item),
           activityStatus: (item as any).activityStatus ?? null,
           lastMatchedAt: (item as any).lastMatchedAt ?? null,
+          ownerStaffName: (item as any).ownerStaffName ?? null,
         }));
 
         const todayMap = new Map(todayList.map((c) => [c.id, c]));
@@ -1623,7 +1652,13 @@ export default function Page() {
         // 全キャスト（/casts）。本日出勤分は todayList を優先し、それ以外はデフォルト値で補完
         const allList: Cast[] = allResp.items.map((item) => {
           const fromToday = todayMap.get(item.userId);
-          if (fromToday) return fromToday;
+          if (fromToday) {
+            return {
+              ...fromToday,
+              ownerStaffName:
+                (item as any).ownerStaffName ?? fromToday.ownerStaffName ?? null,
+            };
+          }
 
           return {
             id: item.userId,
@@ -1646,6 +1681,7 @@ export default function Page() {
             genres: getGenresFromDetail(item),
             activityStatus: (item as any).activityStatus ?? null,
             lastMatchedAt: (item as any).lastMatchedAt ?? null,
+            ownerStaffName: (item as any).ownerStaffName ?? null,
           };
         });
 
@@ -1691,6 +1727,7 @@ export default function Page() {
     setCurrentPage(1);
   }, [
     statusTab,
+    担当者,
     keyword,
     selectedShopId,
     dispatchStatusFilter,
@@ -1887,6 +1924,10 @@ export default function Page() {
 
     let list: Cast[] = [...base];
 
+    if (担当者 !== "all") {
+      list = list.filter((c) => (c.ownerStaffName ?? "").includes(担当者));
+    }
+
     if (attendanceRequestFilter) {
       list = list.filter((c) => {
         const status = attendanceRequestByCastId.get(c.id)?.status ?? null;
@@ -2055,6 +2096,7 @@ export default function Page() {
   }, [
     allCasts,
     todayCasts,
+    担当者,
     attendanceRequests,
     attendanceRequestFilter,
     dispatchRows,
@@ -2075,6 +2117,16 @@ export default function Page() {
     sortNumberSmallFirst,
     sortNumberLargeFirst,
   ]);
+
+  const ownerStaffOptions = useMemo(() => {
+    const names = new Set<string>();
+    if (currentStaffName) names.add(currentStaffName);
+    for (const cast of allCasts) {
+      const name = cast.ownerStaffName?.trim();
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [allCasts, currentStaffName]);
 
   const formatDrinkLabel = (cast: Cast) => {
     switch (cast.drinkLevel) {
@@ -3591,8 +3643,12 @@ export default function Page() {
                     onChange={(e) => set担当者(e.target.value)}
                   >
                     <option value="all">担当者</option>
-                    <option value="nagai">永井</option>
-                    <option value="kitamura">北村</option>
+                    {ownerStaffOptions.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                        {name === currentStaffName ? "（自分）" : ""}
+                      </option>
+                    ))}
                   </select>
                   <select
                     className="tiara-input rounded-none h-8 !w-[110px] text-[10px] leading-tight flex-none"

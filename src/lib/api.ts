@@ -11,7 +11,15 @@ const RAW_BASE =
 // 末尾スラッシュを除去しておく（結合時に二重 / を避ける）
 export const API_BASE = RAW_BASE.replace(/\/+$/, "");
 
-export type LoginOk = { status: "ok"; token: string };
+export type DashboardUser = {
+  id: string;
+  userType: string;
+  email: string | null;
+  loginId: string | null;
+  staffName: string | null;
+};
+
+export type LoginOk = { status: "ok"; token: string; user?: DashboardUser };
 export type LoginChallenge = {
   status: "challenge";
   tx_id: string;
@@ -121,6 +129,10 @@ export async function login(
     method: "POST",
     body: JSON.stringify({ email, password, device_id }),
   });
+}
+
+export async function getCurrentUser() {
+  return apiGet<DashboardUser>("/auth/me");
 }
 
 export async function verifyChallenge(

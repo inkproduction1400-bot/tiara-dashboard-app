@@ -3484,135 +3484,130 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="overflow-auto">
-                    <table className="min-w-[980px] w-full border-collapse text-[12px] text-slate-950">
-                      <thead>
-                        <tr className="bg-white">
-                          <th className="border border-slate-900 px-2 py-1 text-left w-[92px]">
-                            源氏名
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-left min-w-[170px]">
-                            派遣先
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-center w-[82px]">
-                            時給
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-center w-[82px]">
-                            手数料
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-center w-[92px]">
-                            時間
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-left min-w-[140px]">
-                            メモ
-                          </th>
-                          <th className="border border-slate-900 px-2 py-1 text-center w-[118px]">
-                            確定
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dispatchRows.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="border border-slate-900 px-3 py-6 text-center text-slate-500"
-                            >
-                              本日出勤のキャストがありません。
-                            </td>
-                          </tr>
-                        ) : (
-                          dispatchRows.map((row) => {
-                            const saving = dispatchSavingKey === row.castId;
-                            return (
-                              <tr
-                                key={row.castId}
-                                className={
-                                  row.status === "confirmed"
-                                    ? "bg-emerald-50"
-                                    : row.isExclusiveInitial
-                                      ? "bg-amber-50"
-                                      : "bg-white"
-                                }
-                              >
-                                <td className="border border-slate-900 px-2 py-1 align-middle">
-                                  <div className="font-semibold leading-tight">
-                                    {row.displayName}
-                                  </div>
-                                  <div className="mt-0.5 font-mono text-[10px] text-slate-500">
-                                    {row.managementNumber}
-                                  </div>
-                                </td>
-                                <td className="border border-slate-900 p-1 align-middle">
-                                  <button
-                                    type="button"
-                                    className="h-8 w-full border border-slate-300 bg-white px-2 text-left text-[12px] hover:bg-slate-50"
-                                    onClick={() => {
-                                      setDispatchShopPickerCastId(row.castId);
-                                      setDispatchShopQuery("");
-                                    }}
-                                  >
-                                    {row.shopName ? (
-                                      <span>
-                                        {row.shopNumber
-                                          ? `${row.shopNumber} / `
-                                          : ""}
-                                        {row.shopName}
+                  {dispatchRows.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-xs text-slate-500">
+                      本日出勤のキャストがありません。
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-0 border-t border-slate-900 md:grid-cols-2 2xl:grid-cols-3">
+                      {dispatchRows.map((row) => {
+                        const saving = dispatchSavingKey === row.castId;
+                        return (
+                          <div
+                            key={row.castId}
+                            className={
+                              "border-b border-r border-slate-900 " +
+                              (row.status === "confirmed"
+                                ? "bg-emerald-50"
+                                : row.isExclusiveInitial
+                                  ? "bg-amber-50"
+                                  : "bg-white")
+                            }
+                          >
+                            <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
+                              <tbody>
+                                <tr>
+                                  <th className="w-[58px] border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    源氏名
+                                  </th>
+                                  <td className="border-b border-slate-900 px-1 py-1">
+                                    <div className="flex min-w-0 items-center justify-between gap-1">
+                                      <span className="truncate font-semibold">
+                                        {row.displayName}
                                       </span>
-                                    ) : (
-                                      <span className="text-slate-400">
-                                        店舗を選択
+                                      <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                                        {row.managementNumber}
                                       </span>
-                                    )}
-                                  </button>
-                                </td>
-                                <td className="border border-slate-900 p-1 align-middle">
-                                  <input
-                                    type="number"
-                                    className="h-8 w-full border border-slate-300 px-1 text-right text-[12px]"
-                                    value={row.castHourly ?? ""}
-                                    onChange={(e) =>
-                                      updateDispatchRowLocal(row.castId, {
-                                        castHourly: e.target.value
-                                          ? Number(e.target.value)
-                                          : null,
-                                      })
-                                    }
-                                    onBlur={() =>
-                                      void saveDispatchRow(
-                                        dispatchRows.find(
-                                          (item) => item.castId === row.castId,
-                                        ) ?? row,
-                                      )
-                                    }
-                                  />
-                                </td>
-                                <td className="border border-slate-900 p-1 align-middle">
-                                  <input
-                                    type="number"
-                                    className="h-8 w-full border border-slate-300 px-1 text-right text-[12px]"
-                                    value={row.shopFee ?? ""}
-                                    onChange={(e) =>
-                                      updateDispatchRowLocal(row.castId, {
-                                        shopFee: e.target.value
-                                          ? Number(e.target.value)
-                                          : null,
-                                      })
-                                    }
-                                    onBlur={() =>
-                                      void saveDispatchRow(
-                                        dispatchRows.find(
-                                          (item) => item.castId === row.castId,
-                                        ) ?? row,
-                                      )
-                                    }
-                                  />
-                                </td>
-                                <td className="border border-slate-900 p-1 align-middle">
-                                  <div className="flex items-center gap-1">
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    派遣先
+                                  </th>
+                                  <td className="border-b border-slate-900 p-0.5">
+                                    <button
+                                      type="button"
+                                      className="h-7 w-full border border-slate-300 bg-white px-1.5 text-left text-[11px] leading-tight hover:bg-slate-50"
+                                      onClick={() => {
+                                        setDispatchShopPickerCastId(row.castId);
+                                        setDispatchShopQuery("");
+                                      }}
+                                    >
+                                      {row.shopName ? (
+                                        <span className="block truncate">
+                                          {row.shopNumber
+                                            ? `${row.shopNumber} / `
+                                            : ""}
+                                          {row.shopName}
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400">
+                                          店舗を選択
+                                        </span>
+                                      )}
+                                    </button>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    時給・手数料
+                                  </th>
+                                  <td className="border-b border-slate-900 p-0.5">
+                                    <div className="grid grid-cols-2 gap-1">
+                                      <input
+                                        type="number"
+                                        className="h-7 w-full border border-slate-300 px-1 text-right text-[11px]"
+                                        placeholder="時給"
+                                        value={row.castHourly ?? ""}
+                                        onChange={(e) =>
+                                          updateDispatchRowLocal(row.castId, {
+                                            castHourly: e.target.value
+                                              ? Number(e.target.value)
+                                              : null,
+                                          })
+                                        }
+                                        onBlur={() =>
+                                          void saveDispatchRow(
+                                            dispatchRows.find(
+                                              (item) =>
+                                                item.castId === row.castId,
+                                            ) ?? row,
+                                          )
+                                        }
+                                      />
+                                      <input
+                                        type="number"
+                                        className="h-7 w-full border border-slate-300 px-1 text-right text-[11px]"
+                                        placeholder="手数料"
+                                        value={row.shopFee ?? ""}
+                                        onChange={(e) =>
+                                          updateDispatchRowLocal(row.castId, {
+                                            shopFee: e.target.value
+                                              ? Number(e.target.value)
+                                              : null,
+                                          })
+                                        }
+                                        onBlur={() =>
+                                          void saveDispatchRow(
+                                            dispatchRows.find(
+                                              (item) =>
+                                                item.castId === row.castId,
+                                            ) ?? row,
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    時間
+                                  </th>
+                                  <td className="border-b border-slate-900 p-0.5">
                                     <input
                                       type="time"
-                                      className="h-8 w-full border border-slate-300 px-1 text-[12px]"
+                                      className="h-7 w-full border border-slate-300 px-1 text-[11px]"
                                       value={row.startTime || ""}
                                       onChange={(e) =>
                                         updateDispatchRowLocal(row.castId, {
@@ -3622,57 +3617,66 @@ export default function Page() {
                                       onBlur={() =>
                                         void saveDispatchRow(
                                           dispatchRows.find(
-                                            (item) => item.castId === row.castId,
+                                            (item) =>
+                                              item.castId === row.castId,
                                           ) ?? row,
                                         )
                                       }
                                     />
-                                  </div>
-                                </td>
-                                <td className="border border-slate-900 p-1 align-middle">
-                                  <input
-                                    className="h-8 w-full border border-slate-300 px-2 text-[12px]"
-                                    value={row.note ?? ""}
-                                    onChange={(e) =>
-                                      updateDispatchRowLocal(row.castId, {
-                                        note: e.target.value,
-                                      })
-                                    }
-                                    onBlur={() =>
-                                      void saveDispatchRow(
-                                        dispatchRows.find(
-                                          (item) => item.castId === row.castId,
-                                        ) ?? row,
-                                      )
-                                    }
-                                  />
-                                </td>
-                                <td className="border border-slate-900 px-2 py-1 text-center align-middle">
-                                  <button
-                                    type="button"
-                                    className={
-                                      "rounded-none border px-2 py-1 text-[11px] font-semibold " +
-                                      (row.status === "confirmed"
-                                        ? "border-emerald-700 bg-emerald-100 text-emerald-800"
-                                        : "border-slate-900 bg-white text-slate-900 hover:bg-slate-50")
-                                    }
-                                    disabled={saving}
-                                    onClick={() => void confirmOneDispatchRow(row)}
-                                  >
-                                    {saving
-                                      ? "保存中"
-                                      : row.status === "confirmed"
-                                        ? "確定済"
-                                        : "行を確定"}
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <th className="border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    メモ
+                                  </th>
+                                  <td className="p-0.5">
+                                    <div className="grid grid-cols-[1fr_74px] gap-1">
+                                      <input
+                                        className="h-7 w-full border border-slate-300 px-1.5 text-[11px]"
+                                        value={row.note ?? ""}
+                                        onChange={(e) =>
+                                          updateDispatchRowLocal(row.castId, {
+                                            note: e.target.value,
+                                          })
+                                        }
+                                        onBlur={() =>
+                                          void saveDispatchRow(
+                                            dispatchRows.find(
+                                              (item) =>
+                                                item.castId === row.castId,
+                                            ) ?? row,
+                                          )
+                                        }
+                                      />
+                                      <button
+                                        type="button"
+                                        className={
+                                          "h-7 border px-1 text-[10px] font-semibold " +
+                                          (row.status === "confirmed"
+                                            ? "border-emerald-700 bg-emerald-100 text-emerald-800"
+                                            : "border-slate-900 bg-white text-slate-900 hover:bg-slate-50")
+                                        }
+                                        disabled={saving}
+                                        onClick={() =>
+                                          void confirmOneDispatchRow(row)
+                                        }
+                                      >
+                                        {saving
+                                          ? "保存中"
+                                          : row.status === "confirmed"
+                                            ? "確定済"
+                                            : "確定"}
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
               <div

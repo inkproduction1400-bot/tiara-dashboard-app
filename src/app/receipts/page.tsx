@@ -46,7 +46,7 @@ const formatWeekday = (dateKey: string) => {
 };
 
 const rowKey = (row: AssignmentRow) =>
-  `${row.businessDate}|${row.castId}|${row.shopId}`;
+  row.assignmentId ?? `${row.businessDate}|${row.castId}|${row.shopId}`;
 
 const parseNumber = (value: string) => {
   const raw = value.trim();
@@ -266,7 +266,7 @@ export default function ReceiptsPage() {
       a.remove();
       URL.revokeObjectURL(url);
       updateStatus(
-        `${payload.businessDate}|${payload.castId}|${payload.shopId}`,
+        activeRow ? rowKey(activeRow) : `${payload.businessDate}|${payload.castId}|${payload.shopId}`,
         "issued",
         activeRow ?? {
           businessDate: payload.businessDate,

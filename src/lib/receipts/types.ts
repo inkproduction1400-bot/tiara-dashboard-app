@@ -1,4 +1,5 @@
 export type AssignmentRow = {
+  assignmentId?: string;
   businessDate: string; // YYYY-MM-DD
   castId: string;
   castName: string;

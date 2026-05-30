@@ -957,12 +957,12 @@ export default function DailyReportPage() {
             min-height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
-            gap: 4px !important;
+            gap: 7px !important;
             color: #000 !important;
             background: #fff !important;
-            font-size: 9px !important;
-            line-height: 1.08 !important;
-            zoom: 0.91 !important;
+            font-size: 11px !important;
+            line-height: 1.15 !important;
+            zoom: 0.98 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -974,7 +974,7 @@ export default function DailyReportPage() {
           }
 
           .daily-report-print-root header {
-            padding: 2px 5px !important;
+            padding: 5px 7px !important;
           }
 
           .daily-report-print-root .print\\:hidden,
@@ -990,54 +990,54 @@ export default function DailyReportPage() {
             border: 0 !important;
             box-shadow: none !important;
             outline: none !important;
-            font-size: 8.5px !important;
-            line-height: 1.05 !important;
+            font-size: 10px !important;
+            line-height: 1.1 !important;
             padding: 0 !important;
           }
 
           .daily-report-print-root textarea {
-            height: 72px !important;
+            height: 190px !important;
             resize: none !important;
           }
 
           .daily-report-print-root .gap-4 {
-            gap: 4px !important;
+            gap: 7px !important;
           }
 
           .daily-report-print-root .space-y-4 > :not([hidden]) ~ :not([hidden]) {
-            margin-top: 4px !important;
+            margin-top: 7px !important;
           }
 
           .daily-report-print-root .h-8 {
-            height: 18px !important;
+            height: 26px !important;
           }
 
           .daily-report-print-root .h-7 {
-            height: 14px !important;
+            height: 22px !important;
           }
 
           .daily-report-print-root .h-36 {
-            height: 72px !important;
+            height: 190px !important;
           }
 
           .daily-report-print-root .px-3,
           .daily-report-print-root .px-2 {
-            padding-left: 4px !important;
-            padding-right: 4px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
           }
 
           .daily-report-print-root .py-2,
           .daily-report-print-root .py-1 {
-            padding-top: 1px !important;
-            padding-bottom: 1px !important;
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
           }
 
           .daily-report-print-root .text-lg {
-            font-size: 13px !important;
+            font-size: 17px !important;
           }
 
           .daily-report-print-root .text-sm {
-            font-size: 9px !important;
+            font-size: 11px !important;
           }
 
           .daily-report-print-root .grid {

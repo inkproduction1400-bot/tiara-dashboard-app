@@ -78,8 +78,10 @@ type WageFilter =
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
 const assignmentPickStorageKey = "tiara:assignments:pick";
 const DISPATCH_SHEET_SLOT_COUNT = 100;
+const CAST_LIST_PAGE_SIZE = 56;
 const DISPATCH_TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
 const DISPATCH_TIME_DATALIST_ID = "dispatch-time-options";
+type DispatchStatusFilter = "" | "unassigned" | "matched";
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -817,7 +819,8 @@ export default function Page() {
   const exclusiveSyncRef = useRef<Set<string>>(new Set());
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
-  const [itemsPerPage, setItemsPerPage] = useState<50 | 56 | 100>(56);
+  const [dispatchStatusFilter, setDispatchStatusFilter] =
+    useState<DispatchStatusFilter>("");
   const [statusTab, setStatusTab] = useState<
     "today" | "all" | "matched" | "unassigned"
   >("today");
@@ -1585,7 +1588,7 @@ export default function Page() {
     statusTab,
     keyword,
     selectedShopId,
-    itemsPerPage,
+    dispatchStatusFilter,
     sortKey,
     drinkSort,
     sortKana,
@@ -1774,7 +1777,21 @@ export default function Page() {
 
     let list: Cast[] = [...base];
 
-    // ③ 店舗条件フィルタ
+    // ③ 派遣票の入力状態フィルタ
+    if (dispatchStatusFilter) {
+      const dispatchRowByCastId = new Map(
+        dispatchRows.map((row) => [row.castId, row]),
+      );
+      list = list.filter((c) => {
+        const row = dispatchRowByCastId.get(c.id);
+        const hasDispatchShop = Boolean(row?.shopId);
+        return dispatchStatusFilter === "matched"
+          ? hasDispatchShop
+          : !hasDispatchShop;
+      });
+    }
+
+    // ④ 店舗条件フィルタ
     if (selectedShop) {
       list = list.filter((c: Cast) =>
         matchesShopConditions(
@@ -1786,7 +1803,7 @@ export default function Page() {
       );
     }
 
-    // ④ キーワード（管理番号・名前・旧ID）
+    // ⑤ キーワード（管理番号・名前・旧ID）
     if (keyword.trim()) {
       const q = keyword.trim();
       list = list.filter((c: Cast) => {
@@ -1797,17 +1814,17 @@ export default function Page() {
       });
     }
 
-    // ⑤ キャストジャンル絞り込み
+    // ⑥ キャストジャンル絞り込み
     if (castGenreFilter) {
       list = list.filter((c) => c.genres?.includes(castGenreFilter));
     }
 
-    // ⑥ 年齢レンジ絞り込み
+    // ⑦ 年齢レンジ絞り込み
     if (ageRangeFilter) {
       list = list.filter((c) => isInAgeRange(c.age, ageRangeFilter));
     }
 
-    // ⑦ 既存ソート（年齢・時給）
+    // ⑧ 既存ソート（年齢・時給）
     switch (sortKey) {
       case "hourlyDesc":
         list.sort((a: Cast, b: Cast) => b.desiredHourly - a.desiredHourly);
@@ -1822,7 +1839,7 @@ export default function Page() {
         break;
     }
 
-    // ⑧ 追加ソート（50音 / 番号：複数選択可）
+    // ⑨ 追加ソート（50音 / 番号：複数選択可）
     const comparators: ((a: Cast, b: Cast) => number)[] = [];
     if (sortNumberSmallFirst) {
       comparators.push((a, b) => castNumberKey(a) - castNumberKey(b));
@@ -1845,7 +1862,7 @@ export default function Page() {
       });
     }
 
-    // ⑨ 飲酒ソート（チェックボックスで制御）
+    // ⑩ 飲酒ソート（チェックボックスで制御）
     if (drinkSort === "okFirst") {
       // 強い → 普通 → 弱い → NG → 未登録
       list.sort(
@@ -1860,7 +1877,7 @@ export default function Page() {
       );
     }
 
-    // ⑩ マッチング優先度（選択店舗がある場合のみ）
+    // ⑪ マッチング優先度（選択店舗がある場合のみ）
     if (selectedShop) {
       const baseOrder = new Map(
         list.map((c: Cast, idx: number) => [c.id, idx]),
@@ -1902,9 +1919,9 @@ export default function Page() {
       });
     }
 
-    // ⑪ ページネーション
+    // ⑫ ページネーション
     const total = list.length;
-    const perPage = itemsPerPage || 50;
+    const perPage = CAST_LIST_PAGE_SIZE;
     const tp = Math.max(1, Math.ceil(total / perPage));
     const page = Math.min(currentPage, tp);
     const start = (page - 1) * perPage;
@@ -1921,6 +1938,8 @@ export default function Page() {
     allCasts,
     todayCasts,
     matchedCastIds,
+    dispatchRows,
+    dispatchStatusFilter,
     selectedShop,
     selectedShopDetail,
     selectedShopNgCastIds,
@@ -1929,7 +1948,6 @@ export default function Page() {
     keyword,
     sortKey,
     drinkSort,
-    itemsPerPage,
     statusTab,
     currentPage,
     castGenreFilter,
@@ -3297,14 +3315,16 @@ export default function Page() {
                   </select>
                   <select
                     className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
-                    value={itemsPerPage}
+                    value={dispatchStatusFilter}
                     onChange={(e) =>
-                      setItemsPerPage(Number(e.target.value) as 50 | 56 | 100)
+                      setDispatchStatusFilter(
+                        e.target.value as DispatchStatusFilter,
+                      )
                     }
                   >
-                    <option value={50}>50件</option>
-                    <option value={56}>56件</option>
-                    <option value={100}>100件</option>
+                    <option value="">派遣状態</option>
+                    <option value="unassigned">未配属</option>
+                    <option value="matched">マッチ済み</option>
                   </select>
                   <select
                     className="tiara-input rounded-none h-9 !w-[180px] text-[11px] leading-snug flex-none"

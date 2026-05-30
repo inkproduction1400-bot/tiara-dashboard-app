@@ -5063,12 +5063,12 @@ export default function Page() {
               >
                 閉じる
               </button>
-              <button
-                type="button"
-                className="tiara-btn text-xs"
-                onClick={async () => {
-                  if (!selectedCast) return;
-                  if (pickMode) {
+              {pickMode && (
+                <button
+                  type="button"
+                  className="tiara-btn text-xs"
+                  onClick={async () => {
+                    if (!selectedCast) return;
                     if (!pickShopId) {
                       alert("対象店舗が特定できません。");
                       return;
@@ -5112,30 +5112,11 @@ export default function Page() {
                       "pick=1";
                     router.push(next);
                     closeCastDetail();
-                    return;
-                  }
-                  if (orderItems.length === 0) {
-                    const headcount = Number(dispatchCount);
-                    const safeHeadcount = Number.isFinite(headcount)
-                      ? headcount
-                      : undefined;
-                    const newOrder = createLocalOrderItem(
-                      safeHeadcount,
-                      entryTime,
-                    );
-                    if (!newOrder) return;
-                    assignCastToOrder(newOrder.id, selectedCast);
-                  } else if (orderItems.length === 1) {
-                    assignCastToOrder(orderItems[0].id, selectedCast);
-                  } else {
-                    setPendingCast(selectedCast);
-                    setOrderSelectOpen(true);
-                  }
-                  closeCastDetail();
-                }}
-              >
-                割当候補に追加
-              </button>
+                  }}
+                >
+                  割当候補に追加
+                </button>
+              )}
             </footer>
           </div>
         </div>

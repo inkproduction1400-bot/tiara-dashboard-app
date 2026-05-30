@@ -356,15 +356,6 @@ function calcAgeFromBirthdate(birthdate?: string | null): number | null {
   return age;
 }
 
-function toManagementNumberValue(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return null;
-  const num = Number(digits);
-  return Number.isNaN(num) ? null : num;
-}
-
 export default function Page() {
 
   // ===== 新規キャスト作成 =====
@@ -375,6 +366,8 @@ export default function Page() {
   const [sortMode, setSortMode] = useState<SortMode>("kana");
 
   const [baseRows, setBaseRows] = useState<CastRow[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -404,12 +397,19 @@ export default function Page() {
   const [limit, setLimit] = useState(40); // 1ページ最大件数（2列なので 20×2 のイメージ）
   const [offset, setOffset] = useState(0);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQ(q.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
   // フィルタ変更時は先頭ページに戻す
   useEffect(() => {
     setOffset(0);
-  }, [q, staffFilter, sortMode]);
+  }, [debouncedQ, staffFilter, sortMode]);
 
-  // 一覧取得：初回に最大 10,000 件を一括ロード（検索はフロント側で実施）
+  // 一覧取得：検索・担当者・並び替え・ページ送りをサーバー側に委譲
   useEffect(() => {
     let canceled = false;
 
@@ -418,9 +418,12 @@ export default function Page() {
       setLoadError(null);
 
       try {
-        // API 側は take のみ受付（offset は送らない）
         const res = await listCasts({
-          limit: 10_000, // 安全な最大件数（API 側で 1〜10,000 にクランプされる想定）
+          q: debouncedQ || undefined,
+          limit,
+          offset,
+          ownerStaffName: staffFilter || undefined,
+          sort: sortMode,
         });
 
         if (canceled) return;
@@ -461,10 +464,13 @@ export default function Page() {
         });
 
         setBaseRows(mapped);
+        setTotalRows(typeof res.total === "number" ? res.total : mapped.length);
       } catch (e: any) {
         console.error(e);
         if (!canceled) {
           setLoadError(e?.message ?? "キャスト一覧の取得に失敗しました");
+          setBaseRows([]);
+          setTotalRows(0);
         }
       } finally {
         if (!canceled) {
@@ -478,7 +484,7 @@ export default function Page() {
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [debouncedQ, staffFilter, sortMode, limit, offset]);
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
@@ -491,119 +497,12 @@ export default function Page() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [baseRows]);
 
-  // 検索＋担当者フィルタ＋ソート（完全にフロント側で実施）
-  const rows = useMemo(() => {
-    const query = q.trim();
-    let result = baseRows.filter((r) => {
-      if (staffFilter && r.ownerStaffName !== staffFilter) return false;
-      if (!query) return true;
-
-      // 管理番号 / 名前 / ふりがな / 旧スタッフID に含まれていればヒット（旧ID検索対応）
-      const legacy = r.legacyStaffId != null ? String(r.legacyStaffId) : "";
-      const hay = `${r.managementNumber} ${r.castCode} ${r.name} ${r.nickname} ${r.furigana} ${legacy}`;
-      return hay.includes(query);
-    });
-
-    result = result.slice().sort((a, b) => {
-      if (sortMode === "management") {
-        const av = toManagementNumberValue(a.managementNumber);
-        const bv = toManagementNumberValue(b.managementNumber);
-        if (av == null && bv == null) {
-          const aKey = a.furigana || a.name;
-          const bKey = b.furigana || b.name;
-          return aKey.localeCompare(bKey, "ja");
-        }
-        if (av == null) return 1;
-        if (bv == null) return -1;
-        if (av !== bv) return av - bv;
-        const aKey = a.furigana || a.name;
-        const bKey = b.furigana || b.name;
-        return aKey.localeCompare(bKey, "ja");
-      }
-
-      if (sortMode === "managementDesc") {
-        const av = toManagementNumberValue(a.managementNumber);
-        const bv = toManagementNumberValue(b.managementNumber);
-        if (av == null && bv == null) {
-          const aKey = a.furigana || a.name;
-          const bKey = b.furigana || b.name;
-          return aKey.localeCompare(bKey, "ja");
-        }
-        if (av == null) return 1;
-        if (bv == null) return -1;
-        if (av !== bv) return bv - av;
-        const aKey = a.furigana || a.name;
-        const bKey = b.furigana || b.name;
-        return aKey.localeCompare(bKey, "ja");
-      }
-
-      if (sortMode === "legacy") {
-        // 旧スタッフID昇順（数値昇順, null は末尾）
-        const aNull = a.legacyStaffId == null;
-        const bNull = b.legacyStaffId == null;
-        if (aNull && bNull) {
-          // 両方 null → 管理番号 → ふりがな/名前
-          const cmpMng = a.managementNumber.localeCompare(b.managementNumber, "ja");
-          if (cmpMng !== 0) return cmpMng;
-          const aKey = a.furigana || a.name;
-          const bKey = b.furigana || b.name;
-          return aKey.localeCompare(bKey, "ja");
-        }
-        if (aNull) return 1;
-        if (bNull) return -1;
-
-        const av = a.legacyStaffId as number;
-        const bv = b.legacyStaffId as number;
-        if (av !== bv) return av - bv;
-        // 同じ旧IDなら ふりがな/名前 → 管理番号
-        const aKey = a.furigana || a.name;
-        const bKey = b.furigana || b.name;
-        const cmpKana = aKey.localeCompare(bKey, "ja");
-        if (cmpKana !== 0) return cmpKana;
-        return a.managementNumber.localeCompare(b.managementNumber, "ja");
-      }
-
-      if (sortMode === "legacyDesc") {
-        // 旧スタッフID降順（数値降順, null は末尾）
-        const aNull = a.legacyStaffId == null;
-        const bNull = b.legacyStaffId == null;
-        if (aNull && bNull) {
-          // 両方 null → 管理番号 → ふりがな/名前（昇順のままでOK）
-          const cmpMng = a.managementNumber.localeCompare(b.managementNumber, "ja");
-          if (cmpMng !== 0) return cmpMng;
-          const aKey = a.furigana || a.name;
-          const bKey = b.furigana || b.name;
-          return aKey.localeCompare(bKey, "ja");
-        }
-        if (aNull) return 1;
-        if (bNull) return -1;
-
-        const av = a.legacyStaffId as number;
-        const bv = b.legacyStaffId as number;
-        if (av !== bv) return bv - av; // ★ 降順
-        // 同じ旧IDなら ふりがな/名前 → 管理番号（昇順のままでOK）
-        const aKey = a.furigana || a.name;
-        const bKey = b.furigana || b.name;
-        const cmpKana = aKey.localeCompare(bKey, "ja");
-        if (cmpKana !== 0) return cmpKana;
-        return a.managementNumber.localeCompare(b.managementNumber, "ja");
-      }
-
-      // デフォルト: 50音順（ふりがな or 名前）→ 管理番号
-      const aKey = a.furigana || a.name;
-      const bKey = b.furigana || b.name;
-      const cmpKana = aKey.localeCompare(bKey, "ja");
-      if (cmpKana !== 0) return cmpKana;
-      return a.managementNumber.localeCompare(b.managementNumber, "ja");
-    });
-
-    return result;
-  }, [q, staffFilter, sortMode, baseRows]);
+  const rows = baseRows;
 
   // ★ ページング後の 2 列用データ
-  const total = rows.length;
+  const total = totalRows;
   const safeOffset = Math.min(offset, Math.max(total - 1, 0));
-  const pagedRows = total ? rows.slice(safeOffset, safeOffset + limit) : [];
+  const pagedRows = rows;
   const leftRows = pagedRows.filter((_, idx) => idx % 2 === 0);
   const rightRows = pagedRows.filter((_, idx) => idx % 2 === 1);
   const maxColumnRows = Math.max(leftRows.length, rightRows.length);
@@ -781,6 +680,7 @@ export default function Page() {
       await deleteCast(deleteTarget.id);
       // 一覧から除外
       setBaseRows((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setTotalRows((prev) => Math.max(0, prev - 1));
       // 詳細を開いていたら閉じる
       if (selected && selected.id === deleteTarget.id) {
         handleCloseModal();

@@ -35,6 +35,7 @@ export type CastListItem = {
   createdAt?: string | null;
   managementNumber?: string | null;
   legacyStaffId?: number | null; // 旧システムのスタッフID
+  ownerStaffName?: string | null;
   birthdate?: string | null;
   age?: number | null;
   /** 一覧で希望時給を表示するため */
@@ -506,6 +507,8 @@ export async function listCasts(
     hasNgShops?: boolean;
     hasExclusiveShop?: boolean;
     hasNominatedShops?: boolean;
+    ownerStaffName?: string;
+    sort?: string;
   } = {},
 ): Promise<CastListResponse> {
   const {
@@ -517,6 +520,8 @@ export async function listCasts(
     hasNgShops,
     hasExclusiveShop,
     hasNominatedShops,
+    ownerStaffName,
+    sort,
   } = params;
 
   // API 側の上限が 10,000 なので、それを越えないように丸める
@@ -545,6 +550,12 @@ export async function listCasts(
   if (typeof hasNominatedShops === "boolean") {
     qs.set("hasNominatedShops", String(hasNominatedShops));
   }
+  if (ownerStaffName) {
+    qs.set("ownerStaffName", ownerStaffName);
+  }
+  if (sort) {
+    qs.set("sort", sort);
+  }
 
   const path = `/casts${qs.toString() ? `?${qs.toString()}` : ""}`;
 
@@ -561,6 +572,7 @@ export async function listCasts(
     createdAt: it.createdAt ?? null,
     managementNumber: it.managementNumber ?? null,
     legacyStaffId: it.legacyStaffId ?? null,
+    ownerStaffName: it.ownerStaffName ?? null,
     birthdate: it.birthdate ?? null,
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,

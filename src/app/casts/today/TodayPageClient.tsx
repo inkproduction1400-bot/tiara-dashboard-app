@@ -3489,7 +3489,7 @@ export default function Page() {
                       本日出勤のキャストがありません。
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-0 border-t border-slate-900 md:grid-cols-2 2xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-0 border-t border-slate-900 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                       {dispatchRows.map((row) => {
                         const saving = dispatchSavingKey === row.castId;
                         return (

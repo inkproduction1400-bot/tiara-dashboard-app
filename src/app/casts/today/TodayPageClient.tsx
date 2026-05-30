@@ -705,6 +705,8 @@ const isDormantCast = (cast: Cast): boolean => {
   return status === "dormant" || status === "inactive" || status === "休眠";
 };
 
+const isActiveCast = (cast: Cast): boolean => !isDormantCast(cast);
+
 /**
  * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
  * - 今回は NG のみで非表示にする
@@ -1772,11 +1774,11 @@ export default function Page() {
 
     // ① ベース集合の選択（タブの役割）
     // - 本日出勤：本日シフトがあるキャスト
-    // - 全キャスト：シフトに関係なく全キャスト
-    // - 休眠キャスト：将来の休眠ステータスが付いたキャスト
+    // - 全キャスト：休眠ではない稼働対象キャスト
+    // - 休眠キャスト：休眠ステータスが付いたキャスト
     let base: Cast[];
     if (statusTab === "all") {
-      base = allCasts;
+      base = allCasts.filter(isActiveCast);
     } else if (statusTab === "dormant") {
       base = allCasts.filter(isDormantCast);
     } else {

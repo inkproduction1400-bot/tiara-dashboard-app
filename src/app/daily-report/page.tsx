@@ -928,8 +928,8 @@ export default function DailyReportPage() {
       <style jsx global>{`
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 6mm;
+            size: A4 portrait;
+            margin: 5mm;
           }
 
           html,
@@ -952,17 +952,17 @@ export default function DailyReportPage() {
           .daily-report-print-root {
             position: absolute !important;
             inset: 0 auto auto 0 !important;
-            width: 125% !important;
+            width: 106.5% !important;
             max-height: 100% !important;
             min-height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
-            gap: 3px !important;
+            gap: 4px !important;
             color: #000 !important;
             background: #fff !important;
-            font-size: 8px !important;
-            line-height: 1.05 !important;
-            zoom: 0.8 !important;
+            font-size: 9px !important;
+            line-height: 1.08 !important;
+            zoom: 0.94 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -990,34 +990,34 @@ export default function DailyReportPage() {
             border: 0 !important;
             box-shadow: none !important;
             outline: none !important;
-            font-size: 7.5px !important;
-            line-height: 1 !important;
+            font-size: 8.5px !important;
+            line-height: 1.05 !important;
             padding: 0 !important;
           }
 
           .daily-report-print-root textarea {
-            height: 54px !important;
+            height: 72px !important;
             resize: none !important;
           }
 
           .daily-report-print-root .gap-4 {
-            gap: 3px !important;
+            gap: 4px !important;
           }
 
           .daily-report-print-root .space-y-4 > :not([hidden]) ~ :not([hidden]) {
-            margin-top: 3px !important;
+            margin-top: 4px !important;
           }
 
           .daily-report-print-root .h-8 {
-            height: 15px !important;
+            height: 18px !important;
           }
 
           .daily-report-print-root .h-7 {
-            height: 12px !important;
+            height: 14px !important;
           }
 
           .daily-report-print-root .h-36 {
-            height: 54px !important;
+            height: 72px !important;
           }
 
           .daily-report-print-root .px-3,
@@ -1033,11 +1033,11 @@ export default function DailyReportPage() {
           }
 
           .daily-report-print-root .text-lg {
-            font-size: 11px !important;
+            font-size: 13px !important;
           }
 
           .daily-report-print-root .text-sm {
-            font-size: 8px !important;
+            font-size: 9px !important;
           }
 
           .daily-report-print-root .grid {

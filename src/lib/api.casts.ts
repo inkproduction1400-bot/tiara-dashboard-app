@@ -41,6 +41,8 @@ export type CastListItem = {
   desiredHourly?: number | null;
   /** NEW: キャストID（英字+数字ランダム） */
   castCode?: string | null;
+  activityStatus?: string | null;
+  lastMatchedAt?: string | null;
   photoUrl?: string | null;
   photoUrlRaw?: string | null;
 };
@@ -101,6 +103,8 @@ export async function listCastsForPicker(
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
     castCode: it.castCode ?? null,
+    activityStatus: it.activityStatus ?? null,
+    lastMatchedAt: it.lastMatchedAt ?? null,
   });
 
   if (Array.isArray(raw)) {
@@ -467,6 +471,8 @@ export type TodayCastApiItem = {
   age: number | null;
   desiredHourly: number | null;
   drinkOk: boolean;
+  activityStatus?: string | null;
+  lastMatchedAt?: string | null;
 
   primaryShopId: string;
   primaryShopName: string;
@@ -559,6 +565,8 @@ export async function listCasts(
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
     castCode: it.castCode ?? null,
+    activityStatus: it.activityStatus ?? null,
+    lastMatchedAt: it.lastMatchedAt ?? null,
     photoUrl: normalizeCastPhotoUrl(it.photoUrl ?? null),
     photoUrlRaw: normalizeCastPhotoUrl(it.photoUrlRaw ?? null),
   });

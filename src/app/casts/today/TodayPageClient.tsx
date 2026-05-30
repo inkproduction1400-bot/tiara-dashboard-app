@@ -1526,6 +1526,8 @@ export default function Page() {
           ngShopIds: (item as any).ngShopIds ?? [],
           oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
           genres: getGenresFromDetail(item),
+          activityStatus: (item as any).activityStatus ?? null,
+          lastMatchedAt: (item as any).lastMatchedAt ?? null,
         }));
 
         const todayMap = new Map(todayList.map((c) => [c.id, c]));
@@ -1554,6 +1556,8 @@ export default function Page() {
             ngShopIds: (item as any).ngShopIds ?? [],
             oldId: (item as any).oldId ?? (item as any).legacyId ?? undefined,
             genres: getGenresFromDetail(item),
+            activityStatus: (item as any).activityStatus ?? null,
+            lastMatchedAt: (item as any).lastMatchedAt ?? null,
           };
         });
 

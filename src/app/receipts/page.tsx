@@ -7,6 +7,7 @@ import {
   updateReceiptStatus,
 } from "@/lib/receipts/fetchReceiptTargets";
 import styles from "./ReceiptPreview.module.css";
+import { subscribeReceiptUpdates } from "@/lib/socket";
 import type {
   AssignmentRow,
   ReceiptPayload,
@@ -146,6 +147,14 @@ export default function ReceiptsPage() {
     return () => {
       active = false;
     };
+  }, [businessDate]);
+
+  useEffect(() => {
+    return subscribeReceiptUpdates(() => {
+      fetchReceiptTargets(businessDate)
+        .then(setRows)
+        .catch(() => setRows([]));
+    });
   }, [businessDate]);
 
   const visibleRows = rows;

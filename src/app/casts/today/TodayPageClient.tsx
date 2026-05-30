@@ -52,6 +52,7 @@ import {
   type DispatchSheetRow,
   type DispatchSheetShop,
 } from "@/lib/api.dispatch-sheet";
+import { subscribeDispatchSheetUpdates } from "@/lib/socket";
 
 // ====== 追加: 型定義 ======
 
@@ -1029,6 +1030,12 @@ export default function Page() {
 
   useEffect(() => {
     void loadDispatchSheet();
+  }, [loadDispatchSheet]);
+
+  useEffect(() => {
+    return subscribeDispatchSheetUpdates(() => {
+      void loadDispatchSheet();
+    });
   }, [loadDispatchSheet]);
 
   const formatMatchingDebugValue = useCallback((value: unknown): string => {

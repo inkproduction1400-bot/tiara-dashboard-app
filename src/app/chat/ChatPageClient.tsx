@@ -10,6 +10,7 @@ import {
   updateCastChatSendDisabled,
   updateCastTodayShift,
 } from "@/lib/api.casts";
+import { subscribeSocketMessages } from "@/lib/socket";
 
 type Staff = {
   id: string;
@@ -777,6 +778,47 @@ function ChatContent() {
       ac.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id]);
+
+  useEffect(() => {
+    return subscribeSocketMessages((payload) => {
+      setRooms((current) =>
+        current.map((room) =>
+          room.id === payload.roomId
+            ? {
+                ...room,
+                lastMessage: payload.text,
+                lastMessageAt: payload.createdAt,
+                unreadCount:
+                  payload.senderType === "cast" &&
+                  selectedChat?.id !== payload.roomId
+                    ? room.unreadCount + 1
+                    : room.unreadCount,
+              }
+            : room,
+        ),
+      );
+      if (selectedChat?.id !== payload.roomId) return;
+      setMessages((current) => {
+        if (current.some((message) => message.id === payload.messageId)) {
+          return current;
+        }
+        return [
+          ...current,
+          {
+            id:
+              payload.messageId ??
+              payload.clientMessageId ??
+              `${payload.roomId}-${payload.createdAt}`,
+            from: payload.senderType,
+            text: payload.text,
+            sentAt: payload.createdAt,
+            read: payload.senderType === "staff" ? false : undefined,
+          },
+        ];
+      });
+      requestAnimationFrame(() => scrollToBottom("smooth"));
+    });
   }, [selectedChat?.id]);
 
   // ポーリング（5秒ごとに最新メッセージ/サマリー取得）

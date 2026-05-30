@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/device";
 import { API_BASE } from "@/lib/api";
 import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 
 type Props = {
   children: React.ReactNode;
@@ -114,7 +115,13 @@ export default function AppShell({ children }: Props) {
     const token = getToken();
     if (!token) {
       router.replace("/login");
+      disconnectSocket();
+      return;
     }
+    connectSocket(token);
+    return () => {
+      disconnectSocket();
+    };
   }, [router]);
 
   return (

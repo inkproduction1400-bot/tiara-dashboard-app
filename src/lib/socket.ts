@@ -21,6 +21,10 @@ type PresenceRoomViewingPayload = {
 };
 
 const SOCKET_EVENT_NAME = "tiara:m:socket-message";
+const NOTIFICATION_SUMMARY_EVENT_NAME = "tiara:notification-summary";
+const DISPATCH_SHEET_EVENT_NAME = "tiara:dispatch-sheet-updated";
+const RECEIPT_EVENT_NAME = "tiara:receipt-updated";
+const DAILY_REPORT_EVENT_NAME = "tiara:daily-report-updated";
 
 let socket: Socket | null = null;
 let currentToken: string | null = null;
@@ -41,10 +45,32 @@ function handleChatMessageCreated(payload: SocketChatMessage) {
 
 function bindSocketEvents(nextSocket: Socket) {
   nextSocket.on("chat:message.created", handleChatMessageCreated);
+  nextSocket.on("notification:summary.updated", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent(NOTIFICATION_SUMMARY_EVENT_NAME, { detail: payload }),
+    );
+  });
+  nextSocket.on("dispatch-sheet:updated", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent(DISPATCH_SHEET_EVENT_NAME, { detail: payload }),
+    );
+  });
+  nextSocket.on("receipt:updated", (payload) => {
+    window.dispatchEvent(new CustomEvent(RECEIPT_EVENT_NAME, { detail: payload }));
+  });
+  nextSocket.on("daily-report:updated", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent(DAILY_REPORT_EVENT_NAME, { detail: payload }),
+    );
+  });
 }
 
 function unbindSocketEvents(targetSocket: Socket) {
   targetSocket.off("chat:message.created", handleChatMessageCreated);
+  targetSocket.removeAllListeners("notification:summary.updated");
+  targetSocket.removeAllListeners("dispatch-sheet:updated");
+  targetSocket.removeAllListeners("receipt:updated");
+  targetSocket.removeAllListeners("daily-report:updated");
 }
 
 export function connectSocket(token: string): Socket | null {
@@ -106,4 +132,37 @@ export function subscribeSocketMessages(
   return () => {
     window.removeEventListener(SOCKET_EVENT_NAME, handleEvent);
   };
+}
+
+export function subscribeDispatchSheetUpdates(
+  listener: (payload: unknown) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handleEvent = (event: Event) => {
+    listener((event as CustomEvent).detail);
+  };
+  window.addEventListener(DISPATCH_SHEET_EVENT_NAME, handleEvent);
+  return () => window.removeEventListener(DISPATCH_SHEET_EVENT_NAME, handleEvent);
+}
+
+export function subscribeReceiptUpdates(
+  listener: (payload: unknown) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handleEvent = (event: Event) => {
+    listener((event as CustomEvent).detail);
+  };
+  window.addEventListener(RECEIPT_EVENT_NAME, handleEvent);
+  return () => window.removeEventListener(RECEIPT_EVENT_NAME, handleEvent);
+}
+
+export function subscribeDailyReportUpdates(
+  listener: (payload: unknown) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handleEvent = (event: Event) => {
+    listener((event as CustomEvent).detail);
+  };
+  window.addEventListener(DAILY_REPORT_EVENT_NAME, handleEvent);
+  return () => window.removeEventListener(DAILY_REPORT_EVENT_NAME, handleEvent);
 }

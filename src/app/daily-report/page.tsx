@@ -1,7 +1,7 @@
 // src/app/daily-report/page.tsx
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { listShopOrders, type ShopOrderRecord } from "@/lib/api.shop-orders";
 import {
@@ -9,6 +9,7 @@ import {
   saveDailyReport,
   type DailyReportRecord,
 } from "@/lib/api.daily-reports";
+import { subscribeDailyReportUpdates } from "@/lib/socket";
 
 type ExpenseRow = { label: string; amount: string };
 type FeeRow = { name: string; shop: string; amount: string };
@@ -134,7 +135,7 @@ export default function DailyReportPage() {
   });
   const [memo, setMemo] = useState("");
 
-  useEffect(() => {
+  const loadReport = useCallback(() => {
     let mounted = true;
     setLoading(true);
     Promise.all([listShopOrders(dateKey), getDailyReport(dateKey)])
@@ -161,6 +162,17 @@ export default function DailyReportPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
+
+  useEffect(() => {
+    return loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadReport]);
+
+  useEffect(() => {
+    return subscribeDailyReportUpdates(() => {
+      loadReport();
+    });
+  }, [loadReport]);
 
   const confirmed = useMemo(() => countConfirmed(orders), [orders]);
   const dispatchCount = confirmed.length;

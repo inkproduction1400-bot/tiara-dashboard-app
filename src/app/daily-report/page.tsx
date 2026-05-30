@@ -929,7 +929,7 @@ export default function DailyReportPage() {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 5mm;
+            margin: 7mm;
           }
 
           html,
@@ -952,7 +952,7 @@ export default function DailyReportPage() {
           .daily-report-print-root {
             position: absolute !important;
             inset: 0 auto auto 0 !important;
-            width: 106.5% !important;
+            width: 100% !important;
             max-height: 100% !important;
             min-height: auto !important;
             margin: 0 !important;
@@ -962,7 +962,7 @@ export default function DailyReportPage() {
             background: #fff !important;
             font-size: 9px !important;
             line-height: 1.08 !important;
-            zoom: 0.94 !important;
+            zoom: 0.91 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }

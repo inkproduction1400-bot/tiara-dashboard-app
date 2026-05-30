@@ -23,6 +23,7 @@ type PresenceRoomViewingPayload = {
 const SOCKET_EVENT_NAME = "tiara:m:socket-message";
 const NOTIFICATION_SUMMARY_EVENT_NAME = "tiara:notification-summary";
 const DISPATCH_SHEET_EVENT_NAME = "tiara:dispatch-sheet-updated";
+const ATTENDANCE_REQUEST_EVENT_NAME = "tiara:attendance-request-updated";
 const RECEIPT_EVENT_NAME = "tiara:receipt-updated";
 const DAILY_REPORT_EVENT_NAME = "tiara:daily-report-updated";
 
@@ -55,6 +56,11 @@ function bindSocketEvents(nextSocket: Socket) {
       new CustomEvent(DISPATCH_SHEET_EVENT_NAME, { detail: payload }),
     );
   });
+  nextSocket.on("attendance-request:updated", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent(ATTENDANCE_REQUEST_EVENT_NAME, { detail: payload }),
+    );
+  });
   nextSocket.on("receipt:updated", (payload) => {
     window.dispatchEvent(new CustomEvent(RECEIPT_EVENT_NAME, { detail: payload }));
   });
@@ -69,6 +75,7 @@ function unbindSocketEvents(targetSocket: Socket) {
   targetSocket.off("chat:message.created", handleChatMessageCreated);
   targetSocket.removeAllListeners("notification:summary.updated");
   targetSocket.removeAllListeners("dispatch-sheet:updated");
+  targetSocket.removeAllListeners("attendance-request:updated");
   targetSocket.removeAllListeners("receipt:updated");
   targetSocket.removeAllListeners("daily-report:updated");
 }
@@ -143,6 +150,18 @@ export function subscribeDispatchSheetUpdates(
   };
   window.addEventListener(DISPATCH_SHEET_EVENT_NAME, handleEvent);
   return () => window.removeEventListener(DISPATCH_SHEET_EVENT_NAME, handleEvent);
+}
+
+export function subscribeAttendanceRequestUpdates(
+  listener: (payload: unknown) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handleEvent = (event: Event) => {
+    listener((event as CustomEvent).detail);
+  };
+  window.addEventListener(ATTENDANCE_REQUEST_EVENT_NAME, handleEvent);
+  return () =>
+    window.removeEventListener(ATTENDANCE_REQUEST_EVENT_NAME, handleEvent);
 }
 
 export function subscribeReceiptUpdates(

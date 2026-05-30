@@ -37,12 +37,39 @@ export type DispatchSheetRow = {
   orderNo: number | null;
   cancellationReason?: string | null;
   canceledAt?: string | null;
+  attendanceRequestId?: string | null;
+  attendanceRequestStatus?: AttendanceRequestStatus | null;
+  manualAdded?: boolean;
 };
 
 export type DispatchSheetResponse = {
   date: string;
   rows: DispatchSheetRow[];
   shops: DispatchSheetShop[];
+};
+
+export type AttendanceRequestStatus =
+  | "requested"
+  | "ok"
+  | "ng"
+  | "added"
+  | "canceled";
+
+export type AttendanceRequestItem = {
+  id: string;
+  castId: string;
+  status: AttendanceRequestStatus;
+  displayOrder: number | null;
+  assignmentId: string | null;
+  note: string | null;
+  requestedAt: string | null;
+  respondedAt: string | null;
+  addedAt: string | null;
+};
+
+export type AttendanceRequestResponse = {
+  date: string;
+  items: AttendanceRequestItem[];
 };
 
 export type UpsertDispatchSheetRowPayload = {
@@ -63,6 +90,31 @@ export async function getDispatchSheet(
 ): Promise<DispatchSheetResponse> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : "";
   return apiFetch<DispatchSheetResponse>(`/dispatch-sheet${qs}`);
+}
+
+export async function getAttendanceRequests(
+  date?: string,
+): Promise<AttendanceRequestResponse> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+  return apiFetch<AttendanceRequestResponse>(
+    `/dispatch-sheet/attendance-requests${qs}`,
+  );
+}
+
+export async function upsertAttendanceRequest(payload: {
+  date: string;
+  castId: string;
+  status: AttendanceRequestStatus;
+  displayOrder?: number | null;
+  note?: string | null;
+}): Promise<AttendanceRequestResponse> {
+  return apiFetch<AttendanceRequestResponse>(
+    "/dispatch-sheet/attendance-requests",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export async function upsertDispatchSheetRow(

@@ -48,12 +48,19 @@ import {
   cancelDispatchSheetRow,
   confirmDispatchSheet,
   confirmDispatchSheetRow,
+  getAttendanceRequests,
   getDispatchSheet,
+  upsertAttendanceRequest,
   upsertDispatchSheetRow,
+  type AttendanceRequestItem,
+  type AttendanceRequestStatus,
   type DispatchSheetRow,
   type DispatchSheetShop,
 } from "@/lib/api.dispatch-sheet";
-import { subscribeDispatchSheetUpdates } from "@/lib/socket";
+import {
+  subscribeAttendanceRequestUpdates,
+  subscribeDispatchSheetUpdates,
+} from "@/lib/socket";
 
 // ====== 追加: 型定義 ======
 
@@ -85,6 +92,7 @@ const DISPATCH_TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
 const DISPATCH_TIME_DATALIST_ID = "dispatch-time-options";
 type DispatchStatusFilter = "" | "unassigned" | "matched";
 type CastStatusTab = "today" | "all" | "dormant";
+type AttendanceRequestFilter = "" | "none" | AttendanceRequestStatus;
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -129,6 +137,7 @@ type Cast = {
   lifecycleStatus?: string | null;
   activityStatus?: string | null;
   status?: string | null;
+  attendanceRequestStatus?: AttendanceRequestStatus | null;
 };
 
 type Shop = {
@@ -888,6 +897,14 @@ export default function Page() {
   const [dispatchShopQuery, setDispatchShopQuery] = useState("");
   const [dispatchOwnerFilter, setDispatchOwnerFilter] = useState("");
   const [dispatchGenreFilter, setDispatchGenreFilter] = useState("");
+  const [attendanceRequests, setAttendanceRequests] = useState<
+    AttendanceRequestItem[]
+  >([]);
+  const [attendanceRequestFilter, setAttendanceRequestFilter] =
+    useState<AttendanceRequestFilter>("");
+  const [pendingDispatchSlotIndex, setPendingDispatchSlotIndex] = useState<
+    number | null
+  >(null);
 
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
@@ -1017,13 +1034,18 @@ export default function Page() {
   const loadDispatchSheet = useCallback(async () => {
     try {
       setDispatchLoading(true);
-      const res = await getDispatchSheet(todayKey());
+      const [res, requests] = await Promise.all([
+        getDispatchSheet(todayKey()),
+        getAttendanceRequests(todayKey()),
+      ]);
       setDispatchRows(res.rows ?? []);
       setDispatchShops(res.shops ?? []);
+      setAttendanceRequests(requests.items ?? []);
     } catch (err) {
       console.warn("[casts/today] failed to load dispatch sheet", err);
       setDispatchRows([]);
       setDispatchShops([]);
+      setAttendanceRequests([]);
     } finally {
       setDispatchLoading(false);
     }
@@ -1035,6 +1057,12 @@ export default function Page() {
 
   useEffect(() => {
     return subscribeDispatchSheetUpdates(() => {
+      void loadDispatchSheet();
+    });
+  }, [loadDispatchSheet]);
+
+  useEffect(() => {
+    return subscribeAttendanceRequestUpdates(() => {
       void loadDispatchSheet();
     });
   }, [loadDispatchSheet]);
@@ -1627,6 +1655,7 @@ export default function Page() {
     keyword,
     selectedShopId,
     dispatchStatusFilter,
+    attendanceRequestFilter,
     sortKey,
     drinkSort,
     sortKana,
@@ -1692,6 +1721,16 @@ export default function Page() {
           text,
         }),
       });
+      await upsertAttendanceRequest({
+        date: todayKey(),
+        castId: selectedCast.id,
+        status: "requested",
+        displayOrder: pendingDispatchSlotIndex ?? null,
+      })
+        .then((res) => setAttendanceRequests(res.items ?? []))
+        .catch((err) => {
+          console.warn("[casts/today] failed to mark request sent", err);
+        });
       setChatDraft("");
       alert("送信しました。");
     } catch (err) {
@@ -1714,7 +1753,7 @@ export default function Page() {
     } finally {
       setChatSending(false);
     }
-  }, [chatDraft, selectedCast, chatDisabledUntil]);
+  }, [chatDraft, selectedCast, chatDisabledUntil, pendingDispatchSlotIndex]);
 
   const insertChatTemplate = useCallback((text: string) => {
     setChatDraft((prev) => (prev ? `${prev}\n${text}` : text));
@@ -1790,6 +1829,9 @@ export default function Page() {
     page: effectivePage,
   } = useMemo(() => {
     const todayIds = new Set(todayCasts.map((c) => c.id));
+    const attendanceRequestByCastId = new Map(
+      attendanceRequests.map((row) => [row.castId, row]),
+    );
 
     // ① ベース集合の選択（タブの役割）
     // - 本日出勤：本日シフトがあるキャスト
@@ -1805,6 +1847,14 @@ export default function Page() {
     }
 
     let list: Cast[] = [...base];
+
+    if (attendanceRequestFilter) {
+      list = list.filter((c) => {
+        const status = attendanceRequestByCastId.get(c.id)?.status ?? null;
+        if (attendanceRequestFilter === "none") return !status;
+        return status === attendanceRequestFilter;
+      });
+    }
 
     // ③ 派遣票の入力状態フィルタ
     if (dispatchStatusFilter) {
@@ -1966,6 +2016,8 @@ export default function Page() {
   }, [
     allCasts,
     todayCasts,
+    attendanceRequests,
+    attendanceRequestFilter,
     dispatchRows,
     dispatchStatusFilter,
     selectedShop,
@@ -2057,6 +2109,34 @@ export default function Page() {
     }
     return list;
   }, [filteredShops, shopSortKey]);
+
+  const dispatchSlots = useMemo(() => {
+    const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, dispatchRows.length);
+    const slots = Array.from<DispatchSheetRow | undefined>({
+      length: slotCount,
+    });
+    const overflow: DispatchSheetRow[] = [];
+    for (const row of dispatchRows) {
+      const index =
+        typeof row.displayOrder === "number" && row.displayOrder >= 0
+          ? row.displayOrder
+          : -1;
+      if (index >= 0 && index < slots.length && !slots[index]) {
+        slots[index] = row;
+      } else {
+        overflow.push(row);
+      }
+    }
+    for (const row of overflow) {
+      const index = slots.findIndex((item) => !item);
+      if (index >= 0) {
+        slots[index] = row;
+      } else {
+        slots.push(row);
+      }
+    }
+    return slots;
+  }, [dispatchRows]);
 
   const shopWageOptions: WageFilter[] = [
     "2500",
@@ -2285,6 +2365,48 @@ export default function Page() {
     await saveDispatchRow(row, patch);
   };
 
+  const markAttendanceRequest = async (
+    castId: string,
+    status: AttendanceRequestStatus,
+    displayOrder?: number | null,
+  ) => {
+    try {
+      const res = await upsertAttendanceRequest({
+        date: todayKey(),
+        castId,
+        status,
+        displayOrder: displayOrder ?? null,
+      });
+      setAttendanceRequests(res.items ?? []);
+      await loadDispatchSheet();
+    } catch (err) {
+      console.warn("[casts/today] failed to update attendance request", err);
+      alert("出勤依頼ステータスの保存に失敗しました。");
+    }
+  };
+
+  const startManualDispatchPick = (slotIndex: number) => {
+    setPendingDispatchSlotIndex(slotIndex);
+    setStatusTab("all");
+    setCurrentPage(1);
+  };
+
+  const addSelectedCastToDispatchSlot = async () => {
+    if (!selectedCast) return;
+    if (pendingDispatchSlotIndex === null) {
+      alert("追加先の派遣表枠を選択してください。");
+      return;
+    }
+    await markAttendanceRequest(
+      selectedCast.id,
+      "added",
+      pendingDispatchSlotIndex,
+    );
+    setPendingDispatchSlotIndex(null);
+    setStatusTab("today");
+    closeCastDetail();
+  };
+
   const confirmOneDispatchRow = async (row: DispatchSheetRow) => {
     if (!row.shopId) {
       alert("派遣先を選択してください。");
@@ -2351,9 +2473,7 @@ export default function Page() {
 
   const printDispatchSheet = useCallback(() => {
     if (typeof window === "undefined") return;
-    const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, dispatchRows.length);
-    const slots = Array.from({ length: slotCount }, (_, slotIndex) => {
-      const row = dispatchRows[slotIndex];
+    const slots = dispatchSlots.map((row) => {
       const shopName = row?.shopName
         ? `${row.shopNumber ? `${row.shopNumber} / ` : ""}${row.shopName}`
         : "";
@@ -2485,7 +2605,7 @@ export default function Page() {
         </body>
       </html>`);
     printWindow.document.close();
-  }, [dispatchRows, printDateLabel]);
+  }, [dispatchSlots, printDateLabel]);
 
   const handleSelectShop = (shop: Shop) => {
     setSelectedShopId(shop.id);
@@ -3442,6 +3562,22 @@ export default function Page() {
                     <option value="matched">マッチ済み</option>
                   </select>
                   <select
+                    className="tiara-input rounded-none h-8 !w-[118px] text-[10px] leading-tight flex-none"
+                    value={attendanceRequestFilter}
+                    onChange={(e) =>
+                      setAttendanceRequestFilter(
+                        e.target.value as AttendanceRequestFilter,
+                      )
+                    }
+                  >
+                    <option value="">出勤依頼</option>
+                    <option value="none">未依頼</option>
+                    <option value="requested">依頼済み</option>
+                    <option value="ok">出勤OK</option>
+                    <option value="ng">出勤NG</option>
+                    <option value="added">追加済み</option>
+                  </select>
+                  <select
                     className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none"
                     value={sortKey}
                     onChange={(e) => setSortKey(e.target.value as SortKey)}
@@ -3540,6 +3676,23 @@ export default function Page() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
+                  {pendingDispatchSlotIndex !== null && (
+                    <div className="flex h-7 items-center gap-2 border border-amber-300 bg-amber-50 px-2 text-[11px] text-amber-900">
+                      <span className="font-semibold">
+                        派遣表 {pendingDispatchSlotIndex + 1}枠目に追加
+                      </span>
+                      <button
+                        type="button"
+                        className="border border-amber-400 bg-white px-2 py-0.5"
+                        onClick={() => {
+                          setPendingDispatchSlotIndex(null);
+                          setStatusTab("today");
+                        }}
+                      >
+                        解除
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-1.5">
                     {[
                       { id: "today", label: "本日出勤" },
@@ -3678,13 +3831,7 @@ export default function Page() {
                       {printDateLabel} 派遣表
                     </div>
                     <div className="grid grid-cols-4 gap-0 bg-slate-950">
-                      {Array.from({
-                        length: Math.max(
-                          DISPATCH_SHEET_SLOT_COUNT,
-                          dispatchRows.length,
-                        ),
-                      }).map((_, slotIndex) => {
-                        const row = dispatchRows[slotIndex];
+                      {dispatchSlots.map((row, slotIndex) => {
                         return (
                           <div
                             key={`dispatch-print-${row?.castId ?? slotIndex}`}
@@ -3763,14 +3910,8 @@ export default function Page() {
                   </div>
 
                   <div className="dispatch-sheet-screen grid grid-cols-1 gap-0 bg-slate-950 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {Array.from({
-                      length: Math.max(
-                        DISPATCH_SHEET_SLOT_COUNT,
-                        dispatchRows.length,
-                      ),
-                    }).map(
-                      (_, slotIndex) => {
-                        const row = dispatchRows[slotIndex];
+                    {dispatchSlots.map(
+                      (row, slotIndex) => {
                         if (!row) {
                           return (
                             <div
@@ -3784,7 +3925,15 @@ export default function Page() {
                                       源氏名
                                     </th>
                                     <td className="border-b border-slate-400 px-1 py-1">
-                                      <div className="h-4" />
+                                      <button
+                                        type="button"
+                                        className="h-4 w-full text-left text-[10px] text-slate-400 hover:bg-amber-50 hover:text-amber-700"
+                                        onClick={() =>
+                                          startManualDispatchPick(slotIndex)
+                                        }
+                                      >
+                                        キャスト選択
+                                      </button>
                                     </td>
                                   </tr>
                                   <tr>
@@ -4063,6 +4212,9 @@ export default function Page() {
                   const displayPhotoUrl = photoUrl || photoFallbackUrl;
                   const shouldShowDebugCard = debugMatchingCard && index < 5;
                   const badgeIcons = getCastBadgeIcons(cast);
+                  const requestStatus =
+                    attendanceRequests.find((row) => row.castId === cast.id)
+                      ?.status ?? null;
                   const isFixed =
                     !!selectedShop &&
                     selectedShopFixedCastIdSet.has(cast.id);
@@ -4111,6 +4263,19 @@ export default function Page() {
                                 className="w-4 h-4"
                               />
                             ))}
+                          </div>
+                        )}
+                        {requestStatus && (
+                          <div className="absolute right-1 top-1 z-10 bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                            {requestStatus === "requested"
+                              ? "依頼済"
+                              : requestStatus === "ok"
+                                ? "OK"
+                                : requestStatus === "ng"
+                                  ? "NG"
+                                  : requestStatus === "added"
+                                    ? "追加済"
+                                    : "取消"}
                           </div>
                         )}
                       </div>
@@ -4758,6 +4923,50 @@ export default function Page() {
                   );
                 })()}
                 <div className="mt-2">
+                  {(() => {
+                    const requestStatus =
+                      attendanceRequests.find(
+                        (row) => row.castId === selectedCast.id,
+                      )?.status ?? null;
+                    return (
+                      <div className="mb-2 flex flex-wrap items-center gap-2 border border-slate-200 bg-slate-50 px-2 py-1.5">
+                        <span className="text-[11px] font-semibold text-slate-700">
+                          出勤依頼:
+                          <span className="ml-1 text-slate-900">
+                            {requestStatus === "requested"
+                              ? "依頼済み"
+                              : requestStatus === "ok"
+                                ? "出勤OK"
+                                : requestStatus === "ng"
+                                  ? "出勤NG"
+                                  : requestStatus === "added"
+                                    ? "派遣表追加済み"
+                                    : "未依頼"}
+                          </span>
+                        </span>
+                        {[
+                          { status: "requested", label: "依頼済みにする" },
+                          { status: "ok", label: "OK" },
+                          { status: "ng", label: "NG" },
+                        ].map((item) => (
+                          <button
+                            key={item.status}
+                            type="button"
+                            className="border border-slate-300 bg-white px-2 py-1 text-[11px] hover:bg-slate-100"
+                            onClick={() =>
+                              void markAttendanceRequest(
+                                selectedCast.id,
+                                item.status as AttendanceRequestStatus,
+                                pendingDispatchSlotIndex,
+                              )
+                            }
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -4838,6 +5047,15 @@ export default function Page() {
             </div>
 
             <footer className="px-4 py-3 border-t border-gray-200 flex items-center justify-end gap-2 bg-white">
+              {pendingDispatchSlotIndex !== null && (
+                <button
+                  type="button"
+                  className="border border-amber-500 bg-amber-100 text-amber-900 px-4 py-1.5 text-xs font-semibold hover:bg-amber-200"
+                  onClick={() => void addSelectedCastToDispatchSlot()}
+                >
+                  派遣表 {pendingDispatchSlotIndex + 1}枠目に追加
+                </button>
+              )}
               <button
                 type="button"
                 className="border border-gray-300 bg-white text-ink px-4 py-1.5 text-xs"

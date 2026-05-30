@@ -341,7 +341,7 @@ export default function DailyReportPage() {
 
   return (
     <AppShell>
-      <div className="h-full flex flex-col gap-4">
+      <div className="daily-report-print-root h-full flex flex-col gap-4">
         <header className="flex items-center justify-between border border-slate-500 bg-white px-3 py-2">
           <div className="text-lg font-semibold tracking-wide">
             ティアラ　日報
@@ -925,6 +925,123 @@ export default function DailyReportPage() {
           <div className="text-xs text-gray-500">データ取得中...</div>
         )}
       </div>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 6mm;
+          }
+
+          html,
+          body {
+            width: 100%;
+            height: auto;
+            background: #fff !important;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .daily-report-print-root,
+          .daily-report-print-root * {
+            visibility: visible !important;
+          }
+
+          .daily-report-print-root {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            gap: 6px !important;
+            color: #000 !important;
+            background: #fff !important;
+            font-size: 10px !important;
+            line-height: 1.15 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .daily-report-print-root header,
+          .daily-report-print-root section,
+          .daily-report-print-root > div {
+            break-inside: avoid;
+          }
+
+          .daily-report-print-root header {
+            padding: 4px 8px !important;
+          }
+
+          .daily-report-print-root .print\\:hidden,
+          .daily-report-print-root button,
+          .daily-report-print-root .text-xs.text-gray-500 {
+            display: none !important;
+          }
+
+          .daily-report-print-root input,
+          .daily-report-print-root textarea {
+            color: #000 !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
+            padding: 0 !important;
+          }
+
+          .daily-report-print-root textarea {
+            height: 70px !important;
+            resize: none !important;
+          }
+
+          .daily-report-print-root .gap-4 {
+            gap: 6px !important;
+          }
+
+          .daily-report-print-root .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 6px !important;
+          }
+
+          .daily-report-print-root .h-8 {
+            height: 22px !important;
+          }
+
+          .daily-report-print-root .h-7 {
+            height: 18px !important;
+          }
+
+          .daily-report-print-root .h-36 {
+            height: 70px !important;
+          }
+
+          .daily-report-print-root .px-3,
+          .daily-report-print-root .px-2 {
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+          }
+
+          .daily-report-print-root .py-2,
+          .daily-report-print-root .py-1 {
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+          }
+
+          .daily-report-print-root .text-lg {
+            font-size: 14px !important;
+          }
+
+          .daily-report-print-root .text-sm {
+            font-size: 10px !important;
+          }
+
+          .daily-report-print-root .grid {
+            break-inside: avoid;
+          }
+        }
+      `}</style>
     </AppShell>
   );
 }

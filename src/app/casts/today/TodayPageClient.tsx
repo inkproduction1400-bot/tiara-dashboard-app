@@ -3485,7 +3485,7 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-0 border-t border-slate-900 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-0 bg-slate-950 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {Array.from({
                       length: Math.max(
                         DISPATCH_SHEET_SLOT_COUNT,
@@ -3498,31 +3498,31 @@ export default function Page() {
                           return (
                             <div
                               key={`dispatch-empty-${slotIndex}`}
-                              className="border-b border-r border-slate-900 bg-white"
+                              className="border-2 border-slate-950 bg-white"
                             >
                               <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
                                 <tbody>
                                   <tr>
-                                    <th className="w-[58px] border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    <th className="w-[58px] border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                       源氏名
                                     </th>
-                                    <td className="border-b border-slate-900 px-1 py-1">
+                                    <td className="border-b border-slate-400 px-1 py-1">
                                       <div className="h-4" />
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                       派遣先
                                     </th>
-                                    <td className="border-b border-slate-900 p-0.5">
+                                    <td className="border-b border-slate-400 p-0.5">
                                       <div className="h-7 border border-slate-200 bg-white" />
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                       時給・手数料
                                     </th>
-                                    <td className="border-b border-slate-900 p-0.5">
+                                    <td className="border-b border-slate-400 p-0.5">
                                       <div className="grid grid-cols-2 gap-1">
                                         <div className="h-7 border border-slate-200 bg-white" />
                                         <div className="h-7 border border-slate-200 bg-white" />
@@ -3530,15 +3530,15 @@ export default function Page() {
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                       時間
                                     </th>
-                                    <td className="border-b border-slate-900 p-0.5">
+                                    <td className="border-b border-slate-400 p-0.5">
                                       <div className="h-7 border border-slate-200 bg-white" />
                                     </td>
                                   </tr>
                                   <tr>
-                                    <th className="border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                    <th className="border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                       メモ
                                     </th>
                                     <td className="p-0.5">
@@ -3558,7 +3558,7 @@ export default function Page() {
                           <div
                             key={row.castId}
                             className={
-                              "border-b border-r border-slate-900 " +
+                              "border-2 border-slate-950 " +
                               (row.status === "confirmed"
                                 ? "bg-emerald-50"
                                 : row.isExclusiveInitial
@@ -3569,10 +3569,10 @@ export default function Page() {
                             <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
                               <tbody>
                                 <tr>
-                                  <th className="w-[58px] border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                  <th className="w-[58px] border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                     源氏名
                                   </th>
-                                  <td className="border-b border-slate-900 px-1 py-1">
+                                  <td className="border-b border-slate-400 px-1 py-1">
                                     <div className="flex min-w-0 items-center justify-between gap-1">
                                       <span className="truncate font-semibold">
                                         {row.displayName}
@@ -3584,10 +3584,10 @@ export default function Page() {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                     派遣先
                                   </th>
-                                  <td className="border-b border-slate-900 p-0.5">
+                                  <td className="border-b border-slate-400 p-0.5">
                                     <button
                                       type="button"
                                       className="h-7 w-full border border-slate-300 bg-white px-1.5 text-left text-[11px] leading-tight hover:bg-slate-50"
@@ -3612,10 +3612,10 @@ export default function Page() {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                     時給・手数料
                                   </th>
-                                  <td className="border-b border-slate-900 p-0.5">
+                                  <td className="border-b border-slate-400 p-0.5">
                                     <div className="grid grid-cols-2 gap-1">
                                       <input
                                         type="number"
@@ -3663,10 +3663,10 @@ export default function Page() {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th className="border-b border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                  <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                     時間
                                   </th>
-                                  <td className="border-b border-slate-900 p-0.5">
+                                  <td className="border-b border-slate-400 p-0.5">
                                     <input
                                       type="time"
                                       className="h-7 w-full border border-slate-300 px-1 text-[11px]"
@@ -3688,7 +3688,7 @@ export default function Page() {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th className="border-r border-slate-900 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                  <th className="border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
                                     メモ
                                   </th>
                                   <td className="p-0.5">

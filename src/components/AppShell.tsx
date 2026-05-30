@@ -5,7 +5,11 @@ import Sidebar from "@/components/Sidebar";
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getToken } from "@/lib/device";
-import { API_BASE } from "@/lib/api";
+import {
+  API_BASE,
+  buildNotificationSummaryPath,
+  CHAT_NOTIFICATION_TARGET_CHANGED_EVENT,
+} from "@/lib/api";
 import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 
@@ -74,11 +78,10 @@ function NotificationBridge() {
       }
     };
 
-    // 初回 fetch
-    (async () => {
+    const fetchSummary = async () => {
       try {
         const summary = await apiFetch<ApiSummaryResponse>(
-          "/me/notifications/summary",
+          buildNotificationSummaryPath(),
           { method: "GET" },
         );
         if (!mounted) return;
@@ -86,7 +89,10 @@ function NotificationBridge() {
       } catch {
         // 未ログイン/サーバ未起動でも AppShell は落とさない
       }
-    })();
+    };
+
+    // 初回 fetch
+    void fetchSummary();
 
     // イベント購読
     const onSummary = (ev: Event) => {
@@ -95,11 +101,23 @@ function NotificationBridge() {
       apply(ce.detail);
     };
 
+    const onNotificationTargetChanged = () => {
+      void fetchSummary();
+    };
+
     window.addEventListener("tiara:notification-summary", onSummary);
+    window.addEventListener(
+      CHAT_NOTIFICATION_TARGET_CHANGED_EVENT,
+      onNotificationTargetChanged,
+    );
 
     return () => {
       mounted = false;
       window.removeEventListener("tiara:notification-summary", onSummary);
+      window.removeEventListener(
+        CHAT_NOTIFICATION_TARGET_CHANGED_EVENT,
+        onNotificationTargetChanged,
+      );
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

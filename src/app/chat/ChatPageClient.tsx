@@ -5,7 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import clsx from "clsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { API_BASE, getCurrentUser } from "@/lib/api";
+import {
+  API_BASE,
+  buildNotificationSummaryPath,
+  CHAT_NOTIFICATION_TARGET_CHANGED_EVENT,
+  CHAT_NOTIFICATION_TARGET_KEY,
+  getCurrentUser,
+} from "@/lib/api";
 import {
   updateCastChatSendDisabled,
   updateCastTodayShift,
@@ -306,6 +312,7 @@ function ChatContent() {
 
   const [keyword, setKeyword] = useState<string>("");
   const [staffFilter, setStaffFilter] = useState<string>("all");
+  const [notificationTarget, setNotificationTarget] = useState<string>("mine");
   const [currentStaffName, setCurrentStaffName] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
@@ -489,6 +496,27 @@ function ChatContent() {
     return Array.from(options.entries()).map(([id, label]) => ({ id, label }));
   }, [currentStaffName, rooms]);
 
+  const notificationTargetOptions = useMemo(() => {
+    const options = new Map<string, string>([
+      ["mine", "通知：自分の担当"],
+      ["all", "通知：全スタッフ"],
+    ]);
+    for (const option of staffFilterOptions) {
+      if (option.id === "all") continue;
+      const suffix =
+        currentStaffName && option.id === currentStaffName ? "（自分）" : "";
+      options.set(option.id, `通知：${option.id}${suffix}`);
+    }
+    return Array.from(options.entries()).map(([id, label]) => ({ id, label }));
+  }, [currentStaffName, staffFilterOptions]);
+
+  const handleNotificationTargetChange = (value: string) => {
+    setNotificationTarget(value);
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_NOTIFICATION_TARGET_KEY, value);
+    window.dispatchEvent(new Event(CHAT_NOTIFICATION_TARGET_CHANGED_EVENT));
+  };
+
   const markStaffRead = async (roomId: string, signal?: AbortSignal) => {
     if (lastMarkedReadRoomIdRef.current === roomId) return;
 
@@ -506,7 +534,7 @@ function ChatContent() {
       );
 
       const summary = await apiFetch<ApiSummaryResponse>(
-        "/me/notifications/summary",
+        buildNotificationSummaryPath(),
         { method: "GET" },
         { signal },
       );
@@ -583,6 +611,16 @@ function ChatContent() {
         const userType = user.userType?.toLowerCase() ?? "";
         const staffName = user.staffName?.trim() ?? "";
         setCurrentStaffName(staffName);
+        const savedTarget =
+          typeof window !== "undefined"
+            ? localStorage.getItem(CHAT_NOTIFICATION_TARGET_KEY)
+            : null;
+        const defaultTarget = userType === "admin" ? "all" : "mine";
+        const target = savedTarget || defaultTarget;
+        setNotificationTarget(target);
+        if (typeof window !== "undefined" && !savedTarget) {
+          localStorage.setItem(CHAT_NOTIFICATION_TARGET_KEY, target);
+        }
         if (userType !== "admin" && staffName) {
           setStaffFilter(staffName);
         }
@@ -591,7 +629,15 @@ function ChatContent() {
         if (typeof window === "undefined" || !mounted) return;
         const storedType = localStorage.getItem("tiara:user_type") ?? "";
         const storedStaff = localStorage.getItem("tiara:staff_name") ?? "";
+        const savedTarget = localStorage.getItem(CHAT_NOTIFICATION_TARGET_KEY);
+        const defaultTarget =
+          storedType.toLowerCase() === "admin" ? "all" : "mine";
+        const target = savedTarget || defaultTarget;
         setCurrentStaffName(storedStaff);
+        setNotificationTarget(target);
+        if (!savedTarget) {
+          localStorage.setItem(CHAT_NOTIFICATION_TARGET_KEY, target);
+        }
         if (storedType.toLowerCase() !== "admin" && storedStaff) {
           setStaffFilter(storedStaff);
         }
@@ -964,7 +1010,7 @@ function ChatContent() {
 
     try {
       const summary = await apiFetch<ApiSummaryResponse>(
-        "/me/notifications/summary",
+        buildNotificationSummaryPath(),
         { method: "GET" },
         { signal },
       );
@@ -1113,6 +1159,19 @@ function ChatContent() {
           onChange={(e) => setStaffFilter(e.target.value)}
         >
           {staffFilterOptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="tiara-input rounded-none h-9 !w-[150px] text-[11px] leading-snug flex-none"
+          value={notificationTarget}
+          onChange={(e) => handleNotificationTargetChange(e.target.value)}
+          title="サイドメニューのチャット通知対象"
+        >
+          {notificationTargetOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>

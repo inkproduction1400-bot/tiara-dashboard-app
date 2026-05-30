@@ -135,6 +135,34 @@ export async function getCurrentUser() {
   return apiGet<DashboardUser>("/auth/me");
 }
 
+export const CHAT_NOTIFICATION_TARGET_KEY = "tiara:chat_notification_target";
+export const CHAT_NOTIFICATION_TARGET_CHANGED_EVENT =
+  "tiara:chat-notification-target-changed";
+
+export function resolveChatNotificationOwnerStaffName(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const savedTarget =
+    window.localStorage.getItem(CHAT_NOTIFICATION_TARGET_KEY)?.trim() ?? "";
+  const userType =
+    window.localStorage.getItem("tiara:user_type")?.trim().toLowerCase() ?? "";
+  const staffName =
+    window.localStorage.getItem("tiara:staff_name")?.trim() ?? "";
+  const target = savedTarget || (userType === "admin" ? "all" : "mine");
+
+  if (target === "all") return "all";
+  if (target === "mine") return staffName || null;
+  return target;
+}
+
+export function buildNotificationSummaryPath(): string {
+  const ownerStaffName = resolveChatNotificationOwnerStaffName();
+  if (!ownerStaffName) return "/me/notifications/summary";
+
+  const qs = new URLSearchParams({ ownerStaffName });
+  return `/me/notifications/summary?${qs.toString()}`;
+}
+
 export async function verifyChallenge(
   tx_id: string,
   code: string,
@@ -158,7 +186,7 @@ export type NotificationSummary = {
  * GET /me/notifications/summary
  */
 export function fetchNotificationSummary(): Promise<NotificationSummary> {
-  return apiGet<NotificationSummary>("/me/notifications/summary");
+  return apiGet<NotificationSummary>(buildNotificationSummaryPath());
 }
 
 /**

@@ -3186,31 +3186,31 @@ export default function Page() {
             <>
               {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
               <div className="flex flex-col gap-1.5 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
                     <button
                       type="button"
-                      className="px-4 h-8 bg-sky-600 text-white"
+                      className="px-3 h-8 bg-sky-600 text-white"
                       onClick={() => setPanelTab("casts")}
                     >
                       キャスト一覧
                     </button>
                     <button
                       type="button"
-                      className="px-4 h-8 border-l border-slate-200 bg-transparent text-gray-700"
+                      className="px-3 h-8 border-l border-slate-200 bg-transparent text-gray-700"
                       onClick={() => setPanelTab("shops")}
                     >
                       店舗一覧
                     </button>
                   </div>
                   <input
-                    className="tiara-input rounded-none h-8 !w-[200px] text-[10px] leading-tight flex-none"
+                    className="tiara-input rounded-none h-8 !w-[170px] text-[10px] leading-tight flex-none"
                     placeholder="管理番号・名前・旧ID"
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                   />
                   <select
-                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[110px] text-[10px] leading-tight flex-none"
                     value={担当者}
                     onChange={(e) => set担当者(e.target.value)}
                   >
@@ -3219,7 +3219,7 @@ export default function Page() {
                     <option value="kitamura">北村</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-9 !w-[130px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[110px] text-[10px] leading-tight flex-none"
                     value={dispatchStatusFilter}
                     onChange={(e) =>
                       setDispatchStatusFilter(
@@ -3232,7 +3232,7 @@ export default function Page() {
                     <option value="matched">マッチ済み</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-9 !w-[180px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none"
                     value={sortKey}
                     onChange={(e) => setSortKey(e.target.value as SortKey)}
                   >
@@ -3242,7 +3242,7 @@ export default function Page() {
                     <option value="ageDesc">年齢が高い順</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-9 !w-[170px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
                     value={drinkSort}
                     onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
                   >
@@ -3251,7 +3251,7 @@ export default function Page() {
                     <option value="ngFirst">飲めない順</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
                     value={castGenreFilter}
                     onChange={(e) =>
                       setCastGenreFilter(
@@ -3266,7 +3266,7 @@ export default function Page() {
                     <option value="gb">ガルバ</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-9 !w-[140px] text-[11px] leading-snug flex-none"
+                    className="tiara-input rounded-none h-8 !w-[115px] text-[10px] leading-tight flex-none"
                     value={ageRangeFilter}
                     onChange={(e) =>
                       setAgeRangeFilter(e.target.value as AgeRangeFilter)
@@ -3281,7 +3281,7 @@ export default function Page() {
                     <option value="40-49">40〜49歳</option>
                     <option value="50-">50歳以上</option>
                   </select>
-                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                     <label className="inline-flex items-center gap-1 text-[10px]">
                       <input
                         type="checkbox"
@@ -3315,7 +3315,7 @@ export default function Page() {
                     </label>
                     <button
                       type="button"
-                      className="text-[10px] px-2 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+                      className="text-[10px] px-1.5 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
                       onClick={() => {
                         setSettingsDraft(effectiveMatchingSettings);
                         setSettingsError(null);
@@ -3391,12 +3391,16 @@ export default function Page() {
                       <span className="ml-2">{orderSummary.headcount} 人</span>
                     </div>
                     <div className="border border-slate-200 bg-white px-1.5 py-0.5">
-                      <span className="font-semibold">時給別（本日出勤予定）</span>
-                      <span className="ml-2 text-muted">
-                        {WAGE_BUCKETS.map(
-                          (wage) => `${wage}円 ${todayWageCounts[wage] ?? 0}名`,
-                        ).join(" / ")}
-                      </span>
+                      <div className="mb-0.5 font-semibold leading-none">
+                        時給別（本日出勤予定）
+                      </div>
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 leading-tight text-muted">
+                        {WAGE_BUCKETS.map((wage) => (
+                          <span key={`today-wage-summary-${wage}`}>
+                            {wage}円 {todayWageCounts[wage] ?? 0}名
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

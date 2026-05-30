@@ -3,8 +3,11 @@ export type AssignmentRow = {
   businessDate: string; // YYYY-MM-DD
   castId: string;
   castName: string;
+  castManagementNumber?: string;
+  castCode?: string;
   shopId: string;
   shopName: string;
+  shopNameKana?: string;
   shopAddress?: string;
   startTime?: string;
   endTime?: string;
@@ -28,7 +31,7 @@ export type ReceiptPayload = {
   fee?: number;
 };
 
-export type ReceiptStatus = "none" | "issued" | "uncollected";
+export type ReceiptStatus = "none" | "issued" | "uncollected" | "collected";
 
 export type ReceiptStatusEntry = {
   status: ReceiptStatus;

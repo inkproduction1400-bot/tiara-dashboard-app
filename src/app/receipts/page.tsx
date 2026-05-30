@@ -245,6 +245,13 @@ export default function ReceiptsPage() {
     updateStatus(rowKey(row), "uncollected", row);
   };
 
+  const handleCollectionChange = (
+    row: AssignmentRow,
+    value: "uncollected" | "collected",
+  ) => {
+    updateStatus(rowKey(row), value, row);
+  };
+
   const handlePrint = async () => {
     if (!formState) return;
     const payload = toPayload(formState);
@@ -383,90 +390,136 @@ export default function ReceiptsPage() {
           </div>
         </header>
 
-        <div className="border border-slate-500 bg-white">
+        <div className="border border-slate-700 bg-white px-3 py-3">
+          <div className="relative mb-2 flex items-end justify-center">
+            <div className="text-2xl font-semibold tracking-[0.2em]">ティアラ</div>
+            <div className="absolute right-0 bottom-0 text-sm font-semibold">
+              {businessDate.split("-")[0]} 年 {Number(businessDate.split("-")[1])} 月{" "}
+              {Number(businessDate.split("-")[2])} 日 {weekday} 入力
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-[980px] w-full text-sm">
+            <table className="min-w-[1500px] w-full border-collapse text-[13px] leading-tight">
               <thead>
-                <tr className="border-b border-slate-500">
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    日付
+                <tr className="bg-slate-100">
+                  <th className="w-12 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                    出勤人数
                   </th>
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    キャスト名
+                  <th className="w-14 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                    女子NO
                   </th>
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    キャストID
+                  <th className="w-28 border border-slate-700 px-2 py-1 text-left text-base">
+                    名前
                   </th>
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    店舗名
+                  <th className="w-10 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                    確定/<br />未確定
                   </th>
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    店舗ID
+                  <th className="w-10 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                    送迎
                   </th>
-                  <th className="border-r border-slate-500 px-2 py-2 text-left">
-                    状態
+                  <th className="w-20 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                    呼び出し店名かな
                   </th>
-                  <th className="px-2 py-2 text-left">操作</th>
+                  <th className="w-36 border border-slate-700 px-2 py-1 text-left text-base">
+                    派遣先(店名)
+                  </th>
+                  <th className="w-40 border border-slate-700 px-2 py-1 text-left text-base">
+                    派遣先住所
+                  </th>
+                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-base">
+                    出勤時間
+                  </th>
+                  <th className="w-20 border border-slate-700 px-2 py-1 text-center text-base">
+                    時給
+                  </th>
+                  <th className="w-20 border border-slate-700 px-2 py-1 text-center text-base">
+                    日給
+                  </th>
+                  <th className="w-24 border border-slate-700 px-2 py-1 text-center text-base">
+                    時間(実際)
+                  </th>
+                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-sm">
+                    領収書
+                  </th>
+                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-base">
+                    手数料
+                  </th>
+                  <th className="w-16 border border-slate-700 px-1 py-1 text-center text-sm">
+                    回収
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => {
+                {visibleRows.map((row, index) => {
                   const key = rowKey(row);
                   const status = statusMap[key]?.status ?? "none";
+                  const collectionValue =
+                    status === "collected" || status === "issued"
+                      ? "collected"
+                      : "uncollected";
                   const rowClass =
-                    status === "issued"
-                      ? "bg-emerald-50"
-                      : status === "uncollected"
-                        ? "bg-amber-50"
-                        : "";
-                  const statusLabel =
-                    status === "issued"
-                      ? "領収書発行済み"
-                      : status === "uncollected"
-                        ? "未回収了承済み"
-                        : "未処理";
+                    collectionValue === "collected" ? "bg-emerald-50" : "";
+                  const startTime = row.startTime ? `${row.startTime} ～` : "～";
 
                   return (
-                    <tr key={key} className={`border-b border-slate-500 ${rowClass}`}>
-                      <td className="border-r border-slate-500 px-2 py-2">
-                        {row.businessDate}
+                    <tr key={key} className={rowClass}>
+                      <td className="border border-slate-700 px-1 py-1 text-center">
+                        {index + 1}
                       </td>
-                      <td className="border-r border-slate-500 px-2 py-2">
+                      <td className="border border-slate-700 px-1 py-1 text-center font-semibold text-red-700">
+                        {row.castManagementNumber ?? row.castCode ?? row.castId}
+                      </td>
+                      <td className="border border-slate-700 px-2 py-1 text-base font-semibold">
                         {row.castName}
                       </td>
-                      <td className="border-r border-slate-500 px-2 py-2">
-                        {row.castId}
+                      <td className="border border-slate-700 px-1 py-1 text-center text-[11px]">
+                        確定
                       </td>
-                      <td className="border-r border-slate-500 px-2 py-2">
+                      <td className="border border-slate-700 px-1 py-1" />
+                      <td className="border border-slate-700 px-1 py-1 text-center text-[11px]">
+                        {row.shopNameKana ?? ""}
+                      </td>
+                      <td className="border border-slate-700 px-2 py-1 font-semibold">
                         {row.shopName}
                       </td>
-                      <td className="border-r border-slate-500 px-2 py-2">
-                        {row.shopId}
+                      <td className="border border-slate-700 px-2 py-1 text-[11px]">
+                        {row.shopAddress ?? ""}
                       </td>
-                      <td className="border-r border-slate-500 px-2 py-2">
-                        <span className="inline-flex items-center border border-slate-500 px-2 py-0.5 text-xs">
-                          {statusLabel}
-                        </span>
+                      <td className="border border-slate-700 px-2 py-1 text-center text-base">
+                        {startTime}
                       </td>
-                      <td className="px-2 py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="border border-slate-500 bg-white px-3 py-1 text-xs"
-                            onClick={() => handleOpenModal(row)}
-                            disabled={status === "issued"}
-                          >
-                            {status === "issued" ? "発行済み" : "回収"}
-                          </button>
-                          <button
-                            type="button"
-                            className="border border-slate-500 bg-white px-3 py-1 text-xs"
-                            onClick={() => handleUncollected(row)}
-                            disabled={status === "uncollected"}
-                          >
-                            {status === "uncollected" ? "未回収済" : "未回収"}
-                          </button>
-                        </div>
+                      <td className="border border-slate-700 px-2 py-1 text-right text-base">
+                        {formatAmount(row.hourly)}
+                      </td>
+                      <td className="border border-slate-700 px-2 py-1 text-right" />
+                      <td className="border border-slate-700 px-2 py-1 text-center" />
+                      <td className="border border-slate-700 px-1 py-1 text-center">
+                        <button
+                          type="button"
+                          className="border border-slate-700 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
+                          onClick={() => handleOpenModal(row)}
+                        >
+                          発行・印刷
+                        </button>
+                      </td>
+                      <td className="border border-slate-700 px-2 py-1 text-right text-base">
+                        {formatAmount(row.fee)}
+                      </td>
+                      <td className="border border-slate-700 px-1 py-1 text-center">
+                        <select
+                          className="h-7 w-12 border border-slate-500 bg-white text-center text-lg leading-none"
+                          value={collectionValue}
+                          onChange={(event) =>
+                            handleCollectionChange(
+                              row,
+                              event.target.value as "uncollected" | "collected",
+                            )
+                          }
+                          aria-label={`${row.castName}の回収状態`}
+                        >
+                          <option value="uncollected">○</option>
+                          <option value="collected">✓</option>
+                        </select>
                       </td>
                     </tr>
                   );
@@ -474,8 +527,8 @@ export default function ReceiptsPage() {
                 {visibleRows.length === 0 && !loading && (
                   <tr>
                     <td
-                      colSpan={7}
-                      className="px-4 py-8 text-center text-sm text-slate-500"
+                      colSpan={15}
+                      className="border border-slate-700 px-4 py-8 text-center text-sm text-slate-500"
                     >
                       表示対象のデータがありません。
                     </td>

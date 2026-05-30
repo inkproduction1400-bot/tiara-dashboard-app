@@ -2577,6 +2577,22 @@ export default function Page() {
     void ensureCastDetail(cast.id);
   };
 
+  const openDispatchCastDetail = (row: DispatchSheetRow) => {
+    const existing =
+      todayCasts.find((cast) => cast.id === row.castId) ??
+      allCasts.find((cast) => cast.id === row.castId);
+    openCastDetail(
+      existing ?? {
+        id: row.castId,
+        code: row.castCode ?? row.managementNumber,
+        name: row.displayName,
+        age: row.age ?? 0,
+        desiredHourly: row.desiredHourly ?? row.castHourly ?? 0,
+        drinkLevel: null,
+      },
+    );
+  };
+
   const closeCastDetail = () => {
     setCastDetailModalOpen(false);
     setSelectedCast(null);
@@ -3793,14 +3809,18 @@ export default function Page() {
                                     源氏名
                                   </th>
                                   <td className="border-b border-slate-400 px-1 py-1">
-                                    <div className="flex min-w-0 items-center justify-between gap-1">
+                                    <button
+                                      type="button"
+                                      className="flex w-full min-w-0 items-center justify-between gap-1 text-left hover:bg-sky-50"
+                                      onClick={() => openDispatchCastDetail(row)}
+                                    >
                                       <span className="truncate font-semibold">
                                         {row.displayName}
                                       </span>
                                       <span className="shrink-0 font-mono text-[10px] text-slate-500">
                                         {row.managementNumber}
                                       </span>
-                                    </div>
+                                    </button>
                                   </td>
                                 </tr>
                                 <tr>

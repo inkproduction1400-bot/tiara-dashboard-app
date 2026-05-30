@@ -53,7 +53,8 @@ export type AttendanceRequestStatus =
   | "ok"
   | "ng"
   | "added"
-  | "canceled";
+  | "canceled"
+  | "removed";
 
 export type AttendanceRequestItem = {
   id: string;

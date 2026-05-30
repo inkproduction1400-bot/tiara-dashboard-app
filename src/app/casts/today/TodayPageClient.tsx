@@ -2453,6 +2453,33 @@ export default function Page() {
     }
   };
 
+  const removeManualDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.manualAdded || row.status !== "draft") return;
+    if (
+      !window.confirm(
+        `${row.displayName} を派遣表から外しますか？入力ミス扱いのため、キャンセル履歴には含めません。`,
+      )
+    ) {
+      return;
+    }
+    setDispatchSavingKey(row.castId);
+    try {
+      const res = await upsertAttendanceRequest({
+        date: todayKey(),
+        castId: row.castId,
+        status: "removed",
+        displayOrder: row.displayOrder ?? null,
+      });
+      setAttendanceRequests(res.items ?? []);
+      await loadDispatchSheet();
+    } catch (err) {
+      console.warn("[casts/today] failed to remove manual dispatch row", err);
+      alert("派遣表から外す処理に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setDispatchSavingKey(null);
+    }
+  };
+
   const confirmAllDispatchRows = async () => {
     const targetIds = dispatchRows
       .filter(
@@ -4126,7 +4153,13 @@ export default function Page() {
                                     メモ
                                   </th>
                                   <td className="p-0.5">
-                                    <div className="grid grid-cols-[1fr_74px] gap-1">
+                                    <div
+                                      className={
+                                        row.manualAdded && row.status === "draft"
+                                          ? "grid grid-cols-[1fr_58px_48px] gap-1"
+                                          : "grid grid-cols-[1fr_74px] gap-1"
+                                      }
+                                    >
                                       <input
                                         className="h-7 w-full border border-slate-300 px-1.5 text-[11px]"
                                         value={row.note ?? ""}
@@ -4180,6 +4213,19 @@ export default function Page() {
                                               ? "再確定"
                                               : "確定"}
                                       </button>
+                                      {row.manualAdded && row.status === "draft" ? (
+                                        <button
+                                          type="button"
+                                          className="h-7 border border-amber-700 bg-amber-50 px-1 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+                                          disabled={saving}
+                                          title="入力ミス扱いで派遣表から外す"
+                                          onClick={() => {
+                                            void removeManualDispatchRow(row);
+                                          }}
+                                        >
+                                          外す
+                                        </button>
+                                      ) : null}
                                     </div>
                                   </td>
                                 </tr>

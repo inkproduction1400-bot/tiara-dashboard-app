@@ -45,6 +45,7 @@ import {
   type MatchingSettings,
 } from "@/lib/api.matching";
 import {
+  cancelDispatchSheetRow,
   confirmDispatchSheet,
   confirmDispatchSheetRow,
   getDispatchSheet,
@@ -2289,7 +2290,10 @@ export default function Page() {
       alert("派遣先を選択してください。");
       return;
     }
-    const savedRows = !row.assignmentId ? await saveDispatchRow(row) : null;
+    const savedRows =
+      !row.assignmentId || row.status === "canceled"
+        ? await saveDispatchRow(row)
+        : null;
     const latest =
       savedRows?.find((item) => item.castId === row.castId) ??
       dispatchRows.find((item) => item.castId === row.castId) ??
@@ -2303,9 +2307,39 @@ export default function Page() {
     await loadDispatchSheet();
   };
 
+  const cancelOneDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.assignmentId) return;
+    const reason =
+      window.prompt(
+        "キャンセル理由を入力してください。",
+        row.cancellationReason || "当日欠勤",
+      ) ?? "";
+    const trimmed = reason.trim();
+    if (!trimmed) return;
+    if (!window.confirm(`${row.displayName} の確定済み派遣をキャンセルしますか？`)) {
+      return;
+    }
+    setDispatchSavingKey(row.castId);
+    try {
+      await cancelDispatchSheetRow(row.assignmentId, trimmed);
+      await loadDispatchSheet();
+    } catch (err) {
+      console.warn("[casts/today] failed to cancel dispatch row", err);
+      alert("派遣表のキャンセルに失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setDispatchSavingKey(null);
+    }
+  };
+
   const confirmAllDispatchRows = async () => {
     const targetIds = dispatchRows
-      .filter((row) => row.assignmentId && row.shopId && row.status !== "confirmed")
+      .filter(
+        (row) =>
+          row.assignmentId &&
+          row.shopId &&
+          row.status !== "confirmed" &&
+          row.status !== "canceled",
+      )
       .map((row) => row.assignmentId as string);
     if (targetIds.length === 0) {
       alert("確定できる派遣行がありません。");
@@ -3804,6 +3838,8 @@ export default function Page() {
                               "border-2 border-slate-950 " +
                               (row.status === "confirmed"
                                 ? "bg-emerald-50"
+                                : row.status === "canceled"
+                                  ? "bg-rose-50"
                                 : row.isExclusiveInitial
                                   ? "bg-amber-50"
                                   : "bg-white")
@@ -3965,18 +4001,35 @@ export default function Page() {
                                           "h-7 border px-1 text-[10px] font-semibold " +
                                           (row.status === "confirmed"
                                             ? "border-emerald-700 bg-emerald-100 text-emerald-800"
+                                            : row.status === "canceled"
+                                              ? "border-rose-700 bg-rose-100 text-rose-800 hover:bg-rose-50"
                                             : "border-slate-900 bg-white text-slate-900 hover:bg-slate-50")
                                         }
                                         disabled={saving}
-                                        onClick={() =>
-                                          void confirmOneDispatchRow(row)
+                                        title={
+                                          row.status === "confirmed"
+                                            ? "確定済み派遣をキャンセル"
+                                            : row.status === "canceled"
+                                              ? row.cancellationReason
+                                                ? `キャンセル: ${row.cancellationReason}`
+                                                : "キャンセル済み。編集後に再確定できます"
+                                              : "派遣を確定"
                                         }
+                                        onClick={() => {
+                                          if (row.status === "confirmed") {
+                                            void cancelOneDispatchRow(row);
+                                            return;
+                                          }
+                                          void confirmOneDispatchRow(row);
+                                        }}
                                       >
                                         {saving
                                           ? "保存中"
                                           : row.status === "confirmed"
-                                            ? "確定済"
-                                            : "確定"}
+                                            ? "キャンセル"
+                                            : row.status === "canceled"
+                                              ? "再確定"
+                                              : "確定"}
                                       </button>
                                     </div>
                                   </td>

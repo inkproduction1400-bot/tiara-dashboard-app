@@ -32,9 +32,11 @@ export type DispatchSheetRow = {
   shopFee: number | null;
   note: string | null;
   displayOrder: number;
-  status: "draft" | "confirmed";
+  status: "draft" | "confirmed" | "canceled";
   orderId: string | null;
   orderNo: number | null;
+  cancellationReason?: string | null;
+  canceledAt?: string | null;
 };
 
 export type DispatchSheetResponse = {
@@ -81,6 +83,16 @@ export async function confirmDispatchSheetRow(
   );
 }
 
+export async function cancelDispatchSheetRow(
+  assignmentId: string,
+  reason?: string | null,
+): Promise<{ ok: boolean; assignmentId: string; status: "canceled"; reason: string }> {
+  return apiFetch<{ ok: boolean; assignmentId: string; status: "canceled"; reason: string }>(
+    `/dispatch-sheet/rows/${assignmentId}/cancel`,
+    { method: "POST", body: JSON.stringify({ reason: reason ?? null }) },
+  );
+}
+
 export async function confirmDispatchSheet(payload: {
   date: string;
   assignmentIds?: string[];
@@ -93,4 +105,3 @@ export async function confirmDispatchSheet(payload: {
     },
   );
 }
-

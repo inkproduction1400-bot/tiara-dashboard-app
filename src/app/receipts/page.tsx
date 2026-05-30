@@ -392,12 +392,17 @@ export default function ReceiptsPage() {
               <tbody>
                 {visibleRows.map((row, index) => {
                   const key = rowKey(row);
+                  const isCanceled = row.assignmentStatus === "canceled";
                   const collectionValue =
                     row.receiptStatus === "collected"
                       ? "collected"
                       : "uncollected";
                   const rowClass =
-                    collectionValue === "collected" ? "bg-emerald-50" : "";
+                    isCanceled
+                      ? "bg-rose-50 text-slate-500"
+                      : collectionValue === "collected"
+                        ? "bg-emerald-50"
+                        : "";
                   const startTime = row.startTime ? `${row.startTime} ～` : "～";
 
                   return (
@@ -412,7 +417,7 @@ export default function ReceiptsPage() {
                         {row.castName}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
-                        確定
+                        {isCanceled ? "キャンセル" : "確定"}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5" />
                       <td className="break-words border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
@@ -437,8 +442,9 @@ export default function ReceiptsPage() {
                           type="button"
                           className="w-full border border-slate-700 bg-white px-0.5 py-0.5 text-[9px] font-semibold hover:bg-slate-100"
                           onClick={() => handleOpenModal(row)}
+                          disabled={isCanceled}
                         >
-                          発行
+                          {isCanceled ? "-" : "発行"}
                         </button>
                       </td>
                       <td className="border border-slate-700 px-1 py-0.5 text-right text-[11px]">
@@ -448,6 +454,7 @@ export default function ReceiptsPage() {
                         <select
                           className="h-6 w-full border border-slate-500 bg-white text-center text-sm leading-none"
                           value={collectionValue}
+                          disabled={isCanceled}
                           onChange={(event) =>
                             handleCollectionChange(
                               row,

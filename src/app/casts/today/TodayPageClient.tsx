@@ -888,7 +888,7 @@ export default function Page() {
   const [ngSortKey, setNgSortKey] = useState<"number" | "kana">("number");
   const [ngSelectedShopIds, setNgSelectedShopIds] = useState<string[]>([]);
 
-  const [panelTab, setPanelTab] = useState<"casts" | "shops">("shops");
+  const [panelTab, setPanelTab] = useState<"casts" | "shops">("casts");
   const [shopSortKey, setShopSortKey] = useState<"number" | "kana">("number");
   const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(
     null,
@@ -3067,17 +3067,6 @@ export default function Page() {
             <button
               type="button"
               className={`px-4 py-1.5 ${
-                panelTab === "shops"
-                  ? "bg-sky-600 text-white"
-                  : "bg-transparent text-gray-700"
-              }`}
-              onClick={() => setPanelTab("shops")}
-            >
-              店舗一覧
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-1.5 border-l border-slate-200 ${
                 panelTab === "casts"
                   ? "bg-sky-600 text-white"
                   : "bg-transparent text-gray-700"
@@ -3085,6 +3074,17 @@ export default function Page() {
               onClick={() => setPanelTab("casts")}
             >
               キャスト一覧
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-1.5 border-l border-slate-200 ${
+                panelTab === "shops"
+                  ? "bg-sky-600 text-white"
+                  : "bg-transparent text-gray-700"
+              }`}
+              onClick={() => setPanelTab("shops")}
+            >
+              店舗一覧
             </button>
           </div>
 

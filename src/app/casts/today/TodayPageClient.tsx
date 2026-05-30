@@ -3281,41 +3281,10 @@ export default function Page() {
                     <option value="40-49">40〜49歳</option>
                     <option value="50-">50歳以上</option>
                   </select>
-                  <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                    <label className="inline-flex items-center gap-1 text-[10px]">
-                      <input
-                        type="checkbox"
-                        className="h-3 w-3"
-                        checked={sortKana}
-                        onChange={(e) => setSortKana(e.target.checked)}
-                      />
-                      50音
-                    </label>
-                    <label className="inline-flex items-center gap-1 text-[10px]">
-                      <input
-                        type="checkbox"
-                        className="h-3 w-3"
-                        checked={sortNumberSmallFirst}
-                        onChange={(e) =>
-                          setSortNumberSmallFirst(e.target.checked)
-                        }
-                      />
-                      番号↑
-                    </label>
-                    <label className="inline-flex items-center gap-1 text-[10px]">
-                      <input
-                        type="checkbox"
-                        className="h-3 w-3"
-                        checked={sortNumberLargeFirst}
-                        onChange={(e) =>
-                          setSortNumberLargeFirst(e.target.checked)
-                        }
-                      />
-                      番号↓
-                    </label>
+                  <div className="ml-auto flex w-[180px] flex-none flex-col gap-0.5">
                     <button
                       type="button"
-                      className="text-[10px] px-1.5 py-0.5 bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200"
+                      className="h-[15px] border border-gray-300 bg-gray-100 px-1.5 text-[9px] leading-none text-gray-600 hover:bg-gray-200"
                       onClick={() => {
                         setSettingsDraft(effectiveMatchingSettings);
                         setSettingsError(null);
@@ -3324,6 +3293,39 @@ export default function Page() {
                     >
                       build: {buildStamp}
                     </button>
+                    <div className="flex h-[15px] items-center justify-between gap-1">
+                      <label className="inline-flex items-center gap-0.5 text-[10px] leading-none">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortKana}
+                          onChange={(e) => setSortKana(e.target.checked)}
+                        />
+                        50音
+                      </label>
+                      <label className="inline-flex items-center gap-0.5 text-[10px] leading-none">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortNumberSmallFirst}
+                          onChange={(e) =>
+                            setSortNumberSmallFirst(e.target.checked)
+                          }
+                        />
+                        番号↑
+                      </label>
+                      <label className="inline-flex items-center gap-0.5 text-[10px] leading-none">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3"
+                          checked={sortNumberLargeFirst}
+                          onChange={(e) =>
+                            setSortNumberLargeFirst(e.target.checked)
+                          }
+                        />
+                        番号↓
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -3382,13 +3384,15 @@ export default function Page() {
                   </div>
 
                   <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 text-[10px]">
-                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
-                      <span className="font-semibold">オーダー数</span>
-                      <span className="ml-2">{orderSummary.count} 件</span>
-                    </div>
-                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
-                      <span className="font-semibold">オーダー人数</span>
-                      <span className="ml-2">{orderSummary.headcount} 人</span>
+                    <div className="grid grid-rows-2 border border-slate-200 bg-white">
+                      <div className="border-b border-slate-200 px-1.5 py-0.5 leading-tight">
+                        <span className="font-semibold">オーダー数</span>
+                        <span className="ml-2">{orderSummary.count} 件</span>
+                      </div>
+                      <div className="px-1.5 py-0.5 leading-tight">
+                        <span className="font-semibold">オーダー人数</span>
+                        <span className="ml-2">{orderSummary.headcount} 人</span>
+                      </div>
                     </div>
                     <div className="border border-slate-200 bg-white px-1.5 py-0.5">
                       <div className="mb-0.5 font-semibold leading-none">

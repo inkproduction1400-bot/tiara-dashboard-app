@@ -104,33 +104,36 @@ const buildDispatchSlots = (
   rows: DispatchSheetRow[],
   options: { includeCanceledTail: boolean },
 ) => {
-  const activeRows = rows.filter((row) => row.status !== "canceled");
-  const canceledRows = rows.filter((row) => row.status === "canceled");
+  const byDisplayOrder = (a: DispatchSheetRow, b: DispatchSheetRow) => {
+    const aOrder =
+      typeof a.displayOrder === "number" && a.displayOrder >= 0
+        ? a.displayOrder
+        : Number.MAX_SAFE_INTEGER;
+    const bOrder =
+      typeof b.displayOrder === "number" && b.displayOrder >= 0
+        ? b.displayOrder
+        : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (a.managementNumber ?? "").localeCompare(
+      b.managementNumber ?? "",
+      "ja",
+      { numeric: true },
+    );
+  };
+  const activeRows = rows
+    .filter((row) => row.status !== "canceled")
+    .sort(byDisplayOrder);
+  const canceledRows = rows
+    .filter((row) => row.status === "canceled")
+    .sort(byDisplayOrder);
   const slotCount = Math.max(DISPATCH_SHEET_SLOT_COUNT, activeRows.length);
   const slots = Array.from<DispatchSheetRow | undefined>({
     length: slotCount,
   });
-  const overflow: DispatchSheetRow[] = [];
 
-  for (const row of activeRows) {
-    const index =
-      typeof row.displayOrder === "number" && row.displayOrder >= 0
-        ? row.displayOrder
-        : -1;
-    if (index >= 0 && index < slots.length && !slots[index]) {
-      slots[index] = row;
-    } else {
-      overflow.push(row);
-    }
-  }
-  for (const row of overflow) {
-    const index = slots.findIndex((item) => !item);
-    if (index >= 0) {
-      slots[index] = row;
-    } else {
-      slots.push(row);
-    }
-  }
+  activeRows.forEach((row, index) => {
+    slots[index] = row;
+  });
 
   if (!options.includeCanceledTail) return slots;
   return [...slots, ...canceledRows];

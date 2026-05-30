@@ -385,9 +385,14 @@ function authorizedFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export async function fetchMobileChatRooms(options?: {
   limit?: number | null;
 }): Promise<MobileChatRoom[]> {
-  const rooms = await authorizedFetch<ApiRoom[]>("/chat/staff/rooms");
   const limit =
     options?.limit === undefined ? MOBILE_CHAT_ROOMS_LIMIT : options.limit;
+  const requestLimit =
+    typeof limit === "number" ? Math.max(limit, MOBILE_CHAT_ROOMS_LIMIT) : 200;
+  const response = await authorizedFetch<
+    ApiRoom[] | { items?: ApiRoom[]; total?: number; limit?: number; offset?: number }
+  >(`/chat/staff/rooms?paged=1&limit=${requestLimit}&offset=0`);
+  const rooms = Array.isArray(response) ? response : (response.items ?? []);
   const nextRooms = rooms
     .map((room, index) => mapMobileChatRoom(room, index))
     .filter((room): room is MobileChatRoom => room !== null)

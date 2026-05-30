@@ -223,7 +223,14 @@ type ApiRoom = {
   messages?: ApiMessage[] | null;
 };
 
-type ApiRoomsResponse = ApiRoom[];
+type ApiRoomsPagedResponse = {
+  items?: ApiRoom[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+};
+
+type ApiRoomsResponse = ApiRoom[] | ApiRoomsPagedResponse;
 
 type ApiMessage = {
   id: string;
@@ -563,11 +570,14 @@ function ChatContent() {
 
     (async () => {
       try {
-        const apiRooms = await apiFetch<ApiRoomsResponse>(
-          "/chat/staff/rooms",
+        const apiRoomsResponse = await apiFetch<ApiRoomsResponse>(
+          "/chat/staff/rooms?paged=1&limit=500&offset=0",
           { method: "GET" },
           { signal: ac.signal },
         );
+        const apiRooms = Array.isArray(apiRoomsResponse)
+          ? apiRoomsResponse
+          : (apiRoomsResponse.items ?? []);
 
         if (!mounted) return;
 

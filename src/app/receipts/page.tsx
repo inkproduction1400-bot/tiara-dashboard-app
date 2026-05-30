@@ -304,61 +304,78 @@ export default function ReceiptsPage() {
           </div>
         </header>
 
-        <div className="border border-slate-700 bg-white px-3 py-3">
-          <div className="relative mb-2 flex items-end justify-center">
-            <div className="text-2xl font-semibold tracking-[0.2em]">ティアラ</div>
-            <div className="absolute right-0 bottom-0 text-sm font-semibold">
+        <div className="border border-slate-700 bg-white px-2 py-2">
+          <div className="relative mb-1 flex items-end justify-center">
+            <div className="text-xl font-semibold tracking-[0.16em]">ティアラ</div>
+            <div className="absolute right-0 bottom-0 text-xs font-semibold">
               {businessDate.split("-")[0]} 年 {Number(businessDate.split("-")[1])} 月{" "}
               {Number(businessDate.split("-")[2])} 日 {weekday} 入力
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-[1500px] w-full border-collapse text-[13px] leading-tight">
+          <div className="overflow-x-hidden">
+            <table className="w-full table-fixed border-collapse text-[10px] leading-tight">
+              <colgroup>
+                <col className="w-[3.2%]" />
+                <col className="w-[4.2%]" />
+                <col className="w-[7%]" />
+                <col className="w-[3.5%]" />
+                <col className="w-[3.2%]" />
+                <col className="w-[6%]" />
+                <col className="w-[10%]" />
+                <col className="w-[13%]" />
+                <col className="w-[6.5%]" />
+                <col className="w-[5%]" />
+                <col className="w-[4.5%]" />
+                <col className="w-[5.5%]" />
+                <col className="w-[6.5%]" />
+                <col className="w-[5.5%]" />
+                <col className="w-[3.2%]" />
+              </colgroup>
               <thead>
                 <tr className="bg-slate-100">
-                  <th className="w-12 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[9px]">
                     出勤人数
                   </th>
-                  <th className="w-14 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[9px]">
                     女子NO
                   </th>
-                  <th className="w-28 border border-slate-700 px-2 py-1 text-left text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-left text-[11px]">
                     名前
                   </th>
-                  <th className="w-10 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[8px]">
                     確定/<br />未確定
                   </th>
-                  <th className="w-10 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[9px]">
                     送迎
                   </th>
-                  <th className="w-20 border border-slate-700 px-1 py-1 text-center text-[10px]">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[8px]">
                     呼び出し店名かな
                   </th>
-                  <th className="w-36 border border-slate-700 px-2 py-1 text-left text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-left text-[11px]">
                     派遣先(店名)
                   </th>
-                  <th className="w-40 border border-slate-700 px-2 py-1 text-left text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-left text-[11px]">
                     派遣先住所
                   </th>
-                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[11px]">
                     出勤時間
                   </th>
-                  <th className="w-20 border border-slate-700 px-2 py-1 text-center text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[11px]">
                     時給
                   </th>
-                  <th className="w-20 border border-slate-700 px-2 py-1 text-center text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[11px]">
                     日給
                   </th>
-                  <th className="w-24 border border-slate-700 px-2 py-1 text-center text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[11px]">
                     時間(実際)
                   </th>
-                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-sm">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[10px]">
                     領収書
                   </th>
-                  <th className="w-28 border border-slate-700 px-2 py-1 text-center text-base">
+                  <th className="border border-slate-700 px-1 py-1 text-center text-[11px]">
                     手数料
                   </th>
-                  <th className="w-16 border border-slate-700 px-1 py-1 text-center text-sm">
+                  <th className="border border-slate-700 px-0.5 py-1 text-center text-[10px]">
                     回収
                   </th>
                 </tr>
@@ -376,51 +393,51 @@ export default function ReceiptsPage() {
 
                   return (
                     <tr key={key} className={rowClass}>
-                      <td className="border border-slate-700 px-1 py-1 text-center">
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         {index + 1}
                       </td>
-                      <td className="border border-slate-700 px-1 py-1 text-center font-semibold text-red-700">
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center font-semibold text-red-700">
                         {row.castManagementNumber ?? row.castCode ?? row.castId}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-base font-semibold">
+                      <td className="break-words border border-slate-700 px-1 py-0.5 text-[11px] font-semibold">
                         {row.castName}
                       </td>
-                      <td className="border border-slate-700 px-1 py-1 text-center text-[11px]">
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
                         確定
                       </td>
-                      <td className="border border-slate-700 px-1 py-1" />
-                      <td className="border border-slate-700 px-1 py-1 text-center text-[11px]">
+                      <td className="border border-slate-700 px-0.5 py-0.5" />
+                      <td className="break-words border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
                         {row.shopNameKana ?? ""}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 font-semibold">
+                      <td className="break-words border border-slate-700 px-1 py-0.5 font-semibold">
                         {row.shopName}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-[11px]">
+                      <td className="break-words border border-slate-700 px-1 py-0.5 text-[9px]">
                         {row.shopAddress ?? ""}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-center text-base">
+                      <td className="border border-slate-700 px-1 py-0.5 text-center text-[11px]">
                         {startTime}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-right text-base">
+                      <td className="border border-slate-700 px-1 py-0.5 text-right text-[11px]">
                         {formatAmount(row.hourly)}
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-right" />
-                      <td className="border border-slate-700 px-2 py-1 text-center" />
-                      <td className="border border-slate-700 px-1 py-1 text-center">
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-right" />
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center" />
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         <button
                           type="button"
-                          className="border border-slate-700 bg-white px-2 py-1 text-xs font-semibold hover:bg-slate-100"
+                          className="w-full border border-slate-700 bg-white px-0.5 py-0.5 text-[9px] font-semibold hover:bg-slate-100"
                           onClick={() => handleOpenModal(row)}
                         >
-                          発行・印刷
+                          発行
                         </button>
                       </td>
-                      <td className="border border-slate-700 px-2 py-1 text-right text-base">
+                      <td className="border border-slate-700 px-1 py-0.5 text-right text-[11px]">
                         {formatAmount(row.fee)}
                       </td>
-                      <td className="border border-slate-700 px-1 py-1 text-center">
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         <select
-                          className="h-7 w-12 border border-slate-500 bg-white text-center text-lg leading-none"
+                          className="h-6 w-full border border-slate-500 bg-white text-center text-sm leading-none"
                           value={collectionValue}
                           onChange={(event) =>
                             handleCollectionChange(

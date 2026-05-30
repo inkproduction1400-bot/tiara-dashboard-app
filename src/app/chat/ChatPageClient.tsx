@@ -641,7 +641,6 @@ function ChatContent() {
           const lastMessageAt =
             latestFallback?.createdAt ||
             r.lastMessage?.createdAt ||
-            r.updatedAt ||
             r.createdAt ||
             "1970-01-01T00:00:00.000Z";
 

@@ -976,6 +976,9 @@ export default function Page() {
   // キャスト詳細モーダル用
   const [castDetailModalOpen, setCastDetailModalOpen] = useState(false);
   const [selectedCast, setSelectedCast] = useState<Cast | null>(null);
+  const [castDetailSource, setCastDetailSource] = useState<
+    "cast-list" | "dispatch-sheet"
+  >("cast-list");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatDisabledUntil, setChatDisabledUntil] = useState<Date | null>(null);
@@ -2837,7 +2840,11 @@ export default function Page() {
     [castDetailById],
   );
 
-  const openCastDetail = (cast: Cast) => {
+  const openCastDetail = (
+    cast: Cast,
+    source: "cast-list" | "dispatch-sheet" = "cast-list",
+  ) => {
+    setCastDetailSource(source);
     setSelectedCast(cast);
     setCastDetailModalOpen(true);
     void ensureCastDetail(cast.id);
@@ -2856,12 +2863,14 @@ export default function Page() {
         desiredHourly: row.desiredHourly ?? row.castHourly ?? 0,
         drinkLevel: null,
       },
+      "dispatch-sheet",
     );
   };
 
   const closeCastDetail = () => {
     setCastDetailModalOpen(false);
     setSelectedCast(null);
+    setCastDetailSource("cast-list");
   };
 
   const closeNgModal = () => {
@@ -5082,69 +5091,76 @@ export default function Page() {
                   );
                 })()}
                 <div className="mt-2">
-                  {(() => {
-                    const requestStatus =
-                      attendanceRequests.find(
-                        (row) => row.castId === selectedCast.id,
-                      )?.status ?? null;
-                    return (
-                      <div className="mb-2 flex flex-wrap items-center gap-2 border border-slate-200 bg-slate-50 px-2 py-1.5">
-                        <span className="text-[11px] font-semibold text-slate-700">
-                          出勤依頼:
-                          <span className="ml-1 text-slate-900">
-                            {requestStatus === "requested"
-                              ? "依頼済み"
-                              : requestStatus === "ok"
-                                ? "出勤OK"
-                                : requestStatus === "ng"
-                                  ? "出勤NG"
-                                  : requestStatus === "added"
-                                    ? "派遣表追加済み"
-                                    : "未依頼"}
+                  {castDetailSource !== "dispatch-sheet" &&
+                    (() => {
+                      const requestStatus =
+                        attendanceRequests.find(
+                          (row) => row.castId === selectedCast.id,
+                        )?.status ?? null;
+                      return (
+                        <div className="mb-2 flex flex-wrap items-center gap-2 border border-slate-200 bg-slate-50 px-2 py-1.5">
+                          <span className="text-[11px] font-semibold text-slate-700">
+                            出勤依頼:
+                            <span className="ml-1 text-slate-900">
+                              {requestStatus === "requested"
+                                ? "依頼済み"
+                                : requestStatus === "ok"
+                                  ? "出勤OK"
+                                  : requestStatus === "ng"
+                                    ? "出勤NG"
+                                    : requestStatus === "added"
+                                      ? "派遣表追加済み"
+                                      : "未依頼"}
+                            </span>
                           </span>
-                        </span>
-                        {[
-                          { status: "requested", label: "依頼済みにする" },
-                          { status: "ok", label: "OK" },
-                          { status: "ng", label: "NG" },
-                        ].map((item) => (
-                          <button
-                            key={item.status}
-                            type="button"
-                            className="border border-slate-300 bg-white px-2 py-1 text-[11px] hover:bg-slate-100"
-                            onClick={() =>
-                              void markAttendanceRequest(
-                                selectedCast.id,
-                                item.status as AttendanceRequestStatus,
-                                pendingDispatchSlotIndex,
-                              )
-                            }
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                          {[
+                            { status: "requested", label: "依頼済みにする" },
+                            { status: "ok", label: "OK" },
+                            { status: "ng", label: "NG" },
+                          ].map((item) => (
+                            <button
+                              key={item.status}
+                              type="button"
+                              className="border border-slate-300 bg-white px-2 py-1 text-[11px] hover:bg-slate-100"
+                              onClick={() =>
+                                void markAttendanceRequest(
+                                  selectedCast.id,
+                                  item.status as AttendanceRequestStatus,
+                                  pendingDispatchSlotIndex,
+                                )
+                              }
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 text-[11px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                      onMouseDown={() => startChatTemplateLongPress("request")}
-                      onMouseUp={stopChatTemplateLongPress}
-                      onMouseLeave={stopChatTemplateLongPress}
-                      onTouchStart={() => startChatTemplateLongPress("request")}
-                      onTouchEnd={stopChatTemplateLongPress}
-                      onClick={() => {
-                        if (chatTemplateLongPressFiredRef.current) {
-                          chatTemplateLongPressFiredRef.current = false;
-                          return;
+                    {castDetailSource !== "dispatch-sheet" && (
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 text-[11px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        onMouseDown={() =>
+                          startChatTemplateLongPress("request")
                         }
-                        insertChatTemplate(chatTemplates.request);
-                      }}
-                    >
-                      出勤依頼
-                    </button>
+                        onMouseUp={stopChatTemplateLongPress}
+                        onMouseLeave={stopChatTemplateLongPress}
+                        onTouchStart={() =>
+                          startChatTemplateLongPress("request")
+                        }
+                        onTouchEnd={stopChatTemplateLongPress}
+                        onClick={() => {
+                          if (chatTemplateLongPressFiredRef.current) {
+                            chatTemplateLongPressFiredRef.current = false;
+                            return;
+                          }
+                          insertChatTemplate(chatTemplates.request);
+                        }}
+                      >
+                        出勤依頼
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="px-3 py-1.5 text-[11px] border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Filter, RefreshCw, Search, X } from "lucide-react";
+import { CastPhotoImage } from "@/components/CastPhotoImage";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import {
@@ -13,7 +14,12 @@ import {
   type DispatchSheetShop,
 } from "@/lib/api.dispatch-sheet";
 import { subscribeDispatchSheetUpdates } from "@/lib/socket";
-import { listCasts, type CastListItem } from "@/lib/api.casts";
+import {
+  listCasts,
+  resolveCastPhotoDisplayUrl,
+  resolveLegacyPhotoFallbackUrl,
+  type CastListItem,
+} from "@/lib/api.casts";
 import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import { getAuthSnapshot } from "@/components/mobile/mobileApi";
 
@@ -249,6 +255,9 @@ export default function AssignmentsPageClient() {
   const [castGenre, setCastGenre] = useState("");
   const [castAge, setCastAge] = useState<AgeFilter>("");
   const [castFilterOpen, setCastFilterOpen] = useState(false);
+  const [castPhotoUrls, setCastPhotoUrls] = useState<Record<string, string | null>>(
+    {},
+  );
   const [castPickerLoading, setCastPickerLoading] = useState(false);
   const [castPickerError, setCastPickerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -353,6 +362,44 @@ export default function AssignmentsPageClient() {
   }, [assignedCastIds, castAge, castCandidates, castGenre]);
   const castFilterCount =
     (castOwner ? 1 : 0) + (castGenre ? 1 : 0) + (castAge ? 1 : 0);
+
+  useEffect(() => {
+    if (castPickerSlotIndex === null) return;
+    let cancelled = false;
+    const targets = filteredCastCandidates
+      .slice(0, 80)
+      .filter((cast) => cast.photoUrl || cast.photoUrlRaw)
+      .filter((cast) => !(cast.userId in castPhotoUrls));
+
+    if (targets.length === 0) return;
+
+    void Promise.allSettled(
+      targets.map(async (cast) => {
+        const url = await resolveCastPhotoDisplayUrl({
+          castId: cast.userId,
+          purpose: "profile",
+          urlOrPath: cast.photoUrl ?? cast.photoUrlRaw,
+        });
+        return [cast.userId, url] as const;
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      setCastPhotoUrls((current) => {
+        const next = { ...current };
+        for (const result of results) {
+          if (result.status !== "fulfilled") continue;
+          const [castId, url] = result.value;
+          next[castId] = url;
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [castPhotoUrls, castPickerSlotIndex, filteredCastCandidates]);
+
   const shopCandidates = useMemo(() => {
     const q = shopQuery.trim().toLowerCase();
     return shops
@@ -665,17 +712,17 @@ export default function AssignmentsPageClient() {
                       className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm"
                     >
                       <div className="aspect-[4/3] bg-slate-100">
-                        {cast.photoUrl ? (
-                          <img
-                            src={cast.photoUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[11px] font-semibold text-slate-400">
-                            NO PHOTO
-                          </div>
-                        )}
+                        <CastPhotoImage
+                          src={castPhotoUrls[cast.userId] ?? null}
+                          fallbackSrc={resolveLegacyPhotoFallbackUrl(cast)}
+                          alt={cast.displayName || ""}
+                          className="h-full w-full object-cover"
+                          fallback={
+                            <div className="flex h-full items-center justify-center text-[11px] font-semibold text-slate-400">
+                              NO PHOTO
+                            </div>
+                          }
+                        />
                       </div>
                       <div className="space-y-1 px-2 py-2">
                         <p className="truncate text-sm font-bold text-slate-900">

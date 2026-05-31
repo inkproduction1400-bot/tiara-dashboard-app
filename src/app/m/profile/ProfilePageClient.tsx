@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import {
   fetchMobileProfile,
   type MobileProfileData,
 } from "@/components/mobile/mobileApi";
+import { clearAuth } from "@/lib/device";
 
 function formatDateTime(value: string) {
   if (!value) return "未記録";
@@ -26,6 +28,7 @@ function statusLabel(status: string) {
 }
 
 export default function ProfilePageClient() {
+  const router = useRouter();
   const [profile, setProfile] = useState<MobileProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +48,16 @@ export default function ProfilePageClient() {
   useEffect(() => {
     void load();
   }, []);
+
+  const logout = () => {
+    clearAuth();
+    try {
+      window.sessionStorage.clear();
+    } catch {
+      // noop
+    }
+    router.replace("/login");
+  };
 
   return (
     <MobileShell>
@@ -97,6 +110,16 @@ export default function ProfilePageClient() {
                   </p>
                 </div>
               ))}
+            </section>
+
+            <section className="mt-4">
+              <button
+                type="button"
+                onClick={logout}
+                className="w-full rounded-2xl border border-rose-200 bg-white px-4 py-4 text-sm font-bold text-rose-600 shadow-sm"
+              >
+                ログアウト
+              </button>
             </section>
           </>
         ) : (

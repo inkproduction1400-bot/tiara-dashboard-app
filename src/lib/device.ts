@@ -38,6 +38,7 @@ export function clearAuth(): void {
     // 現行の access_token と、過去バージョンで使っていたキーの両方を消しておく
     localStorage.removeItem("access_token");
     localStorage.removeItem("tiara_token");
+    localStorage.removeItem("tiara:user_id");
     localStorage.removeItem("tiara_user_name");
     localStorage.removeItem("tiara_login_id");
   } catch {

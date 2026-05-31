@@ -23,6 +23,7 @@ import {
 import { getToken } from "@/lib/device";
 
 const MOBILE_CHAT_PIN_STORAGE_KEY = "tiara:m:chat-pins:v1";
+const MOBILE_CHAT_STAFF_FILTER_STORAGE_KEY = "tiara:m:chat-staff-filter:v1";
 
 function isSelectableStaff(staff: StaffUser) {
   const name = staff.loginId?.trim();
@@ -50,10 +51,31 @@ function inferDefaultStaffs(rooms: MobileChatRoom[]) {
   return matched;
 }
 
+function readSavedStaffFilter(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(MOBILE_CHAT_STAFF_FILTER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function hasSavedStaffFilter() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(MOBILE_CHAT_STAFF_FILTER_STORAGE_KEY) !== null;
+}
+
 export default function ChatListPageClient() {
   const [rooms, setRooms] = useState<MobileChatRoom[]>(() => readMobileChatRoomsCache());
   const [query, setQuery] = useState("");
-  const [selectedStaffs, setSelectedStaffs] = useState<string[]>([]);
+  const [selectedStaffs, setSelectedStaffs] = useState<string[]>(() =>
+    readSavedStaffFilter(),
+  );
   const [notificationTarget, setNotificationTarget] = useState("mine");
   const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [pinnedRoomIds, setPinnedRoomIds] = useState<string[]>([]);
@@ -124,6 +146,7 @@ export default function ChatListPageClient() {
       setRooms(nextRooms);
       setSelectedStaffs((current) => {
         if (current.length > 0) return current;
+        if (hasSavedStaffFilter()) return current;
         return inferDefaultStaffs(nextRooms);
       });
     } catch (loadError) {
@@ -309,6 +332,14 @@ export default function ChatListPageClient() {
 
   const applySelectedStaffs = useCallback((values: string[]) => {
     setSelectedStaffs(values);
+    try {
+      window.localStorage.setItem(
+        MOBILE_CHAT_STAFF_FILTER_STORAGE_KEY,
+        JSON.stringify(values),
+      );
+    } catch {
+      // noop
+    }
   }, []);
 
   const applyNotificationTarget = useCallback((value: string) => {

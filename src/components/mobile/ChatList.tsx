@@ -76,6 +76,20 @@ export function ChatList({
   const notificationSummary =
     notificationTargetOptions.find((item) => item.id === notificationTarget)
       ?.label ?? "通知：自分の担当";
+  const applyStaffFilter = () => {
+    onApplyStaffs(draftStaffs);
+    setFilterOpen(false);
+  };
+  const clearStaffFilter = () => {
+    setDraftStaffs([]);
+    onApplyStaffs([]);
+    setFilterOpen(false);
+  };
+  const applyNotificationAndClose = (value: string) => {
+    setDraftNotificationTarget(value);
+    onApplyNotificationTarget(value);
+    setNotificationOpen(false);
+  };
 
   return (
     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-6">
@@ -156,13 +170,22 @@ export function ChatList({
                 <p className="text-base font-bold text-slate-900">担当者フィルタ</p>
                 <p className="text-xs text-slate-500">複数選択で絞り込みできます</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-full px-3 py-2 text-xs font-semibold text-slate-500"
-              >
-                キャンセル
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  className="rounded-full px-3 py-2 text-xs font-semibold text-slate-500"
+                >
+                  閉じる
+                </button>
+                <button
+                  type="button"
+                  onClick={applyStaffFilter}
+                  className="rounded-full bg-[#0b8ef3] px-4 py-2 text-xs font-semibold text-white"
+                >
+                  決定
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
@@ -195,17 +218,14 @@ export function ChatList({
             <div className="mt-4 flex shrink-0 gap-2">
               <button
                 type="button"
-                onClick={() => setDraftStaffs([])}
+                onClick={clearStaffFilter}
                 className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
               >
                 クリア
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onApplyStaffs(draftStaffs);
-                  setFilterOpen(false);
-                }}
+                onClick={applyStaffFilter}
                 className="flex-1 rounded-2xl bg-[#0b8ef3] px-4 py-3 text-sm font-semibold text-white"
               >
                 決定
@@ -226,9 +246,9 @@ export function ChatList({
                 <button
                   type="button"
                   onClick={() => setNotificationOpen(false)}
-                  className="rounded-full px-3 py-2 text-xs font-semibold text-slate-500"
+                  className="shrink-0 rounded-full px-3 py-2 text-xs font-semibold text-slate-500"
                 >
-                  キャンセル
+                  閉じる
                 </button>
               </div>
 
@@ -239,7 +259,7 @@ export function ChatList({
                     <button
                       key={option.id}
                       type="button"
-                      onClick={() => setDraftNotificationTarget(option.id)}
+                      onClick={() => applyNotificationAndClose(option.id)}
                       className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
                         active
                           ? "bg-[#0b8ef3]/10 text-[#0b8ef3]"
@@ -259,9 +279,7 @@ export function ChatList({
                 <button
                   type="button"
                   onClick={() => {
-                    setDraftNotificationTarget("mine");
-                    onApplyNotificationTarget("mine");
-                    setNotificationOpen(false);
+                    applyNotificationAndClose("mine");
                   }}
                   className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
                 >
@@ -270,8 +288,7 @@ export function ChatList({
                 <button
                   type="button"
                   onClick={() => {
-                    onApplyNotificationTarget(draftNotificationTarget);
-                    setNotificationOpen(false);
+                    applyNotificationAndClose(draftNotificationTarget);
                   }}
                   className="flex-1 rounded-2xl bg-[#0b8ef3] px-4 py-3 text-sm font-semibold text-white"
                 >

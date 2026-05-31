@@ -3,17 +3,42 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
-import { listShopOrders, type ShopOrderRecord } from "@/lib/api.shop-orders";
 import {
   getDailyReport,
   saveDailyReport,
   type DailyReportRecord,
 } from "@/lib/api.daily-reports";
-import { subscribeDailyReportUpdates } from "@/lib/socket";
+import { fetchReceiptTargets } from "@/lib/receipts/fetchReceiptTargets";
+import type { AssignmentRow } from "@/lib/receipts/types";
+import {
+  subscribeDailyReportUpdates,
+  subscribeReceiptUpdates,
+} from "@/lib/socket";
 
 type ExpenseRow = { label: string; amount: string };
 type FeeRow = { name: string; shop: string; amount: string };
 type ReferralRow = { referrer: string; girl: string; amount: string };
+type SummaryState = {
+  dispatchCount: string;
+  dispatchPeople: string;
+  feeSubtotal: string;
+  advisorFee: string;
+  totalAmount: string;
+  startAmount: string;
+  uncollectedFee: string;
+  collectedFee: string;
+  referralFee: string;
+  cashDiff: string;
+  expenseTotal: string;
+  calcTotal: string;
+  cashBalance: string;
+  difference: string;
+};
+type AutoReportState = {
+  summary: SummaryState;
+  uncollectedRows: FeeRow[];
+  collectedRows: FeeRow[];
+};
 
 const MIN_EXPENSE_ROWS = 8;
 const MIN_FEE_ROWS = 12;
@@ -51,19 +76,6 @@ const formatWeekday = (dateKey: string) => {
   return ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
 };
 
-const countConfirmed = (orders: ShopOrderRecord[]) =>
-  orders.filter((o) => o?.status === "confirmed");
-
-const sumConfirmedAssignments = (orders: ShopOrderRecord[]) =>
-  orders.reduce((sum, order) => {
-    if (order?.status !== "confirmed") return sum;
-    if (Array.isArray(order?.assignments)) {
-      return sum + order.assignments.length;
-    }
-    const headcount = Number(order?.headcount ?? 0);
-    return sum + (Number.isFinite(headcount) ? headcount : 0);
-  }, 0);
-
 const padRows = <T,>(rows: T[], target: number, blank: () => T) => {
   if (rows.length >= target) return rows;
   return rows.concat(Array.from({ length: target - rows.length }, blank));
@@ -76,27 +88,102 @@ const toNumberOrNull = (value: string) => {
   return Number.isFinite(n) ? n : null;
 };
 
+const toAmount = (value: unknown) => {
+  const n =
+    typeof value === "number"
+      ? value
+      : Number(String(value ?? "").replace(/,/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const amountText = (value: number) => (value > 0 ? String(value) : "");
+
+const blankSummary = (): SummaryState => ({
+  dispatchCount: "",
+  dispatchPeople: "",
+  feeSubtotal: "",
+  advisorFee: "",
+  totalAmount: "",
+  startAmount: "",
+  uncollectedFee: "",
+  collectedFee: "",
+  referralFee: "",
+  cashDiff: "",
+  expenseTotal: "",
+  calcTotal: "",
+  cashBalance: "",
+  difference: "",
+});
+
+const hasFeeRows = (rows: FeeRow[]) =>
+  rows.some((row) => row.name.trim() || row.shop.trim() || row.amount.trim());
+
+const buildAutoReport = (targets: AssignmentRow[]): AutoReportState => {
+  const confirmed = targets.filter(
+    (target) => target.assignmentStatus !== "canceled",
+  );
+  const feeRows = confirmed
+    .map((target) => ({
+      name: target.castName ?? "",
+      shop: target.shopName ?? "",
+      amount: amountText(toAmount(target.fee)),
+      receiptStatus: target.receiptStatus,
+    }))
+    .filter((row) => row.name || row.shop || row.amount);
+  const collectedRows = feeRows
+    .filter((row) => row.receiptStatus === "collected")
+    .map(({ name, shop, amount }) => ({ name, shop, amount }));
+  const uncollectedRows = feeRows
+    .filter((row) => row.receiptStatus !== "collected")
+    .map(({ name, shop, amount }) => ({ name, shop, amount }));
+  const feeSubtotal = confirmed.reduce(
+    (sum, target) => sum + toAmount(target.fee),
+    0,
+  );
+  const collectedFee = collectedRows.reduce(
+    (sum, row) => sum + toAmount(row.amount),
+    0,
+  );
+  const uncollectedFee = uncollectedRows.reduce(
+    (sum, row) => sum + toAmount(row.amount),
+    0,
+  );
+
+  return {
+    summary: {
+      ...blankSummary(),
+      dispatchCount: String(confirmed.length),
+      dispatchPeople: String(confirmed.length),
+      feeSubtotal: amountText(feeSubtotal),
+      totalAmount: amountText(feeSubtotal),
+      uncollectedFee: amountText(uncollectedFee),
+      collectedFee: amountText(collectedFee),
+      cashDiff: amountText(collectedFee),
+      calcTotal: amountText(collectedFee),
+    },
+    uncollectedRows: padRows(uncollectedRows, MIN_FEE_ROWS, () => ({
+      name: "",
+      shop: "",
+      amount: "",
+    })),
+    collectedRows: padRows(collectedRows, MIN_FEE_ROWS, () => ({
+      name: "",
+      shop: "",
+      amount: "",
+    })),
+  };
+};
+
 export default function DailyReportPage() {
   const [dateKey, setDateKey] = useState<string>(() => todayKey());
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [orders, setOrders] = useState<ShopOrderRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoReport, setAutoReport] = useState<AutoReportState>(() =>
+    buildAutoReport([]),
+  );
 
-  const [summary, setSummary] = useState({
-    feeSubtotal: "",
-    advisorFee: "",
-    totalAmount: "",
-    startAmount: "",
-    uncollectedFee: "",
-    collectedFee: "",
-    referralFee: "",
-    cashDiff: "",
-    expenseTotal: "",
-    calcTotal: "",
-    cashBalance: "",
-    difference: "",
-  });
+  const [summary, setSummary] = useState<SummaryState>(() => blankSummary());
 
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>(
     Array.from({ length: MIN_EXPENSE_ROWS }, () => ({ label: "", amount: "" })),
@@ -138,20 +225,22 @@ export default function DailyReportPage() {
   const loadReport = useCallback(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([listShopOrders(dateKey), getDailyReport(dateKey)])
-      .then(([orderRes, report]) => {
+    Promise.all([fetchReceiptTargets(dateKey), getDailyReport(dateKey)])
+      .then(([receiptTargets, report]) => {
         if (!mounted) return;
-        setOrders(orderRes);
+        const nextAutoReport = buildAutoReport(receiptTargets);
+        setAutoReport(nextAutoReport);
         if (report) {
-          applyReport(report);
+          applyReport(report, nextAutoReport);
         } else {
-          resetReportState();
+          resetReportState(nextAutoReport);
         }
       })
       .catch(() => {
         if (!mounted) return;
-        setOrders([]);
-        resetReportState();
+        const emptyAutoReport = buildAutoReport([]);
+        setAutoReport(emptyAutoReport);
+        resetReportState(emptyAutoReport);
       })
       .finally(() => {
         if (!mounted) return;
@@ -174,27 +263,35 @@ export default function DailyReportPage() {
     });
   }, [loadReport]);
 
-  const confirmed = useMemo(() => countConfirmed(orders), [orders]);
-  const dispatchCount = confirmed.length;
-  const dispatchPeople = useMemo(
-    () => sumConfirmedAssignments(orders),
-    [orders],
-  );
+  useEffect(() => {
+    return subscribeReceiptUpdates(() => {
+      loadReport();
+    });
+  }, [loadReport]);
+
+  const dispatchCount = toNumberOrNull(summary.dispatchCount) ?? 0;
+  const dispatchPeople = toNumberOrNull(summary.dispatchPeople) ?? 0;
   const reiwa = useMemo(() => formatReiwa(dateKey), [dateKey]);
   const weekday = useMemo(() => formatWeekday(dateKey), [dateKey]);
 
-  const applyReport = (report: DailyReportRecord) => {
+  const applyReport = (report: DailyReportRecord, auto: AutoReportState) => {
     setSummary({
-      feeSubtotal: report.feeSubtotal?.toString() ?? "",
+      dispatchCount:
+        report.dispatchCount?.toString() || auto.summary.dispatchCount,
+      dispatchPeople:
+        report.dispatchPeople?.toString() || auto.summary.dispatchPeople,
+      feeSubtotal: report.feeSubtotal?.toString() ?? auto.summary.feeSubtotal,
       advisorFee: report.advisorFee?.toString() ?? "",
-      totalAmount: report.totalAmount?.toString() ?? "",
+      totalAmount: report.totalAmount?.toString() ?? auto.summary.totalAmount,
       startAmount: report.startAmount?.toString() ?? "",
-      uncollectedFee: report.uncollectedFee?.toString() ?? "",
-      collectedFee: report.collectedFee?.toString() ?? "",
+      uncollectedFee:
+        report.uncollectedFee?.toString() ?? auto.summary.uncollectedFee,
+      collectedFee:
+        report.collectedFee?.toString() ?? auto.summary.collectedFee,
       referralFee: report.referralFee?.toString() ?? "",
-      cashDiff: report.cashDiff?.toString() ?? "",
+      cashDiff: report.cashDiff?.toString() ?? auto.summary.cashDiff,
       expenseTotal: report.expenseTotal?.toString() ?? "",
-      calcTotal: report.calcTotal?.toString() ?? "",
+      calcTotal: report.calcTotal?.toString() ?? auto.summary.calcTotal,
       cashBalance: report.cashBalance?.toString() ?? "",
       difference: report.difference?.toString() ?? "",
     });
@@ -210,31 +307,35 @@ export default function DailyReportPage() {
         () => ({ label: "", amount: "" }),
       ),
     );
+    const savedUncollectedRows = padRows(
+      Array.isArray(report.uncollectedItems)
+        ? report.uncollectedItems.map((r: any) => ({
+            name: r?.name ?? "",
+            shop: r?.shop ?? "",
+            amount: r?.amount ?? "",
+          }))
+        : [],
+      MIN_FEE_ROWS,
+      () => ({ name: "", shop: "", amount: "" }),
+    );
+    const savedCollectedRows = padRows(
+      Array.isArray(report.collectedItems)
+        ? report.collectedItems.map((r: any) => ({
+            name: r?.name ?? "",
+            shop: r?.shop ?? "",
+            amount: r?.amount ?? "",
+          }))
+        : [],
+      MIN_FEE_ROWS,
+      () => ({ name: "", shop: "", amount: "" }),
+    );
     setUncollectedRows(
-      padRows(
-        Array.isArray(report.uncollectedItems)
-          ? report.uncollectedItems.map((r: any) => ({
-              name: r?.name ?? "",
-              shop: r?.shop ?? "",
-              amount: r?.amount ?? "",
-            }))
-          : [],
-        MIN_FEE_ROWS,
-        () => ({ name: "", shop: "", amount: "" }),
-      ),
+      hasFeeRows(savedUncollectedRows)
+        ? savedUncollectedRows
+        : auto.uncollectedRows,
     );
     setCollectedRows(
-      padRows(
-        Array.isArray(report.collectedItems)
-          ? report.collectedItems.map((r: any) => ({
-              name: r?.name ?? "",
-              shop: r?.shop ?? "",
-              amount: r?.amount ?? "",
-            }))
-          : [],
-        MIN_FEE_ROWS,
-        () => ({ name: "", shop: "", amount: "" }),
-      ),
+      hasFeeRows(savedCollectedRows) ? savedCollectedRows : auto.collectedRows,
     );
     setReferralRows(
       padRows(
@@ -263,41 +364,16 @@ export default function DailyReportPage() {
     setMemo(report.memo ?? "");
   };
 
-  const resetReportState = () => {
-    setSummary({
-      feeSubtotal: "",
-      advisorFee: "",
-      totalAmount: "",
-      startAmount: "",
-      uncollectedFee: "",
-      collectedFee: "",
-      referralFee: "",
-      cashDiff: "",
-      expenseTotal: "",
-      calcTotal: "",
-      cashBalance: "",
-      difference: "",
-    });
+  const resetReportState = (auto: AutoReportState = autoReport) => {
+    setSummary(auto.summary);
     setExpenseRows(
       Array.from({ length: MIN_EXPENSE_ROWS }, () => ({
         label: "",
         amount: "",
       })),
     );
-    setUncollectedRows(
-      Array.from({ length: MIN_FEE_ROWS }, () => ({
-        name: "",
-        shop: "",
-        amount: "",
-      })),
-    );
-    setCollectedRows(
-      Array.from({ length: MIN_FEE_ROWS }, () => ({
-        name: "",
-        shop: "",
-        amount: "",
-      })),
-    );
+    setUncollectedRows(auto.uncollectedRows);
+    setCollectedRows(auto.collectedRows);
     setReferralRows(
       Array.from({ length: MIN_REFERRAL_ROWS }, () => ({
         referrer: "",
@@ -314,6 +390,37 @@ export default function DailyReportPage() {
       total: "",
     });
     setMemo("");
+  };
+
+  const handleApplyAutoReport = () => {
+    setSummary((prev) => {
+      const advisorFee = toNumberOrNull(prev.advisorFee) ?? 0;
+      const startAmount = toNumberOrNull(prev.startAmount) ?? 0;
+      const referralFee = toNumberOrNull(prev.referralFee) ?? 0;
+      const expenseTotal = toNumberOrNull(prev.expenseTotal) ?? 0;
+      const cashBalance = toNumberOrNull(prev.cashBalance);
+      const feeSubtotal = toAmount(autoReport.summary.feeSubtotal);
+      const collectedFee = toAmount(autoReport.summary.collectedFee);
+      const cashDiff = collectedFee - referralFee;
+      const calcTotal = startAmount + cashDiff - expenseTotal;
+      const difference =
+        cashBalance === null ? "" : String(cashBalance - calcTotal);
+
+      return {
+        ...prev,
+        dispatchCount: autoReport.summary.dispatchCount,
+        dispatchPeople: autoReport.summary.dispatchPeople,
+        feeSubtotal: autoReport.summary.feeSubtotal,
+        totalAmount: amountText(feeSubtotal + advisorFee),
+        uncollectedFee: autoReport.summary.uncollectedFee,
+        collectedFee: autoReport.summary.collectedFee,
+        cashDiff: String(cashDiff),
+        calcTotal: String(calcTotal),
+        difference,
+      };
+    });
+    setUncollectedRows(autoReport.uncollectedRows);
+    setCollectedRows(autoReport.collectedRows);
   };
 
   const handleSave = async () => {
@@ -409,6 +516,13 @@ export default function DailyReportPage() {
               <button
                 type="button"
                 className="border border-slate-500 bg-white px-2 py-1 text-xs"
+                onClick={handleApplyAutoReport}
+              >
+                自動反映
+              </button>
+              <button
+                type="button"
+                className="border border-slate-500 bg-white px-2 py-1 text-xs"
                 onClick={handleSave}
                 disabled={saving}
               >
@@ -442,9 +556,27 @@ export default function DailyReportPage() {
               </div>
               <div className="h-8 flex items-center justify-center text-lg">
                 {label === "派遣件数" ? (
-                  dispatchCount
+                  <input
+                    className="w-full bg-transparent text-right text-xs px-2"
+                    value={summary.dispatchCount}
+                    onChange={(e) =>
+                      setSummary((prev) => ({
+                        ...prev,
+                        dispatchCount: e.target.value,
+                      }))
+                    }
+                  />
                 ) : label === "派遣人数" ? (
-                  dispatchPeople
+                  <input
+                    className="w-full bg-transparent text-right text-xs px-2"
+                    value={summary.dispatchPeople}
+                    onChange={(e) =>
+                      setSummary((prev) => ({
+                        ...prev,
+                        dispatchPeople: e.target.value,
+                      }))
+                    }
+                  />
                 ) : label === "手数料計" ? (
                   <input
                     className="w-full bg-transparent text-right text-xs px-2"

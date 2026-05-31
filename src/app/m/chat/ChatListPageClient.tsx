@@ -6,6 +6,11 @@ import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { ChatList } from "@/components/mobile/ChatList";
 import { MobileCastProfileSheet } from "@/components/mobile/MobileCastProfileSheet";
 import {
+  CHAT_NOTIFICATION_TARGET_CHANGED_EVENT,
+  CHAT_NOTIFICATION_TARGET_KEY,
+} from "@/lib/api";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
+import {
   fetchMobileChatCastProfile,
   fetchMobileChatCastProfiles,
   fetchMobileChatRooms,
@@ -18,6 +23,16 @@ import {
 import { getToken } from "@/lib/device";
 
 const MOBILE_CHAT_PIN_STORAGE_KEY = "tiara:m:chat-pins:v1";
+
+function isSelectableStaff(staff: StaffUser) {
+  const name = staff.loginId?.trim();
+  return (
+    staff.userType === "staff" &&
+    staff.status === "active" &&
+    Boolean(name) &&
+    !name?.toLowerCase().includes("demo")
+  );
+}
 
 function inferDefaultStaffs(rooms: MobileChatRoom[]) {
   const auth = getAuthSnapshot();
@@ -39,6 +54,8 @@ export default function ChatListPageClient() {
   const [rooms, setRooms] = useState<MobileChatRoom[]>(() => readMobileChatRoomsCache());
   const [query, setQuery] = useState("");
   const [selectedStaffs, setSelectedStaffs] = useState<string[]>([]);
+  const [notificationTarget, setNotificationTarget] = useState("mine");
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [pinnedRoomIds, setPinnedRoomIds] = useState<string[]>([]);
   const [castProfiles, setCastProfiles] = useState<Record<string, MobileChatCastProfile>>(
     () => readMobileChatCastProfileCache(),
@@ -59,6 +76,30 @@ export default function ChatListPageClient() {
     } catch {
       // noop
     }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setNotificationTarget(
+        window.localStorage.getItem(CHAT_NOTIFICATION_TARGET_KEY) || "mine",
+      );
+    } catch {
+      setNotificationTarget("mine");
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    listStaffs()
+      .then((items) => {
+        if (mounted) setStaffAccounts(items);
+      })
+      .catch(() => {
+        if (mounted) setStaffAccounts([]);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -169,13 +210,37 @@ export default function ChatListPageClient() {
   }, [castProfiles, rooms]);
 
   const staffOptions = useMemo(
-    () =>
-      rooms
-        .map((room) => room.staffName)
-        .filter((value, index, array) => array.indexOf(value) === index)
-        .sort((a, b) => a.localeCompare(b, "ja")),
-    [rooms],
+    () => {
+      const names = new Set<string>();
+      for (const staff of staffAccounts) {
+        if (!isSelectableStaff(staff)) continue;
+        const name = staff.loginId?.trim();
+        if (name) names.add(name);
+      }
+      for (const room of rooms) {
+        const name = room.staffName?.trim();
+        if (name && name !== "未設定") names.add(name);
+      }
+      return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+    },
+    [rooms, staffAccounts],
   );
+
+  const notificationTargetOptions = useMemo(() => {
+    const auth = getAuthSnapshot();
+    const currentName = auth.userName?.trim();
+    const options = new Map<string, string>([
+      ["mine", "通知：自分の担当"],
+      ["all", "通知：全スタッフ"],
+    ]);
+    if (currentName && !options.has(currentName)) {
+      options.set(currentName, `${currentName}（自分）`);
+    }
+    for (const name of staffOptions) {
+      if (!options.has(name)) options.set(name, name);
+    }
+    return Array.from(options.entries()).map(([id, label]) => ({ id, label }));
+  }, [staffOptions]);
 
   const searchableRooms = useMemo(
     () =>
@@ -244,6 +309,16 @@ export default function ChatListPageClient() {
 
   const applySelectedStaffs = useCallback((values: string[]) => {
     setSelectedStaffs(values);
+  }, []);
+
+  const applyNotificationTarget = useCallback((value: string) => {
+    setNotificationTarget(value);
+    try {
+      window.localStorage.setItem(CHAT_NOTIFICATION_TARGET_KEY, value);
+      window.dispatchEvent(new Event(CHAT_NOTIFICATION_TARGET_CHANGED_EVENT));
+    } catch {
+      // noop
+    }
   }, []);
 
   const handleOpenProfile = useCallback(
@@ -319,6 +394,9 @@ export default function ChatListPageClient() {
             staffOptions={staffOptions}
             selectedStaffs={selectedStaffs}
             onApplyStaffs={applySelectedStaffs}
+            notificationTarget={notificationTarget}
+            notificationTargetOptions={notificationTargetOptions}
+            onApplyNotificationTarget={applyNotificationTarget}
             onTogglePin={togglePinnedRoom}
             pinnedRoomIds={pinnedRoomIds}
             onOpenProfile={handleOpenProfile}

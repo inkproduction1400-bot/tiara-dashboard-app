@@ -12,6 +12,9 @@ type ChatListProps = {
   staffOptions: string[];
   selectedStaffs: string[];
   onApplyStaffs: (values: string[]) => void;
+  notificationTarget: string;
+  notificationTargetOptions: { id: string; label: string }[];
+  onApplyNotificationTarget: (value: string) => void;
   onTogglePin: (roomId: string) => void;
   pinnedRoomIds: string[];
   onOpenProfile: (room: MobileChatRoom) => void;
@@ -25,13 +28,19 @@ export function ChatList({
   staffOptions,
   selectedStaffs,
   onApplyStaffs,
+  notificationTarget,
+  notificationTargetOptions,
+  onApplyNotificationTarget,
   onTogglePin,
   pinnedRoomIds,
   onOpenProfile,
   castProfiles,
 }: ChatListProps) {
   const [filterOpen, setFilterOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [draftStaffs, setDraftStaffs] = useState<string[]>(selectedStaffs);
+  const [draftNotificationTarget, setDraftNotificationTarget] =
+    useState(notificationTarget);
   const [activeSwipeRoomId, setActiveSwipeRoomId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,12 +49,21 @@ export function ChatList({
     }
   }, [filterOpen, selectedStaffs]);
 
+  useEffect(() => {
+    if (!notificationOpen) {
+      setDraftNotificationTarget(notificationTarget);
+    }
+  }, [notificationOpen, notificationTarget]);
+
   const selectedStaffSummary =
     selectedStaffs.length === 0
       ? "担当者: すべて"
       : selectedStaffs.length <= 2
         ? `担当者: ${selectedStaffs.join(", ")}`
         : `担当者: ${selectedStaffs.length}名選択中`;
+  const notificationSummary =
+    notificationTargetOptions.find((item) => item.id === notificationTarget)
+      ?.label ?? "通知：自分の担当";
 
   return (
     <div className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden pb-6">
@@ -66,18 +84,32 @@ export function ChatList({
           <SlidersHorizontal className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{selectedStaffSummary}</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setFilterOpen(true)}
-          className="tiara-mobile-card flex w-full min-w-0 max-w-full items-center justify-between overflow-hidden border px-3 py-3 text-left"
-        >
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
-            担当者フィルタを開く
-          </span>
-          <span className="shrink-0 pl-3 text-xs text-slate-400">
-            {selectedStaffs.length === 0 ? "未設定" : `${selectedStaffs.length}件選択`}
-          </span>
-        </button>
+        <div className="grid gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterOpen(true)}
+            className="tiara-mobile-card flex w-full min-w-0 max-w-full items-center justify-between overflow-hidden border px-3 py-3 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+              担当者フィルタを開く
+            </span>
+            <span className="shrink-0 pl-3 text-xs text-slate-400">
+              {selectedStaffs.length === 0 ? "未設定" : `${selectedStaffs.length}件選択`}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setNotificationOpen(true)}
+            className="tiara-mobile-card flex w-full min-w-0 max-w-full items-center justify-between overflow-hidden border px-3 py-3 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+              通知設定を開く
+            </span>
+            <span className="shrink-0 pl-3 text-xs text-slate-400">
+              {notificationSummary.replace(/^通知：/, "")}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto">
@@ -104,9 +136,9 @@ export function ChatList({
       </div>
 
       {filterOpen ? (
-        <div className="fixed inset-0 z-50 overflow-x-clip bg-slate-900/35">
-          <div className="mx-auto flex h-full w-full max-w-[420px] min-w-0 items-end px-3">
-            <div className="flex max-h-[85dvh] w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-x-clip overflow-y-auto bg-slate-900/35">
+          <div className="mx-auto flex min-h-dvh w-full max-w-[420px] min-w-0 items-end px-3">
+            <div className="flex max-h-[calc(100dvh-24px)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
             <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
             <div className="mt-4 flex items-center justify-between">
               <div>
@@ -122,7 +154,7 @@ export function ChatList({
               </button>
             </div>
 
-            <div className="mt-4 flex-1 space-y-2 overflow-y-auto">
+            <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
               {staffOptions.map((staff) => {
                 const active = draftStaffs.includes(staff);
                 return (
@@ -170,6 +202,75 @@ export function ChatList({
             </div>
           </div>
         </div>
+        </div>
+      ) : null}
+      {notificationOpen ? (
+        <div className="fixed inset-0 z-50 overflow-x-clip overflow-y-auto bg-slate-900/35">
+          <div className="mx-auto flex min-h-dvh w-full max-w-[420px] min-w-0 items-end px-3">
+            <div className="flex max-h-[calc(100dvh-24px)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
+              <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
+              <div className="mt-4 flex items-center justify-between">
+                <div>
+                  <p className="text-base font-bold text-slate-900">通知設定</p>
+                  <p className="text-xs text-slate-500">チャット通知を受け取る担当範囲を選択します</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNotificationOpen(false)}
+                  className="rounded-full px-3 py-2 text-xs font-semibold text-slate-500"
+                >
+                  キャンセル
+                </button>
+              </div>
+
+              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+                {notificationTargetOptions.map((option) => {
+                  const active = draftNotificationTarget === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setDraftNotificationTarget(option.id)}
+                      className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? "bg-[#0b8ef3]/10 text-[#0b8ef3]"
+                          : "bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate pr-3">
+                        {option.label}
+                      </span>
+                      <span className="text-xs">{active ? "選択中" : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftNotificationTarget("mine");
+                    onApplyNotificationTarget("mine");
+                    setNotificationOpen(false);
+                  }}
+                  className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
+                >
+                  自分担当
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onApplyNotificationTarget(draftNotificationTarget);
+                    setNotificationOpen(false);
+                  }}
+                  className="flex-1 rounded-2xl bg-[#0b8ef3] px-4 py-3 text-sm font-semibold text-white"
+                >
+                  決定
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

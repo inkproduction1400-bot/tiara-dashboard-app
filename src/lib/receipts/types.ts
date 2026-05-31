@@ -14,6 +14,8 @@ export type AssignmentRow = {
   hourly?: number;
   daily?: number;
   fee?: number;
+  receiptIssuedFee?: number | null;
+  receiptPrintedAt?: string | null;
   receiptStatus?: ReceiptStatus;
   assignmentStatus?: "confirmed" | "canceled";
   cancellationReason?: string | null;

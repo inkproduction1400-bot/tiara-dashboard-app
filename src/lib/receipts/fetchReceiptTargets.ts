@@ -24,3 +24,38 @@ export async function updateReceiptStatus(
     },
   );
 }
+
+export async function updateReceiptFee(
+  assignmentId: string,
+  fee: number | null,
+) {
+  return apiFetch<{
+    assignmentId: string;
+    fee: number | null;
+    previousFee: number | null;
+  }>(`/dispatch-sheet/rows/${assignmentId}/receipt-fee`, {
+    method: "PUT",
+    body: JSON.stringify({ fee }),
+  });
+}
+
+export async function recordReceiptIssued(
+  assignmentId: string,
+  payload: {
+    receiptDate: string;
+    fee?: number | null;
+    hourly?: number | null;
+    daily?: number | null;
+    startTime?: string | null;
+    endTime?: string | null;
+  },
+) {
+  return apiFetch<{
+    assignmentId: string;
+    receiptIssuedFee: number | null;
+    receiptPrintedAt: string | null;
+  }>(`/dispatch-sheet/rows/${assignmentId}/receipt-issued`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

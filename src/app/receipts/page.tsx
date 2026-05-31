@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import {
   fetchReceiptTargets,
+  recordReceiptIssued,
+  updateReceiptFee,
   updateReceiptStatus,
 } from "@/lib/receipts/fetchReceiptTargets";
 import styles from "./ReceiptPreview.module.css";
@@ -124,6 +126,7 @@ export default function ReceiptsPage() {
   const [formState, setFormState] = useState<ReceiptFormState | null>(null);
   const [activeRow, setActiveRow] = useState<AssignmentRow | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [savingFeeKey, setSavingFeeKey] = useState<string | null>(null);
   const feeNumber = useMemo(
     () => (formState ? parseNumber(formState.fee) : undefined),
     [formState?.fee],
@@ -212,11 +215,62 @@ export default function ReceiptsPage() {
     }
   };
 
+  const handleFeeBlur = async (row: AssignmentRow, value: string) => {
+    if (!row.assignmentId || row.assignmentStatus === "canceled") return false;
+    const parsed = parseNumber(value);
+    const nextFee = parsed ?? null;
+    const previousFee = row.fee ?? null;
+    if (previousFee === nextFee) return true;
+
+    const message =
+      previousFee == null
+        ? `手数料を ${nextFee == null ? "空欄" : `${formatAmount(nextFee)} 円`}で保存します。この変更はマッチング・日報にも反映され、変更履歴に記録されます。`
+        : `手数料を ${formatAmount(previousFee)} 円から ${
+            nextFee == null ? "空欄" : `${formatAmount(nextFee)} 円`
+          }に変更します。この変更はマッチング・日報にも反映され、変更履歴に記録されます。`;
+    if (!window.confirm(message)) {
+      return false;
+    }
+
+    const key = rowKey(row);
+    setSavingFeeKey(key);
+    setRows((current) =>
+      current.map((item) =>
+        rowKey(item) === key ? { ...item, fee: nextFee ?? undefined } : item,
+      ),
+    );
+    try {
+      await updateReceiptFee(row.assignmentId, nextFee);
+      return true;
+    } catch (err) {
+      console.error("[Receipts] fee update failed", err);
+      setRows((current) =>
+        current.map((item) =>
+          rowKey(item) === key
+            ? { ...item, fee: previousFee ?? undefined }
+            : item,
+        ),
+      );
+      alert("手数料の保存に失敗しました。時間をおいて再度お試しください。");
+      return false;
+    } finally {
+      setSavingFeeKey(null);
+    }
+  };
+
   const handlePrint = async () => {
-    if (!formState) return;
+    if (!formState || !activeRow?.assignmentId) return;
     const payload = toPayload(formState);
     setPrinting(true);
     try {
+      await recordReceiptIssued(activeRow.assignmentId, {
+        receiptDate: payload.receiptDate,
+        fee: payload.fee ?? null,
+        hourly: payload.hourly ?? null,
+        daily: payload.daily ?? null,
+        startTime: payload.startTime ?? null,
+        endTime: payload.endTime ?? null,
+      });
       const res = await fetch("/api/receipts/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -475,8 +529,27 @@ export default function ReceiptsPage() {
                           {isCanceled ? "-" : "発行"}
                         </button>
                       </td>
-                      <td className="border border-slate-700 px-1 py-0.5 text-right text-[11px]">
-                        {formatAmount(row.fee)}
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-right text-[11px]">
+                        <input
+                          key={`${key}:${row.fee ?? ""}`}
+                          type="text"
+                          inputMode="numeric"
+                          defaultValue={formatAmount(row.fee)}
+                          disabled={isCanceled || savingFeeKey === key}
+                          onBlur={(event) => {
+                            const originalValue = formatAmount(row.fee);
+                            void handleFeeBlur(row, event.target.value).then((ok) => {
+                              if (!ok) event.target.value = originalValue;
+                            });
+                          }}
+                          className="h-6 w-full border border-slate-400 bg-white px-1 text-right text-[11px] disabled:bg-slate-100 disabled:text-slate-400"
+                          aria-label={`${row.castName}の手数料`}
+                        />
+                        {row.receiptIssuedFee != null && (
+                          <div className="mt-0.5 text-[8px] leading-none text-slate-500">
+                            発行:{formatAmount(row.receiptIssuedFee)}
+                          </div>
+                        )}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         <select

@@ -9,6 +9,7 @@ import {
   listTodayCasts,
   listCasts as fetchCastList,
   getCast,
+  getCastSignedPhotoUrl,
   isHttpUrl,
   isLocalPreviewUrl,
   resolveLegacyPhotoFallbackUrl,
@@ -267,6 +268,168 @@ const escapeHtml = (value: unknown) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+type IdDocPrintMode = "shop_required" | "all_with_id" | "manual";
+
+type IdDocSource = {
+  urlOrPath: string;
+  label: string;
+  purpose: "id_with_face" | "id_without_face";
+};
+
+type IdDocPrintImage = {
+  url: string;
+  label: string;
+};
+
+type IdDocPrintTarget = {
+  key: string;
+  assignmentId: string | null;
+  castId: string;
+  castName: string;
+  castCode: string | null;
+  shopName: string;
+  shopNumber: string | null;
+  requirement: string;
+  requirementLabel: string;
+  shopRequiresId: boolean;
+  hasIdDocs: boolean;
+  sources: IdDocSource[];
+  recommended: boolean;
+  reason: string;
+};
+
+const ID_REQUIREMENT_LABEL: Record<string, string> = {
+  none: "不要",
+  photo_only: "写真のみ",
+  address_only: "住所のみ",
+  both: "両方",
+};
+
+const getIdRequirementLabel = (requirement: string) =>
+  ID_REQUIREMENT_LABEL[requirement] ?? (requirement || "未設定");
+
+const isShopIdRequired = (requirement: string) =>
+  Boolean(requirement && requirement !== "none");
+
+const pickIdDocSources = (cast: any): IdDocSource[] => {
+  const sources: IdDocSource[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (
+    urlOrPath: unknown,
+    label: string,
+    purpose: IdDocSource["purpose"],
+  ) => {
+    if (typeof urlOrPath !== "string" || !urlOrPath.trim()) return;
+    const value = urlOrPath.trim();
+    if (seen.has(value)) return;
+    seen.add(value);
+    sources.push({ urlOrPath: value, label, purpose });
+  };
+
+  pushUnique(cast?.idDocWithFaceUrl, "身分証（顔あり）", "id_with_face");
+  pushUnique(cast?.idDocWithoutFaceUrl, "身分証（本籍地）", "id_without_face");
+  if (Array.isArray(cast?.idPhotosWithFace)) {
+    cast.idPhotosWithFace.forEach((url: unknown) =>
+      pushUnique(url, "身分証（顔あり）", "id_with_face"),
+    );
+  }
+  if (Array.isArray(cast?.idPhotosWithoutFace)) {
+    cast.idPhotosWithoutFace.forEach((url: unknown) =>
+      pushUnique(url, "身分証（本籍地）", "id_without_face"),
+    );
+  }
+  return sources;
+};
+
+const resolveSignedIdDocImages = async (
+  castId: string,
+  sources: IdDocSource[],
+): Promise<IdDocPrintImage[]> => {
+  const images: IdDocPrintImage[] = [];
+  for (const source of sources) {
+    const raw = source.urlOrPath;
+    if (isLocalPreviewUrl(raw)) {
+      images.push({ url: raw, label: source.label });
+      continue;
+    }
+    const signed = await getCastSignedPhotoUrl({
+      castId,
+      purpose: source.purpose,
+      urlOrPath: raw,
+    });
+    if (signed) {
+      images.push({ url: signed, label: source.label });
+      continue;
+    }
+    if (isHttpUrl(raw)) {
+      images.push({ url: raw, label: source.label });
+    }
+  }
+  return images;
+};
+
+const buildIdDocPrintHtml = (
+  items: {
+    castName: string;
+    castCode: string | null;
+    shopName: string;
+    images: IdDocPrintImage[];
+  }[],
+) => {
+  const body = items
+    .map((item) => {
+      const title = `${item.castName || "キャスト"}${
+        item.castCode ? `（${item.castCode}）` : ""
+      } / ${item.shopName || "派遣先未設定"}`;
+      const images = item.images.length
+        ? item.images
+            .map(
+              (image) => `
+                <figure class="doc">
+                  <figcaption>${escapeHtml(image.label)}</figcaption>
+                  <img src="${escapeHtml(image.url)}" alt="${escapeHtml(
+                    image.label,
+                  )}" />
+                </figure>`,
+            )
+            .join("")
+        : `<p class="empty">身分証画像が未登録です</p>`;
+      return `
+        <section class="card">
+          <h2>${escapeHtml(title)}</h2>
+          <div class="grid">${images}</div>
+        </section>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>身分証印刷</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          body { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; color: #111827; }
+          h2 { font-size: 14px; margin: 0 0 8px; }
+          .card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin-bottom: 16px; break-inside: avoid; }
+          .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+          .doc { margin: 0; }
+          figcaption { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+          img { width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 4px; }
+          .empty { font-size: 12px; color: #9ca3af; }
+        </style>
+      </head>
+      <body>
+        ${body}
+        <script>
+          window.addEventListener("load", () => {
+            setTimeout(() => window.print(), 150);
+          });
+        </script>
+      </body>
+    </html>`;
+};
 
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
@@ -938,6 +1101,17 @@ export default function Page() {
   const [dispatchShopQuery, setDispatchShopQuery] = useState("");
   const [dispatchOwnerFilter, setDispatchOwnerFilter] = useState("");
   const [dispatchGenreFilter, setDispatchGenreFilter] = useState("");
+  const [idDocPrintOpen, setIdDocPrintOpen] = useState(false);
+  const [idDocPrintLoading, setIdDocPrintLoading] = useState(false);
+  const [idDocPrinting, setIdDocPrinting] = useState(false);
+  const [idDocPrintMode, setIdDocPrintMode] =
+    useState<IdDocPrintMode>("shop_required");
+  const [idDocPrintTargets, setIdDocPrintTargets] = useState<
+    IdDocPrintTarget[]
+  >([]);
+  const [selectedIdDocPrintKeys, setSelectedIdDocPrintKeys] = useState<
+    string[]
+  >([]);
   const [attendanceRequests, setAttendanceRequests] = useState<
     AttendanceRequestItem[]
   >([]);
@@ -2451,6 +2625,144 @@ export default function Page() {
     }
   };
 
+  const getDefaultIdDocPrintKeys = useCallback(
+    (targets: IdDocPrintTarget[], mode: IdDocPrintMode) => {
+      if (mode === "manual") return [];
+      if (mode === "all_with_id") {
+        return targets
+          .filter((target) => target.hasIdDocs)
+          .map((target) => target.key);
+      }
+      return targets
+        .filter((target) => target.recommended)
+        .map((target) => target.key);
+    },
+    [],
+  );
+
+  const openIdDocPrintModal = useCallback(async () => {
+    const confirmedRows = dispatchRows.filter(
+      (row) => row.status === "confirmed" && row.shopId,
+    );
+    if (confirmedRows.length === 0) {
+      alert("確定済みの派遣がないため、身分証印刷対象がありません。");
+      return;
+    }
+
+    setIdDocPrintOpen(true);
+    setIdDocPrintLoading(true);
+    try {
+      const shopById = new Map(dispatchShops.map((shop) => [shop.id, shop]));
+      const nextDetails: Record<string, any> = {};
+      const targets = await Promise.all(
+        confirmedRows.map(async (row) => {
+          const detail = castDetailById[row.castId] ?? (await getCast(row.castId));
+          nextDetails[row.castId] = detail;
+          const shop = row.shopId ? shopById.get(row.shopId) : null;
+          const requirement = normalizeIdRequirement({
+            idDocumentRequirement: shop?.idDocumentRequirement ?? null,
+          } as Shop);
+          const shopRequiresId = isShopIdRequired(requirement);
+          const sources = pickIdDocSources(detail);
+          const hasIdDocs = sources.length > 0;
+          const key = row.assignmentId ?? `${row.castId}:${row.shopId ?? ""}`;
+          return {
+            key,
+            assignmentId: row.assignmentId,
+            castId: row.castId,
+            castName: row.displayName,
+            castCode: row.castCode,
+            shopName: row.shopName ?? shop?.name ?? "",
+            shopNumber: row.shopNumber ?? shop?.code ?? null,
+            requirement,
+            requirementLabel: getIdRequirementLabel(requirement),
+            shopRequiresId,
+            hasIdDocs,
+            sources,
+            recommended: shopRequiresId && hasIdDocs,
+            reason: !shopRequiresId
+              ? "店舗条件では不要"
+              : hasIdDocs
+                ? "印刷推奨"
+                : "身分証未登録",
+          } satisfies IdDocPrintTarget;
+        }),
+      );
+      if (Object.keys(nextDetails).length > 0) {
+        setCastDetailById((prev) => ({ ...prev, ...nextDetails }));
+      }
+      setIdDocPrintTargets(targets);
+      setSelectedIdDocPrintKeys(
+        getDefaultIdDocPrintKeys(targets, idDocPrintMode),
+      );
+    } catch (err) {
+      console.warn("[casts/today] failed to prepare id doc print", err);
+      alert("身分証印刷対象の取得に失敗しました。");
+    } finally {
+      setIdDocPrintLoading(false);
+    }
+  }, [
+    dispatchRows,
+    dispatchShops,
+    castDetailById,
+    idDocPrintMode,
+    getDefaultIdDocPrintKeys,
+  ]);
+
+  const changeIdDocPrintMode = (mode: IdDocPrintMode) => {
+    setIdDocPrintMode(mode);
+    setSelectedIdDocPrintKeys(getDefaultIdDocPrintKeys(idDocPrintTargets, mode));
+  };
+
+  const toggleIdDocPrintTarget = (key: string) => {
+    setSelectedIdDocPrintKeys((prev) =>
+      prev.includes(key)
+        ? prev.filter((item) => item !== key)
+        : [...prev, key],
+    );
+  };
+
+  const printSelectedIdDocs = async () => {
+    const selected = idDocPrintTargets.filter(
+      (target) =>
+        selectedIdDocPrintKeys.includes(target.key) && target.hasIdDocs,
+    );
+    if (selected.length === 0) {
+      alert("印刷可能な身分証が選択されていません。");
+      return;
+    }
+
+    setIdDocPrinting(true);
+    try {
+      const items = await Promise.all(
+        selected.map(async (target) => ({
+          castName: target.castName,
+          castCode: target.castCode,
+          shopName: target.shopName,
+          images: await resolveSignedIdDocImages(target.castId, target.sources),
+        })),
+      );
+      const printable = items.filter((item) => item.images.length > 0);
+      if (printable.length === 0) {
+        alert("印刷可能な身分証画像がありません。");
+        return;
+      }
+      const win = window.open("", "_blank", "noopener,noreferrer");
+      if (!win) {
+        alert("印刷ウィンドウを開けませんでした。ポップアップ許可をご確認ください。");
+        return;
+      }
+      win.document.open();
+      win.document.write(buildIdDocPrintHtml(printable));
+      win.document.close();
+    } catch (err) {
+      console.warn("[casts/today] failed to print id docs", err);
+      alert("身分証印刷の準備に失敗しました。");
+    } finally {
+      setIdDocPrinting(false);
+    }
+  };
+
   const markAttendanceRequest = async (
     castId: string,
     status: AttendanceRequestStatus,
@@ -3939,6 +4251,14 @@ export default function Page() {
                       </button>
                       <button
                         type="button"
+                        className="rounded-none border border-slate-900 bg-white px-3 h-7 text-[11px] font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                        onClick={() => void openIdDocPrintModal()}
+                        disabled={idDocPrintLoading}
+                      >
+                        {idDocPrintLoading ? "準備中..." : "身分証印刷"}
+                      </button>
+                      <button
+                        type="button"
                         className="rounded-none border border-emerald-700 bg-emerald-600 px-3 h-7 text-[11px] font-semibold text-white hover:bg-emerald-700"
                         onClick={confirmAllDispatchRows}
                       >
@@ -4687,6 +5007,203 @@ export default function Page() {
                 disabled={settingsSaving}
               >
                 {settingsSaving ? "保存中..." : "保存"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {idDocPrintOpen && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setIdDocPrintOpen(false)}
+          />
+          <div className="relative z-10 flex max-h-[86vh] w-full max-w-5xl flex-col border border-slate-900 bg-white shadow-2xl">
+            <header className="flex items-center justify-between border-b border-slate-900 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  身分証印刷対象
+                </h2>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  確定済み派遣から印刷対象を確認して選択します。
+                </div>
+              </div>
+              <button
+                type="button"
+                className="border border-slate-300 px-2 py-1 text-xs"
+                onClick={() => setIdDocPrintOpen(false)}
+              >
+                閉じる
+              </button>
+            </header>
+
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 text-xs">
+              <select
+                className="tiara-input h-9 min-w-[230px] text-xs"
+                value={idDocPrintMode}
+                onChange={(e) =>
+                  changeIdDocPrintMode(e.target.value as IdDocPrintMode)
+                }
+              >
+                <option value="shop_required">店舗が身分証必要なキャストのみ</option>
+                <option value="all_with_id">
+                  身分証データがある確定キャスト全員
+                </option>
+                <option value="manual">手動選択</option>
+              </select>
+              <button
+                type="button"
+                className="border border-slate-300 bg-white px-3 py-2 text-[11px] hover:bg-slate-50"
+                onClick={() =>
+                  setSelectedIdDocPrintKeys(
+                    idDocPrintTargets
+                      .filter((target) => target.hasIdDocs)
+                      .map((target) => target.key),
+                  )
+                }
+              >
+                印刷可能を全選択
+              </button>
+              <button
+                type="button"
+                className="border border-slate-300 bg-white px-3 py-2 text-[11px] hover:bg-slate-50"
+                onClick={() => setSelectedIdDocPrintKeys([])}
+              >
+                選択解除
+              </button>
+              <div className="ml-auto text-[11px] text-slate-600">
+                選択 {selectedIdDocPrintKeys.length}件 / 候補{" "}
+                {idDocPrintTargets.length}件
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="w-full border-collapse text-xs">
+                <thead className="sticky top-0 bg-slate-100">
+                  <tr>
+                    <th className="w-12 border border-slate-300 px-2 py-2 text-center">
+                      印刷
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left">
+                      キャスト
+                    </th>
+                    <th className="border border-slate-300 px-2 py-2 text-left">
+                      派遣先
+                    </th>
+                    <th className="w-[110px] border border-slate-300 px-2 py-2 text-left">
+                      店舗身分証
+                    </th>
+                    <th className="w-[120px] border border-slate-300 px-2 py-2 text-left">
+                      登録状況
+                    </th>
+                    <th className="w-[130px] border border-slate-300 px-2 py-2 text-left">
+                      判定
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {idDocPrintLoading ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="border border-slate-300 px-3 py-6 text-center text-slate-500"
+                      >
+                        印刷対象を取得中...
+                      </td>
+                    </tr>
+                  ) : idDocPrintTargets.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="border border-slate-300 px-3 py-6 text-center text-slate-500"
+                      >
+                        印刷候補がありません。
+                      </td>
+                    </tr>
+                  ) : (
+                    idDocPrintTargets.map((target) => {
+                      const checked = selectedIdDocPrintKeys.includes(
+                        target.key,
+                      );
+                      return (
+                        <tr key={target.key}>
+                          <td className="border border-slate-300 px-2 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!target.hasIdDocs}
+                              onChange={() => toggleIdDocPrintTarget(target.key)}
+                            />
+                          </td>
+                          <td className="border border-slate-300 px-2 py-2">
+                            <div className="font-semibold">
+                              {target.castName}
+                            </div>
+                            <div className="text-[11px] text-slate-500">
+                              {target.castCode ?? target.castId}
+                            </div>
+                          </td>
+                          <td className="border border-slate-300 px-2 py-2">
+                            {target.shopNumber
+                              ? `${target.shopNumber} / `
+                              : ""}
+                            {target.shopName || "-"}
+                          </td>
+                          <td className="border border-slate-300 px-2 py-2">
+                            {target.requirementLabel}
+                          </td>
+                          <td className="border border-slate-300 px-2 py-2">
+                            {target.hasIdDocs ? (
+                              <span className="font-semibold text-emerald-700">
+                                登録済み
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-rose-600">
+                                未登録
+                              </span>
+                            )}
+                          </td>
+                          <td className="border border-slate-300 px-2 py-2">
+                            <span
+                              className={
+                                target.recommended
+                                  ? "font-semibold text-emerald-700"
+                                  : target.hasIdDocs
+                                    ? "text-slate-600"
+                                    : "font-semibold text-rose-600"
+                              }
+                            >
+                              {target.reason}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <footer className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                className="border border-slate-300 bg-white px-4 py-2 text-xs"
+                onClick={() => setIdDocPrintOpen(false)}
+              >
+                閉じる
+              </button>
+              <button
+                type="button"
+                className="border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                onClick={() => void printSelectedIdDocs()}
+                disabled={
+                  idDocPrinting ||
+                  idDocPrintLoading ||
+                  selectedIdDocPrintKeys.length === 0
+                }
+              >
+                {idDocPrinting ? "印刷準備中..." : "選択分を印刷"}
               </button>
             </footer>
           </div>

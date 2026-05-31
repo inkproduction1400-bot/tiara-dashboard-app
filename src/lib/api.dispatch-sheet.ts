@@ -10,6 +10,7 @@ export type DispatchSheetShop = {
   genre: string | null;
   ownerStaff: string | null;
   wageLabel: string | null;
+  idDocumentRequirement?: string | null;
   addressLine: string | null;
   buildingName: string | null;
   blockedCastIds?: string[];

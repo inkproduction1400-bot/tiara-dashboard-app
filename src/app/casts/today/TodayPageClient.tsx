@@ -5223,6 +5223,14 @@ export default function Page() {
                           workCountRaw.trim() !== ""
                         ? Number(workCountRaw)
                         : null;
+                  const cancelCountRaw = detail?.cancelCount;
+                  const cancelCount =
+                    typeof cancelCountRaw === "number"
+                      ? cancelCountRaw
+                      : typeof cancelCountRaw === "string" &&
+                          cancelCountRaw.trim() !== ""
+                        ? Number(cancelCountRaw)
+                        : null;
                   return (
                     <div className="mt-2 flex items-center gap-6 text-sm text-gray-700 justify-start">
                       <div>
@@ -5240,6 +5248,16 @@ export default function Page() {
                         <span className="font-semibold text-gray-800">
                           {detail && Number.isFinite(workCount)
                             ? `${workCount} 回`
+                            : detail
+                              ? "0 回"
+                              : "読込中..."}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted">キャンセル回数</span>{" "}
+                        <span className="font-semibold text-gray-800">
+                          {detail && Number.isFinite(cancelCount)
+                            ? `${cancelCount} 回`
                             : detail
                               ? "0 回"
                               : "読込中..."}

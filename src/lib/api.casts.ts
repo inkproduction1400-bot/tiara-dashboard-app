@@ -278,6 +278,7 @@ export type CastDetail = {
   /** 確定済み派遣履歴から集計した最終出勤日・出勤回数 */
   lastWorkDate?: string | null;
   workCount?: number | null;
+  cancelCount?: number | null;
 };
 
 export type CastShift = {

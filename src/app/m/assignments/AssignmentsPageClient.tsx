@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, RefreshCw, Search, X } from "lucide-react";
+import { Check, Filter, RefreshCw, Search, X } from "lucide-react";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import {
   confirmDispatchSheetRow,
   getDispatchSheet,
+  upsertAttendanceRequest,
   upsertDispatchSheetRow,
   type DispatchSheetRow,
   type DispatchSheetShop,
 } from "@/lib/api.dispatch-sheet";
 import { subscribeDispatchSheetUpdates } from "@/lib/socket";
+import { listCasts, type CastListItem } from "@/lib/api.casts";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
+import { getAuthSnapshot } from "@/components/mobile/mobileApi";
 
 function todayKey() {
   const date = new Date();
@@ -31,6 +35,7 @@ function formatDateLabel(dateKey: string) {
 
 const EMPTY_ROWS = 100;
 const TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
+type AgeFilter = "" | "18-24" | "25-29" | "30-34" | "35-39" | "40-";
 
 function normalizeTime(value: string) {
   const trimmed = value.trim();
@@ -76,6 +81,7 @@ function DispatchMiniCard({
   onPatch,
   onSave,
   onOpenShopPicker,
+  onOpenCastPicker,
   onConfirm,
 }: {
   row: DispatchSheetRow;
@@ -84,6 +90,7 @@ function DispatchMiniCard({
   onPatch: (castId: string, patch: Partial<DispatchSheetRow>) => void;
   onSave: (row: DispatchSheetRow, patch?: Partial<DispatchSheetRow>) => void;
   onOpenShopPicker: (castId: string) => void;
+  onOpenCastPicker: (slotIndex: number) => void;
   onConfirm: (row: DispatchSheetRow) => void;
 }) {
   const isEmpty = !row.displayName;
@@ -100,14 +107,22 @@ function DispatchMiniCard({
         <div className="bg-slate-100 px-1.5 py-1 font-bold text-slate-700">
           派氏名
         </div>
-        <div className="flex min-w-0 items-center justify-between gap-1 px-1.5 py-1">
-          <span className="truncate font-bold text-slate-900">
-            {row.displayName || "\u00a0"}
+        <button
+          type="button"
+          onClick={() => {
+            if (isEmpty) onOpenCastPicker(index);
+          }}
+          className={`flex min-w-0 items-center justify-between gap-1 px-1.5 py-1 text-left ${
+            isEmpty ? "text-slate-400" : "text-slate-900"
+          }`}
+        >
+          <span className="truncate font-bold">
+            {row.displayName || "キャストを選択"}
           </span>
           <span className="shrink-0 text-[10px] text-slate-400">
             {row.managementNumber || row.castCode || ""}
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-[42px_minmax(0,1fr)] border-b border-slate-300">
@@ -219,11 +234,23 @@ export default function AssignmentsPageClient() {
   const [date] = useState(() => todayKey());
   const [rows, setRows] = useState<DispatchSheetRow[]>([]);
   const [shops, setShops] = useState<DispatchSheetShop[]>([]);
+  const [castCandidates, setCastCandidates] = useState<CastListItem[]>([]);
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [savingCastId, setSavingCastId] = useState<string | null>(null);
   const [shopPickerCastId, setShopPickerCastId] = useState<string | null>(null);
+  const [castPickerSlotIndex, setCastPickerSlotIndex] = useState<number | null>(
+    null,
+  );
   const [shopQuery, setShopQuery] = useState("");
   const [shopOwner, setShopOwner] = useState("");
   const [shopGenre, setShopGenre] = useState("");
+  const [castQuery, setCastQuery] = useState("");
+  const [castOwner, setCastOwner] = useState("");
+  const [castGenre, setCastGenre] = useState("");
+  const [castAge, setCastAge] = useState<AgeFilter>("");
+  const [castFilterOpen, setCastFilterOpen] = useState(false);
+  const [castPickerLoading, setCastPickerLoading] = useState(false);
+  const [castPickerError, setCastPickerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,6 +273,20 @@ export default function AssignmentsPageClient() {
   }, [load]);
 
   useEffect(() => {
+    let mounted = true;
+    listStaffs()
+      .then((items) => {
+        if (mounted) setStaffAccounts(items);
+      })
+      .catch(() => {
+        if (mounted) setStaffAccounts([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     return subscribeDispatchSheetUpdates(() => {
       void load();
     });
@@ -264,6 +305,54 @@ export default function AssignmentsPageClient() {
       new Set(shops.map((shop) => shop.genre).filter(Boolean) as string[]),
     ).sort((a, b) => a.localeCompare(b, "ja"));
   }, [shops]);
+  const castOwnerOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const staff of staffAccounts) {
+      if (staff.userType !== "staff" || staff.status !== "active") continue;
+      const name = staff.loginId?.trim();
+      if (name && !name.toLowerCase().includes("demo")) names.add(name);
+    }
+    for (const cast of castCandidates) {
+      const name = cast.ownerStaffName?.trim();
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [castCandidates, staffAccounts]);
+  const castGenreOptions = useMemo(() => {
+    const genres = new Set<string>();
+    for (const cast of castCandidates) {
+      for (const genre of cast.genres ?? []) {
+        const value = String(genre).trim();
+        if (value) genres.add(value);
+      }
+    }
+    return Array.from(genres).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [castCandidates]);
+  const assignedCastIds = useMemo(
+    () => new Set(rows.filter((row) => row.displayName).map((row) => row.castId)),
+    [rows],
+  );
+  const currentStaffName = getAuthSnapshot().userName?.trim() ?? "";
+  const isInAgeRange = (age: number | null | undefined, filter: AgeFilter) => {
+    if (!filter) return true;
+    if (age == null) return false;
+    if (filter === "18-24") return age >= 18 && age <= 24;
+    if (filter === "25-29") return age >= 25 && age <= 29;
+    if (filter === "30-34") return age >= 30 && age <= 34;
+    if (filter === "35-39") return age >= 35 && age <= 39;
+    return age >= 40;
+  };
+  const filteredCastCandidates = useMemo(() => {
+    return castCandidates
+      .filter((cast) => !assignedCastIds.has(cast.userId))
+      .filter((cast) => {
+        if (castGenre && !(cast.genres ?? []).includes(castGenre)) return false;
+        if (!isInAgeRange(cast.age, castAge)) return false;
+        return true;
+      });
+  }, [assignedCastIds, castAge, castCandidates, castGenre]);
+  const castFilterCount =
+    (castOwner ? 1 : 0) + (castGenre ? 1 : 0) + (castAge ? 1 : 0);
   const shopCandidates = useMemo(() => {
     const q = shopQuery.trim().toLowerCase();
     return shops
@@ -349,6 +438,68 @@ export default function AssignmentsPageClient() {
     [patchRow, rows, saveRow, shopPickerCastId],
   );
 
+  const openCastPicker = useCallback((slotIndex: number) => {
+    setCastPickerSlotIndex(slotIndex);
+    setCastQuery("");
+    setCastGenre("");
+    setCastAge("");
+    setCastFilterOpen(false);
+    const authName = getAuthSnapshot().userName?.trim() ?? "";
+    setCastOwner((current) => current || authName);
+  }, []);
+
+  useEffect(() => {
+    if (castPickerSlotIndex === null) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setCastPickerLoading(true);
+      setCastPickerError(null);
+      void listCasts({
+        q: castQuery.trim() || undefined,
+        ownerStaffName: castOwner || undefined,
+        sort: "management",
+        limit: 300,
+      })
+        .then((res) => {
+          if (!cancelled) setCastCandidates(res.items ?? []);
+        })
+        .catch((err) => {
+          console.warn("[m/assignments] failed to load cast candidates", err);
+          if (!cancelled) setCastPickerError("キャスト一覧の取得に失敗しました");
+        })
+        .finally(() => {
+          if (!cancelled) setCastPickerLoading(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [castOwner, castPickerSlotIndex, castQuery]);
+
+  const selectCast = useCallback(
+    async (cast: CastListItem) => {
+      if (castPickerSlotIndex === null) return;
+      setSavingCastId(cast.userId);
+      try {
+        await upsertAttendanceRequest({
+          date,
+          castId: cast.userId,
+          status: "added",
+          displayOrder: castPickerSlotIndex,
+        });
+        setCastPickerSlotIndex(null);
+        await load();
+      } catch (err) {
+        console.warn("[m/assignments] failed to add cast to dispatch", err);
+        alert("キャストの追加に失敗しました。時間をおいて再度お試しください。");
+      } finally {
+        setSavingCastId(null);
+      }
+    },
+    [castPickerSlotIndex, date, load],
+  );
+
   const confirmRow = useCallback(
     async (row: DispatchSheetRow) => {
       const current = rows.find((item) => item.castId === row.castId) ?? row;
@@ -423,6 +574,7 @@ export default function AssignmentsPageClient() {
                   void saveRow(targetRow, patch);
                 }}
                 onOpenShopPicker={setShopPickerCastId}
+                onOpenCastPicker={openCastPicker}
                 onConfirm={(targetRow) => {
                   void confirmRow(targetRow);
                 }}
@@ -431,6 +583,208 @@ export default function AssignmentsPageClient() {
           </div>
         )}
       </div>
+
+      {castPickerSlotIndex !== null ? (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-slate-950/45 px-3 pt-4">
+          <div className="flex h-[calc(100dvh-16px)] w-full max-w-[420px] min-w-0 flex-col overflow-hidden rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+14px)] shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900">
+                  キャストを選択
+                </p>
+                <p className="text-xs text-slate-500">
+                  派遣表 {castPickerSlotIndex + 1}枠目に追加
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCastPickerSlotIndex(null)}
+                className="rounded-full border border-slate-300 p-2 text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="shrink-0 space-y-2 border-b px-3 py-3">
+              <div className="flex items-center gap-2">
+                <label className="flex min-w-0 flex-1 items-center gap-2 rounded border border-slate-300 px-2 py-2">
+                  <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                  <input
+                    value={castQuery}
+                    onChange={(event) => setCastQuery(event.target.value)}
+                    className="min-w-0 flex-1 text-sm outline-none"
+                    placeholder="名前・番号・キャストID"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCastFilterOpen(true)}
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-slate-700"
+                  aria-label="絞り込み"
+                >
+                  <Filter className="h-4 w-4" />
+                  {castFilterCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0b8ef3] px-1 text-[10px] font-bold text-white">
+                      {castFilterCount}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span className="truncate">
+                  担当: {castOwner || "すべて"} / {filteredCastCandidates.length}件
+                </span>
+                {currentStaffName ? (
+                  <button
+                    type="button"
+                    onClick={() => setCastOwner(currentStaffName)}
+                    className="shrink-0 rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-600"
+                  >
+                    自分担当
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-2 py-2 [-webkit-overflow-scrolling:touch]">
+              {castPickerLoading ? (
+                <div className="py-10 text-center text-sm text-slate-500">
+                  読み込み中...
+                </div>
+              ) : castPickerError ? (
+                <div className="py-10 text-center text-sm text-rose-500">
+                  {castPickerError}
+                </div>
+              ) : filteredCastCandidates.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {filteredCastCandidates.map((cast) => (
+                    <button
+                      key={cast.userId}
+                      type="button"
+                      onClick={() => void selectCast(cast)}
+                      className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white text-left shadow-sm"
+                    >
+                      <div className="aspect-[4/3] bg-slate-100">
+                        {cast.photoUrl ? (
+                          <img
+                            src={cast.photoUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[11px] font-semibold text-slate-400">
+                            NO PHOTO
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1 px-2 py-2">
+                        <p className="truncate text-sm font-bold text-slate-900">
+                          {cast.displayName || "名称未設定"}
+                        </p>
+                        <p className="truncate text-[11px] text-slate-500">
+                          {cast.managementNumber || cast.castCode || "-"}
+                          {cast.age != null ? ` / ${cast.age}歳` : ""}
+                        </p>
+                        <p className="truncate text-[11px] font-semibold text-slate-700">
+                          ¥{(cast.desiredHourly ?? 0).toLocaleString("ja-JP")}
+                        </p>
+                        <p className="truncate text-[10px] text-slate-400">
+                          {cast.ownerStaffName || "担当未設定"}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 text-center text-sm text-slate-500">
+                  条件に一致するキャストがいません
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {castFilterOpen ? (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center overflow-hidden bg-slate-950/45 px-3 pt-4">
+          <div className="flex max-h-[calc(100dvh-16px)] w-full max-w-[420px] flex-col overflow-hidden rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+14px)] shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">絞り込み</p>
+                <p className="text-xs text-slate-500">
+                  担当者・ジャンル・年齢で絞り込み
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCastFilterOpen(false)}
+                className="rounded-full bg-[#0b8ef3] px-4 py-2 text-xs font-bold text-white"
+              >
+                決定
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto px-4 py-4 [-webkit-overflow-scrolling:touch]">
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                担当者
+                <select
+                  value={castOwner}
+                  onChange={(event) => setCastOwner(event.target.value)}
+                  className="h-10 rounded border border-slate-300 bg-white px-2 text-sm"
+                >
+                  <option value="">すべて</option>
+                  {castOwnerOptions.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                ジャンル
+                <select
+                  value={castGenre}
+                  onChange={(event) => setCastGenre(event.target.value)}
+                  className="h-10 rounded border border-slate-300 bg-white px-2 text-sm"
+                >
+                  <option value="">すべて</option>
+                  {castGenreOptions.map((genre) => (
+                    <option key={genre} value={genre}>
+                      {genre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                年齢
+                <select
+                  value={castAge}
+                  onChange={(event) => setCastAge(event.target.value as AgeFilter)}
+                  className="h-10 rounded border border-slate-300 bg-white px-2 text-sm"
+                >
+                  <option value="">すべて</option>
+                  <option value="18-24">18-24歳</option>
+                  <option value="25-29">25-29歳</option>
+                  <option value="30-34">30-34歳</option>
+                  <option value="35-39">35-39歳</option>
+                  <option value="40-">40歳以上</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setCastOwner("");
+                  setCastGenre("");
+                  setCastAge("");
+                  setCastFilterOpen(false);
+                }}
+                className="w-full rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
+              >
+                条件をクリア
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {shopPickerCastId ? (
         <div className="fixed inset-0 z-50 bg-slate-950/45">

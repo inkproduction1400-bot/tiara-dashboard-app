@@ -36,6 +36,7 @@ export type CastListItem = {
   managementNumber?: string | null;
   legacyStaffId?: number | null; // 旧システムのスタッフID
   ownerStaffName?: string | null;
+  genres?: string[] | null;
   birthdate?: string | null;
   age?: number | null;
   /** 一覧で希望時給を表示するため */
@@ -578,6 +579,11 @@ export async function listCasts(
     managementNumber: it.managementNumber ?? null,
     legacyStaffId: it.legacyStaffId ?? null,
     ownerStaffName: it.ownerStaffName ?? null,
+    genres: Array.isArray(it.genres)
+      ? it.genres
+      : Array.isArray(it.background?.genres)
+        ? it.background.genres
+        : null,
     birthdate: it.birthdate ?? null,
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,

@@ -358,7 +358,7 @@ export default function ReceiptsPage() {
                     送迎
                   </th>
                   <th className="border border-slate-700 px-0.5 py-1 text-center text-[8px]">
-                    呼び出し店名かな
+                    送迎先
                   </th>
                   <th className="border border-slate-700 px-1 py-1 text-left text-[11px]">
                     派遣先(店名)
@@ -419,9 +419,11 @@ export default function ReceiptsPage() {
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
                         {isCanceled ? "キャンセル" : "確定"}
                       </td>
-                      <td className="border border-slate-700 px-0.5 py-0.5" />
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[10px] font-semibold">
+                        {row.rideRequested ? "あり" : "なし"}
+                      </td>
                       <td className="break-words border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
-                        {row.shopNameKana ?? ""}
+                        {row.rideRequested ? row.rideDestination ?? "" : ""}
                       </td>
                       <td className="break-words border border-slate-700 px-1 py-0.5 font-semibold">
                         {row.shopName}

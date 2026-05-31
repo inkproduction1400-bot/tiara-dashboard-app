@@ -19,10 +19,9 @@ import {
   uploadCastIdDocWithFace,
   uploadCastIdDocWithoutFace,
   deleteCastIdDoc,
-  extractLegacyStorageKey,
   getCastSignedPhotoUrl,
-  isHttpUrl,
   normalizeCastPhotoUrl,
+  resolveCastPhotoDisplayUrl,
   resolveLegacyPhotoFallbackUrl,
   getCastShiftRequests,
   type CastShiftRequestSelection,
@@ -1297,7 +1296,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       .map((raw) => {
         if (!raw) return null;
         const fallback = resolveLegacyPhotoFallbackUrl({ photoUrlRaw: raw });
-        if (isLocalPreviewUrl(raw) || (isHttpUrl(raw) && !extractLegacyStorageKey(raw))) {
+        if (isLocalPreviewUrl(raw)) {
           return { raw, display: raw, fallback: null };
         }
         const signed = signedPhotoByUrl[raw];
@@ -1312,14 +1311,13 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       (raw) =>
         raw &&
         !isLocalPreviewUrl(raw) &&
-        (!isHttpUrl(raw) || Boolean(extractLegacyStorageKey(raw))) &&
         !signedPhotoByUrl[raw],
     );
     if (targets.length === 0) return;
     let cancelled = false;
     const run = async () => {
       for (const raw of targets) {
-        const signed = await getCastSignedPhotoUrl({
+        const signed = await resolveCastPhotoDisplayUrl({
           castId: resolvedCastId,
           purpose: "profile",
           urlOrPath: raw,

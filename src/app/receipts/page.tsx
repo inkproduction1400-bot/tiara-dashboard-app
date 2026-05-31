@@ -134,7 +134,7 @@ export default function ReceiptsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetchReceiptTargets(businessDate)
+    fetchReceiptTargets(businessDate, { includeOpen: true })
       .then((data) => {
         if (active) setRows(data);
       })
@@ -151,7 +151,7 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     return subscribeReceiptUpdates(() => {
-      fetchReceiptTargets(businessDate)
+      fetchReceiptTargets(businessDate, { includeOpen: true })
         .then(setRows)
         .catch(() => setRows([]));
     });
@@ -400,6 +400,8 @@ export default function ReceiptsPage() {
                   const rowClass =
                     isCanceled
                       ? "bg-rose-50 text-slate-500"
+                      : row.businessDate !== businessDate
+                        ? "bg-amber-50"
                       : collectionValue === "collected"
                         ? "bg-emerald-50"
                         : "";
@@ -415,6 +417,11 @@ export default function ReceiptsPage() {
                       </td>
                       <td className="break-words border border-slate-700 px-1 py-0.5 text-[11px] font-semibold">
                         {row.castName}
+                        {row.businessDate !== businessDate && (
+                          <div className="text-[8px] font-normal text-amber-700">
+                            未回収: {row.businessDate}
+                          </div>
+                        )}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
                         {isCanceled ? "キャンセル" : "確定"}

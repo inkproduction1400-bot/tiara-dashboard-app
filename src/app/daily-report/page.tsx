@@ -115,19 +115,32 @@ const blankSummary = (): SummaryState => ({
   difference: "",
 });
 
-const hasFeeRows = (rows: FeeRow[]) =>
-  rows.some((row) => row.name.trim() || row.shop.trim() || row.amount.trim());
+const formatShortDate = (dateKey?: string) => {
+  const [, month, day] = String(dateKey ?? "").split("-");
+  if (!month || !day) return "";
+  return `${Number(month)}/${Number(day)}`;
+};
 
-const buildAutoReport = (targets: AssignmentRow[]): AutoReportState => {
+const buildAutoReport = (
+  targets: AssignmentRow[],
+  selectedDate: string,
+): AutoReportState => {
   const confirmed = targets.filter(
     (target) => target.assignmentStatus !== "canceled",
   );
+  const todaysConfirmed = confirmed.filter(
+    (target) => target.businessDate === selectedDate,
+  );
   const feeRows = confirmed
     .map((target) => ({
-      name: target.castName ?? "",
+      name:
+        target.businessDate && target.businessDate !== selectedDate
+          ? `${target.castName ?? ""} (${formatShortDate(target.businessDate)})`
+          : target.castName ?? "",
       shop: target.shopName ?? "",
       amount: amountText(toAmount(target.fee)),
       receiptStatus: target.receiptStatus,
+      businessDate: target.businessDate,
     }))
     .filter((row) => row.name || row.shop || row.amount);
   const collectedRows = feeRows
@@ -136,7 +149,7 @@ const buildAutoReport = (targets: AssignmentRow[]): AutoReportState => {
   const uncollectedRows = feeRows
     .filter((row) => row.receiptStatus !== "collected")
     .map(({ name, shop, amount }) => ({ name, shop, amount }));
-  const feeSubtotal = confirmed.reduce(
+  const feeSubtotal = todaysConfirmed.reduce(
     (sum, target) => sum + toAmount(target.fee),
     0,
   );
@@ -152,8 +165,8 @@ const buildAutoReport = (targets: AssignmentRow[]): AutoReportState => {
   return {
     summary: {
       ...blankSummary(),
-      dispatchCount: String(confirmed.length),
-      dispatchPeople: String(confirmed.length),
+      dispatchCount: String(todaysConfirmed.length),
+      dispatchPeople: String(todaysConfirmed.length),
       feeSubtotal: amountText(feeSubtotal),
       totalAmount: amountText(feeSubtotal),
       uncollectedFee: amountText(uncollectedFee),
@@ -180,7 +193,7 @@ export default function DailyReportPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autoReport, setAutoReport] = useState<AutoReportState>(() =>
-    buildAutoReport([]),
+    buildAutoReport([], todayKey()),
   );
 
   const [summary, setSummary] = useState<SummaryState>(() => blankSummary());
@@ -225,10 +238,13 @@ export default function DailyReportPage() {
   const loadReport = useCallback(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([fetchReceiptTargets(dateKey), getDailyReport(dateKey)])
+    Promise.all([
+      fetchReceiptTargets(dateKey, { includeOpen: true }),
+      getDailyReport(dateKey),
+    ])
       .then(([receiptTargets, report]) => {
         if (!mounted) return;
-        const nextAutoReport = buildAutoReport(receiptTargets);
+        const nextAutoReport = buildAutoReport(receiptTargets, dateKey);
         setAutoReport(nextAutoReport);
         if (report) {
           applyReport(report, nextAutoReport);
@@ -238,7 +254,7 @@ export default function DailyReportPage() {
       })
       .catch(() => {
         if (!mounted) return;
-        const emptyAutoReport = buildAutoReport([]);
+        const emptyAutoReport = buildAutoReport([], dateKey);
         setAutoReport(emptyAutoReport);
         resetReportState(emptyAutoReport);
       })
@@ -276,18 +292,14 @@ export default function DailyReportPage() {
 
   const applyReport = (report: DailyReportRecord, auto: AutoReportState) => {
     setSummary({
-      dispatchCount:
-        report.dispatchCount?.toString() || auto.summary.dispatchCount,
-      dispatchPeople:
-        report.dispatchPeople?.toString() || auto.summary.dispatchPeople,
-      feeSubtotal: report.feeSubtotal?.toString() ?? auto.summary.feeSubtotal,
+      dispatchCount: auto.summary.dispatchCount,
+      dispatchPeople: auto.summary.dispatchPeople,
+      feeSubtotal: auto.summary.feeSubtotal,
       advisorFee: report.advisorFee?.toString() ?? "",
       totalAmount: report.totalAmount?.toString() ?? auto.summary.totalAmount,
       startAmount: report.startAmount?.toString() ?? "",
-      uncollectedFee:
-        report.uncollectedFee?.toString() ?? auto.summary.uncollectedFee,
-      collectedFee:
-        report.collectedFee?.toString() ?? auto.summary.collectedFee,
+      uncollectedFee: auto.summary.uncollectedFee,
+      collectedFee: auto.summary.collectedFee,
       referralFee: report.referralFee?.toString() ?? "",
       cashDiff: report.cashDiff?.toString() ?? auto.summary.cashDiff,
       expenseTotal: report.expenseTotal?.toString() ?? "",
@@ -307,36 +319,8 @@ export default function DailyReportPage() {
         () => ({ label: "", amount: "" }),
       ),
     );
-    const savedUncollectedRows = padRows(
-      Array.isArray(report.uncollectedItems)
-        ? report.uncollectedItems.map((r: any) => ({
-            name: r?.name ?? "",
-            shop: r?.shop ?? "",
-            amount: r?.amount ?? "",
-          }))
-        : [],
-      MIN_FEE_ROWS,
-      () => ({ name: "", shop: "", amount: "" }),
-    );
-    const savedCollectedRows = padRows(
-      Array.isArray(report.collectedItems)
-        ? report.collectedItems.map((r: any) => ({
-            name: r?.name ?? "",
-            shop: r?.shop ?? "",
-            amount: r?.amount ?? "",
-          }))
-        : [],
-      MIN_FEE_ROWS,
-      () => ({ name: "", shop: "", amount: "" }),
-    );
-    setUncollectedRows(
-      hasFeeRows(savedUncollectedRows)
-        ? savedUncollectedRows
-        : auto.uncollectedRows,
-    );
-    setCollectedRows(
-      hasFeeRows(savedCollectedRows) ? savedCollectedRows : auto.collectedRows,
-    );
+    setUncollectedRows(auto.uncollectedRows);
+    setCollectedRows(auto.collectedRows);
     setReferralRows(
       padRows(
         Array.isArray(report.referralItems)

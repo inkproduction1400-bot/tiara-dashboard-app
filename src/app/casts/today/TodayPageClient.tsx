@@ -2101,6 +2101,17 @@ export default function Page() {
 
     let list: Cast[] = [...base];
 
+    if (pendingDispatchSlotIndex !== null) {
+      const assignedCastIds = new Set(
+        dispatchRows.map((row) => row.castId).filter(Boolean),
+      );
+      list = list.filter((c) => {
+        if (assignedCastIds.has(c.id)) return false;
+        const requestStatus = attendanceRequestByCastId.get(c.id)?.status;
+        return requestStatus !== "ok" && requestStatus !== "added";
+      });
+    }
+
     if (担当者 !== "all") {
       list = list.filter((c) => (c.ownerStaffName ?? "").includes(担当者));
     }
@@ -2293,6 +2304,7 @@ export default function Page() {
     sortKana,
     sortNumberSmallFirst,
     sortNumberLargeFirst,
+    pendingDispatchSlotIndex,
   ]);
 
   const ownerStaffOptions = useMemo(() => {

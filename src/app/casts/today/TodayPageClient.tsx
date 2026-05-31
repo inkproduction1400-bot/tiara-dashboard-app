@@ -97,7 +97,7 @@ type AttendanceRequestFilter = "" | "none" | AttendanceRequestStatus;
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
   const withoutSuffix = trimmed.replace(/[~〜～]+$/u, "").trim();
-  return withoutSuffix || "21:00";
+  return withoutSuffix;
 };
 
 const buildDispatchSlots = (
@@ -2393,6 +2393,7 @@ export default function Page() {
     const next = { ...row, ...patch };
     if (!next.shopId) return null;
     const startTime = normalizeDispatchTimeForSave(next.startTime);
+    if (!startTime) return null;
     setDispatchSavingKey(next.castId);
     try {
       const res = await upsertDispatchSheetRow({
@@ -2428,12 +2429,14 @@ export default function Page() {
       shopId: shop.id,
       shopName: shop.name,
       shopNumber: shop.code,
-      startTime: row.startTime || "21:00",
+      startTime: row.startTime || "",
       castHourly: row.castHourly ?? row.desiredHourly ?? null,
     };
     updateDispatchRowLocal(castId, patch);
     setDispatchShopPickerCastId(null);
-    await saveDispatchRow(row, patch);
+    if (normalizeDispatchTimeForSave(patch.startTime)) {
+      await saveDispatchRow(row, patch);
+    }
   };
 
   const markAttendanceRequest = async (
@@ -2481,6 +2484,10 @@ export default function Page() {
   const confirmOneDispatchRow = async (row: DispatchSheetRow) => {
     if (!row.shopId) {
       alert("派遣先を選択してください。");
+      return;
+    }
+    if (!normalizeDispatchTimeForSave(row.startTime)) {
+      alert("時間を入力してください。");
       return;
     }
     const savedRows =

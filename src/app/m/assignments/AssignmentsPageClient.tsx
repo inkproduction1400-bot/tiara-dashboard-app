@@ -6,6 +6,7 @@ import { CastPhotoImage } from "@/components/CastPhotoImage";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import {
+  cancelDispatchSheetRow,
   confirmDispatchSheetRow,
   getDispatchSheet,
   upsertAttendanceRequest,
@@ -89,6 +90,7 @@ function DispatchMiniCard({
   onOpenShopPicker,
   onOpenCastPicker,
   onConfirm,
+  onCancel,
 }: {
   row: DispatchSheetRow;
   index: number;
@@ -98,9 +100,15 @@ function DispatchMiniCard({
   onOpenShopPicker: (castId: string) => void;
   onOpenCastPicker: (slotIndex: number) => void;
   onConfirm: (row: DispatchSheetRow) => void;
+  onCancel: (row: DispatchSheetRow) => void;
 }) {
   const isEmpty = !row.displayName;
   const disabled = isEmpty || saving;
+  const canCancel =
+    !isEmpty &&
+    !saving &&
+    ((row.manualAdded && row.status === "draft") ||
+      (row.status === "confirmed" && Boolean(row.assignmentId)));
   const inputClass =
     "h-7 w-full min-w-0 border border-slate-300 bg-white px-1 text-[11px] text-slate-900 outline-none focus:border-[#0b8ef3]";
   return (
@@ -208,7 +216,7 @@ function DispatchMiniCard({
         />
       </div>
 
-      <div className="grid grid-cols-[42px_minmax(0,1fr)_48px]">
+      <div className="grid grid-cols-[42px_minmax(0,1fr)_46px_46px]">
         <div className="bg-slate-100 px-1.5 py-1 font-bold text-slate-700">
           メモ
         </div>
@@ -230,6 +238,18 @@ function DispatchMiniCard({
           }`}
         >
           {saving ? "保存" : row.status === "confirmed" ? "確定" : "確定"}
+        </button>
+        <button
+          type="button"
+          disabled={!canCancel}
+          onClick={() => onCancel(row)}
+          className={`border-l border-slate-300 px-1 text-[10px] font-bold ${
+            canCancel
+              ? "bg-rose-50 text-rose-600"
+              : "bg-slate-50 text-slate-300"
+          }`}
+        >
+          {row.status === "confirmed" ? "取消" : "解除"}
         </button>
       </div>
     </article>
@@ -576,6 +596,60 @@ export default function AssignmentsPageClient() {
     [load, rows, saveRow],
   );
 
+  const cancelOrRemoveRow = useCallback(
+    async (row: DispatchSheetRow) => {
+      if (row.status === "confirmed") {
+        if (!row.assignmentId) return;
+        const reason =
+          window.prompt(
+            "キャンセル理由を入力してください。",
+            row.cancellationReason || "当日欠勤",
+          ) ?? "";
+        const trimmed = reason.trim();
+        if (!trimmed) return;
+        if (!window.confirm(`${row.displayName} の確定済み派遣をキャンセルしますか？`)) {
+          return;
+        }
+        setSavingCastId(row.castId);
+        try {
+          await cancelDispatchSheetRow(row.assignmentId, trimmed);
+          await load();
+        } catch (err) {
+          console.warn("[m/assignments] failed to cancel dispatch row", err);
+          alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+        } finally {
+          setSavingCastId(null);
+        }
+        return;
+      }
+
+      if (!row.manualAdded || row.status !== "draft") return;
+      if (
+        !window.confirm(
+          `${row.displayName} を派遣表から外しますか？入力ミス扱いのため、キャンセル履歴には含めません。`,
+        )
+      ) {
+        return;
+      }
+      setSavingCastId(row.castId);
+      try {
+        await upsertAttendanceRequest({
+          date,
+          castId: row.castId,
+          status: "removed",
+          displayOrder: row.displayOrder ?? null,
+        });
+        await load();
+      } catch (err) {
+        console.warn("[m/assignments] failed to remove manual dispatch row", err);
+        alert("派遣表から外す処理に失敗しました。時間をおいて再度お試しください。");
+      } finally {
+        setSavingCastId(null);
+      }
+    },
+    [date, load],
+  );
+
   return (
     <MobileShell edgeToEdge>
       <MobileHeader
@@ -624,6 +698,9 @@ export default function AssignmentsPageClient() {
                 onOpenCastPicker={openCastPicker}
                 onConfirm={(targetRow) => {
                   void confirmRow(targetRow);
+                }}
+                onCancel={(targetRow) => {
+                  void cancelOrRemoveRow(targetRow);
                 }}
               />
             ))}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import OtpDialog from "./OtpDialog";
 import { getDeviceId, saveToken } from "@/lib/device";
-import { login, verifyChallenge } from "@/lib/api";
+import { changeDashboardPassword, login, verifyChallenge } from "@/lib/api";
 import { isCurrentPhoneDevice } from "@/lib/mobile-device";
 
 // ⬇ デモ判定を api.ts と同じ環境変数名に統一
@@ -23,6 +23,10 @@ export default function LoginForm() {
   const [err, setErr] = useState<string | null>(null);
   const [otpOpen, setOtpOpen] = useState(false);
   const [txId, setTxId] = useState<string | null>(null);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
 
   useEffect(() => {
     setTimeout(() => {
@@ -60,6 +64,10 @@ export default function LoginForm() {
           localStorage.setItem("tiara:user_id", res.user.id);
           localStorage.setItem("tiara:user_type", res.user.userType);
           localStorage.setItem(
+            "tiara:must_change_password",
+            res.user.mustChangePassword ? "1" : "0",
+          );
+          localStorage.setItem(
             "tiara_user_name",
             res.user.staffName || res.user.loginId || res.user.email || "ゲスト",
           );
@@ -68,6 +76,10 @@ export default function LoginForm() {
           } else {
             localStorage.removeItem("tiara:staff_name");
           }
+        }
+        if (res.user?.mustChangePassword) {
+          setPasswordChangeOpen(true);
+          return;
         }
         router.replace(resolvePostLoginPath());
         return;
@@ -109,6 +121,45 @@ export default function LoginForm() {
       setErr(ex?.message ?? "確認コードが正しくありません");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (newPassword.length < 8) {
+      setErr("新しいパスワードは8文字以上で入力してください");
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setErr("新しいパスワードが一致していません");
+      return;
+    }
+    if (newPassword === pw) {
+      setErr("現在のパスワードとは別のパスワードを設定してください");
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+    try {
+      const user = await changeDashboardPassword(pw, newPassword);
+      localStorage.setItem("tiara:must_change_password", "0");
+      localStorage.setItem("tiara:user_id", user.id);
+      localStorage.setItem("tiara:user_type", user.userType);
+      localStorage.setItem(
+        "tiara_user_name",
+        user.staffName || user.loginId || user.email || "ゲスト",
+      );
+      if (user.staffName) {
+        localStorage.setItem("tiara:staff_name", user.staffName);
+      } else {
+        localStorage.removeItem("tiara:staff_name");
+      }
+      router.replace(resolvePostLoginPath());
+    } catch (ex: any) {
+      setErr(ex?.message ?? "パスワード変更に失敗しました");
+    } finally {
+      setPasswordChangeLoading(false);
     }
   }
 
@@ -162,6 +213,44 @@ export default function LoginForm() {
         }}
         onSubmit={handleOtp}
       />
+      {passwordChangeOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 px-4">
+          <form
+            onSubmit={handlePasswordChange}
+            className="w-full max-w-md rounded-md border border-indigo-200/30 bg-slate-900 p-6 text-white shadow-xl"
+          >
+            <h2 className="text-lg font-bold">初回パスワード変更</h2>
+            <p className="mt-2 text-sm text-indigo-100">
+              初期パスワードでログインしています。新しいパスワードを設定してください。
+            </p>
+            <div className="mt-5 grid gap-3">
+              <input
+                className="tiara-input"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="新しいパスワード"
+                autoComplete="new-password"
+              />
+              <input
+                className="tiara-input"
+                type="password"
+                value={newPasswordConfirm}
+                onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                placeholder="新しいパスワード（確認）"
+                autoComplete="new-password"
+              />
+              <button
+                type="submit"
+                disabled={passwordChangeLoading}
+                className="mt-2 rounded-md bg-indigo-500 px-4 py-3 font-bold text-white disabled:opacity-60"
+              >
+                {passwordChangeLoading ? "変更中..." : "変更して開始"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 }

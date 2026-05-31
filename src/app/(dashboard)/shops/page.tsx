@@ -23,6 +23,7 @@ import {
   listShopFixedCasts,
   listShopNgCasts,
 } from "@/lib/api.shops";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 
 type PerPage = number | "all";
 type YesNoFilter = "" | "yes" | "no";
@@ -223,6 +224,22 @@ export default function ShopsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ShopListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
+
+  useEffect(() => {
+    let canceled = false;
+    listStaffs()
+      .then((rows) => {
+        if (!canceled) setStaffAccounts(rows);
+      })
+      .catch((e) => {
+        console.warn("[ShopsPage] failed to load staffs", e);
+        if (!canceled) setStaffAccounts([]);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   // キーワード・店舗番号・ジャンルでのフィルタ & 並び替え
   const filteredItems = useMemo(() => {
@@ -767,6 +784,7 @@ export default function ShopsPage() {
           detail={shopDetail}
           loading={shopDetailLoading}
           error={shopDetailError}
+          staffAccounts={staffAccounts}
           onClose={handleCloseModal}
           onSaved={async (updated) => {
             // 一覧の items を即時反映
@@ -970,6 +988,7 @@ type ShopDetailModalProps = {
   detail: ShopDetail | null;
   loading: boolean;
   error: string | null;
+  staffAccounts: StaffUser[];
   onClose: () => void;
   onSaved: (updated: ShopDetail) => void | Promise<void>;
 };
@@ -979,6 +998,7 @@ function ShopDetailModal({
   detail,
   loading,
   error,
+  staffAccounts,
   onClose,
   onSaved,
 }: ShopDetailModalProps) {
@@ -1087,7 +1107,18 @@ function ShopDetailModal({
     "6000円以上",
   ];
 
-  const staffOptions = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
+  const staffOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const staff of staffAccounts) {
+      if (staff.userType !== "staff") continue;
+      if (staff.status !== "active") continue;
+      const name = staff.loginId?.trim();
+      if (name && !name.toLowerCase().includes("demo")) names.add(name);
+    }
+    const current = ownerStaff.trim();
+    if (current && current !== "-") names.add(current);
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [ownerStaff, staffAccounts]);
   const bodyTypeOptions = ["細身", "普通", "グラマー", "ぽっちゃり", "不明"];
   const heightOptions = ["〜150", "151〜155", "156〜160", "161〜165", "166〜170", "171〜"];
 

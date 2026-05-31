@@ -16,6 +16,7 @@ import {
   updateCastChatSendDisabled,
   updateCastTodayShift,
 } from "@/lib/api.casts";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import { subscribeSocketMessages } from "@/lib/socket";
 
 type Staff = {
@@ -269,12 +270,6 @@ type AgeRangeFilter =
   | "40-49"
   | "50-";
 
-const STAFF_FILTERS = [
-  { id: "all", label: "担当者：すべて" },
-  { id: "永井", label: "永井" },
-  { id: "北村", label: "北村" },
-];
-
 type ApiSummaryResponse = {
   unreadNotifications: number;
   counts: Record<string, number>;
@@ -314,6 +309,7 @@ function ChatContent() {
   const [staffFilter, setStaffFilter] = useState<string>("all");
   const [notificationTarget, setNotificationTarget] = useState<string>("mine");
   const [currentStaffName, setCurrentStaffName] = useState<string>("");
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("default");
   const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
@@ -484,9 +480,17 @@ function ChatContent() {
   ]);
 
   const staffFilterOptions = useMemo(() => {
-    const options = new Map(STAFF_FILTERS.map((item) => [item.id, item.label]));
+    const options = new Map<string, string>([["all", "担当者：すべて"]]);
     if (currentStaffName && !options.has(currentStaffName)) {
       options.set(currentStaffName, `${currentStaffName}（自分）`);
+    }
+    for (const staff of staffAccounts) {
+      if (staff.userType !== "staff") continue;
+      if (staff.status !== "active") continue;
+      const name = staff.loginId?.trim();
+      if (name && !name.toLowerCase().includes("demo") && !options.has(name)) {
+        options.set(name, name);
+      }
     }
     for (const room of rooms) {
       if (room.staffName && room.staffName !== "担当者") {
@@ -494,7 +498,7 @@ function ChatContent() {
       }
     }
     return Array.from(options.entries()).map(([id, label]) => ({ id, label }));
-  }, [currentStaffName, rooms]);
+  }, [currentStaffName, rooms, staffAccounts]);
 
   const notificationTargetOptions = useMemo(() => {
     const options = new Map<string, string>([
@@ -641,6 +645,20 @@ function ChatContent() {
         if (storedType.toLowerCase() !== "admin" && storedStaff) {
           setStaffFilter(storedStaff);
         }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    listStaffs()
+      .then((items) => {
+        if (mounted) setStaffAccounts(items);
+      })
+      .catch((err) => {
+        console.warn("[chat] failed to load staffs", err);
       });
     return () => {
       mounted = false;

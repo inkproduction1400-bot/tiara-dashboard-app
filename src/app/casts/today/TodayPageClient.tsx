@@ -45,6 +45,7 @@ import {
   updateMatchingSettings,
   type MatchingSettings,
 } from "@/lib/api.matching";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import {
   cancelDispatchSheetRow,
   confirmDispatchSheet,
@@ -1061,6 +1062,7 @@ export default function Page() {
   const [keyword, setKeyword] = useState("");
   const [担当者, set担当者] = useState<string>("all");
   const [currentStaffName, setCurrentStaffName] = useState<string>("");
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [dispatchStatusFilter, setDispatchStatusFilter] =
     useState<DispatchStatusFilter>("");
   const [statusTab, setStatusTab] = useState<CastStatusTab>("today");
@@ -1141,6 +1143,20 @@ export default function Page() {
         if (storedType.toLowerCase() !== "admin" && storedStaff) {
           set担当者(storedStaff);
         }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    listStaffs()
+      .then((items) => {
+        if (mounted) setStaffAccounts(items);
+      })
+      .catch((err) => {
+        console.warn("[casts/today] failed to load staffs", err);
       });
     return () => {
       mounted = false;
@@ -2310,12 +2326,18 @@ export default function Page() {
   const ownerStaffOptions = useMemo(() => {
     const names = new Set<string>();
     if (currentStaffName) names.add(currentStaffName);
+    for (const staff of staffAccounts) {
+      if (staff.userType !== "staff") continue;
+      if (staff.status !== "active") continue;
+      const name = staff.loginId?.trim();
+      if (name && !name.toLowerCase().includes("demo")) names.add(name);
+    }
     for (const cast of allCasts) {
       const name = cast.ownerStaffName?.trim();
       if (name) names.add(name);
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [allCasts, currentStaffName]);
+  }, [allCasts, currentStaffName, staffAccounts]);
 
   const formatDrinkLabel = (cast: Cast) => {
     switch (cast.drinkLevel) {

@@ -27,6 +27,7 @@ import {
   type CastShiftRequestSelection,
 } from "@/lib/api.casts";
 import { listShops } from "@/lib/api.shops";
+import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 
 import { apiPost } from "@/lib/api";
 
@@ -365,6 +366,7 @@ export default function Page() {
   const [sortMode, setSortMode] = useState<SortMode>("kana");
 
   const [baseRows, setBaseRows] = useState<CastRow[]>([]);
+  const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [loading, setLoading] = useState(false);
@@ -402,6 +404,20 @@ export default function Page() {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [q]);
+
+  useEffect(() => {
+    let mounted = true;
+    listStaffs()
+      .then((items) => {
+        if (mounted) setStaffAccounts(items);
+      })
+      .catch((err) => {
+        console.warn("[casts] failed to load staffs", err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // フィルタ変更時は先頭ページに戻す
   useEffect(() => {
@@ -487,14 +503,18 @@ export default function Page() {
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
-    // shops/page.tsx と同じ暫定一覧（本番で ownerStaffName が空でも UI が死なないように）
-    const FALLBACK = ["北村", "北村2", "川上", "馬場崎", "長谷川", "陣内", "梶原", "宮崎"];
-    const set = new Set<string>(FALLBACK);
+    const set = new Set<string>();
+    staffAccounts.forEach((staff) => {
+      if (staff.userType !== "staff") return;
+      if (staff.status !== "active") return;
+      const name = staff.loginId?.trim();
+      if (name && !name.toLowerCase().includes("demo")) set.add(name);
+    });
     baseRows.forEach((r) => {
       if (r.ownerStaffName && r.ownerStaffName !== "-") set.add(r.ownerStaffName);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [baseRows]);
+  }, [baseRows, staffAccounts]);
 
   const rows = baseRows;
 

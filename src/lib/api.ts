@@ -17,6 +17,7 @@ export type DashboardUser = {
   email: string | null;
   loginId: string | null;
   staffName: string | null;
+  mustChangePassword?: boolean;
 };
 
 export type LoginOk = { status: "ok"; token: string; user?: DashboardUser };
@@ -62,15 +63,17 @@ export async function apiFetch<T>(
     rawToken && rawToken !== "null" && rawToken !== "undefined"
       ? rawToken
       : null;
-  // 認証系エンドポイントかどうか
-  const isAuthPath = path.startsWith("/auth/");
+  const isPublicAuthPath =
+    path === "/auth/login" ||
+    path === "/auth/cast-login" ||
+    path === "/auth/challenge/verify" ||
+    path.startsWith("/auth/password/");
 
   // 基本ヘッダ
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(init?.headers ?? {}),
-    // /auth/* のときは Authorization を付けない
-    ...(!isAuthPath && token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(!isPublicAuthPath && token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
@@ -135,6 +138,16 @@ export async function login(
 
 export async function getCurrentUser() {
   return apiGet<DashboardUser>("/auth/me");
+}
+
+export async function changeDashboardPassword(
+  currentPassword: string,
+  newPassword: string,
+) {
+  return apiFetch<DashboardUser>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 export const CHAT_NOTIFICATION_TARGET_KEY = "tiara:chat_notification_target";

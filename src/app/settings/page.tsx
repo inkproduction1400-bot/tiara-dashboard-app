@@ -29,7 +29,7 @@ const defaultCreate: CreateStaffInput = {
   password: "",
   userType: "staff",
   status: "active",
-  mustChangePassword: false,
+  mustChangePassword: true,
 };
 
 const defaultVehicleCreate = {

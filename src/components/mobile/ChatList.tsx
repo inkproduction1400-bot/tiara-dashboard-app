@@ -55,6 +55,18 @@ export function ChatList({
     }
   }, [notificationOpen, notificationTarget]);
 
+  useEffect(() => {
+    if (!filterOpen && !notificationOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.touchAction = previousTouchAction;
+    };
+  }, [filterOpen, notificationOpen]);
+
   const selectedStaffSummary =
     selectedStaffs.length === 0
       ? "担当者: すべて"
@@ -136,12 +148,11 @@ export function ChatList({
       </div>
 
       {filterOpen ? (
-        <div className="fixed inset-0 z-50 overflow-x-clip overflow-y-auto bg-slate-900/35">
-          <div className="mx-auto flex min-h-dvh w-full max-w-[420px] min-w-0 items-end px-3">
-            <div className="flex max-h-[calc(100dvh-24px)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
-            <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
-            <div className="mt-4 flex items-center justify-between">
-              <div>
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-slate-900/35 px-3 pt-4">
+          <div className="flex h-[calc(100dvh-16px)] w-full max-w-[420px] min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 shadow-2xl">
+            <div className="mx-auto h-1.5 w-12 shrink-0 rounded-full bg-slate-200" />
+            <div className="mt-4 flex shrink-0 items-center justify-between">
+              <div className="min-w-0">
                 <p className="text-base font-bold text-slate-900">担当者フィルタ</p>
                 <p className="text-xs text-slate-500">複数選択で絞り込みできます</p>
               </div>
@@ -154,7 +165,7 @@ export function ChatList({
               </button>
             </div>
 
-            <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+            <div className="mt-4 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
               {staffOptions.map((staff) => {
                 const active = draftStaffs.includes(staff);
                 return (
@@ -181,7 +192,7 @@ export function ChatList({
               })}
             </div>
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => setDraftStaffs([])}
@@ -202,15 +213,13 @@ export function ChatList({
             </div>
           </div>
         </div>
-        </div>
       ) : null}
       {notificationOpen ? (
-        <div className="fixed inset-0 z-50 overflow-x-clip overflow-y-auto bg-slate-900/35">
-          <div className="mx-auto flex min-h-dvh w-full max-w-[420px] min-w-0 items-end px-3">
-            <div className="flex max-h-[calc(100dvh-24px)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-6 pt-4 shadow-2xl">
-              <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />
-              <div className="mt-4 flex items-center justify-between">
-                <div>
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-slate-900/35 px-3 pt-4">
+          <div className="flex h-[calc(100dvh-16px)] w-full max-w-[420px] min-w-0 flex-col overflow-hidden rounded-t-[28px] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 shadow-2xl">
+              <div className="mx-auto h-1.5 w-12 shrink-0 rounded-full bg-slate-200" />
+              <div className="mt-4 flex shrink-0 items-center justify-between">
+                <div className="min-w-0">
                   <p className="text-base font-bold text-slate-900">通知設定</p>
                   <p className="text-xs text-slate-500">チャット通知を受け取る担当範囲を選択します</p>
                 </div>
@@ -223,7 +232,7 @@ export function ChatList({
                 </button>
               </div>
 
-              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+              <div className="mt-4 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
                 {notificationTargetOptions.map((option) => {
                   const active = draftNotificationTarget === option.id;
                   return (
@@ -246,7 +255,7 @@ export function ChatList({
                 })}
               </div>
 
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex shrink-0 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -270,7 +279,6 @@ export function ChatList({
                 </button>
               </div>
             </div>
-          </div>
         </div>
       ) : null}
     </div>

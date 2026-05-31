@@ -274,6 +274,10 @@ export type CastDetail = {
 
   /** 旧システムのスタッフID（存在する場合のみ） */
   legacyStaffId?: number | null;
+
+  /** 確定済み派遣履歴から集計した最終出勤日・出勤回数 */
+  lastWorkDate?: string | null;
+  workCount?: number | null;
 };
 
 export type CastShift = {

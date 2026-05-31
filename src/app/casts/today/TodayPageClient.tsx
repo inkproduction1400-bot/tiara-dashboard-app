@@ -5208,16 +5208,46 @@ export default function Page() {
                     </div>
                   )}
                 </div>
-                <div className="mt-2 flex items-center gap-6 text-sm text-gray-700 justify-start">
-                  <div>
-                    <span className="text-muted">最終出勤日</span>{" "}
-                    <span className="font-semibold text-gray-800">未登録</span>
-                  </div>
-                  <div>
-                    <span className="text-muted">出勤回数</span>{" "}
-                    <span className="font-semibold text-gray-800">- 回</span>
-                  </div>
-                </div>
+                {(() => {
+                  const detail = castDetailById[selectedCast.id] ?? null;
+                  const lastWorkDate =
+                    typeof detail?.lastWorkDate === "string" &&
+                    detail.lastWorkDate.trim()
+                      ? detail.lastWorkDate.slice(0, 10)
+                      : null;
+                  const workCountRaw = detail?.workCount;
+                  const workCount =
+                    typeof workCountRaw === "number"
+                      ? workCountRaw
+                      : typeof workCountRaw === "string" &&
+                          workCountRaw.trim() !== ""
+                        ? Number(workCountRaw)
+                        : null;
+                  return (
+                    <div className="mt-2 flex items-center gap-6 text-sm text-gray-700 justify-start">
+                      <div>
+                        <span className="text-muted">最終出勤日</span>{" "}
+                        <span className="font-semibold text-gray-800">
+                          {detail
+                            ? lastWorkDate
+                              ? lastWorkDate
+                              : "未登録"
+                            : "読込中..."}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted">出勤回数</span>{" "}
+                        <span className="font-semibold text-gray-800">
+                          {detail && Number.isFinite(workCount)
+                            ? `${workCount} 回`
+                            : detail
+                              ? "0 回"
+                              : "読込中..."}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

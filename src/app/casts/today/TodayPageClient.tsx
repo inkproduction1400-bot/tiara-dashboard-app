@@ -2337,8 +2337,16 @@ export default function Page() {
 
   const dispatchShopCandidates = useMemo(() => {
     const q = dispatchShopQuery.trim().toLowerCase();
+    const pickerCastId = dispatchShopPickerCastId;
     return dispatchShops
       .filter((shop) => {
+        if (
+          pickerCastId &&
+          Array.isArray(shop.blockedCastIds) &&
+          shop.blockedCastIds.includes(pickerCastId)
+        ) {
+          return false;
+        }
         if (dispatchOwnerFilter && shop.ownerStaff !== dispatchOwnerFilter) {
           return false;
         }
@@ -2376,6 +2384,7 @@ export default function Page() {
   }, [
     dispatchShops,
     dispatchShopQuery,
+    dispatchShopPickerCastId,
     dispatchOwnerFilter,
     dispatchGenreFilter,
   ]);

@@ -12,6 +12,7 @@ export type DispatchSheetShop = {
   wageLabel: string | null;
   addressLine: string | null;
   buildingName: string | null;
+  blockedCastIds?: string[];
 };
 
 export type DispatchSheetRow = {

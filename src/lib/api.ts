@@ -99,7 +99,9 @@ export async function apiFetch<T>(
     throw new Error(`API ${res.status} ${res.statusText}`);
   }
 
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!text) return null as T;
+  return JSON.parse(text) as T;
 }
 
 // ========= 汎用ヘルパー =========

@@ -1138,12 +1138,15 @@ function CastDetailModal({
   mode = "edit",
 }: CastDetailModalProps) {
   const isCreate = mode === "create";
-  const [showHonsekiDocs, setShowHonsekiDocs] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [ngModalOpen, setNgModalOpen] = useState(false);
   const [exclusiveModalOpen, setExclusiveModalOpen] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [idDocPreview, setIdDocPreview] = useState<{
+    src: string;
+    label: string;
+  } | null>(null);
 
   const [form, setForm] = useState<CastDetailForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -2220,7 +2223,7 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
               )}
             </div>
 <div className="flex items-center gap-2">
-              <button onClick={() => setShowHonsekiDocs((v) => !v)} className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
+              <button type="button" className="px-3 py-1 rounded-xl text-[11px] border border-gray-300 bg-gray-50">
                 チャットで連絡
               </button>
               <button
@@ -2766,33 +2769,56 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                           }
                         }}
                       />
-                    <button
-                      type="button"
-                      className="px-4 h-9 rounded-md bg-[#2b78e4] text-white border border-black/40 text-xs"
-                      onClick={() => {
-                        // 保存先・アップロード仕様が確定したら実装
-                        setShowHonsekiDocs((v) => !v);
-                      }}
-                    >
-                      本籍地記載書類
-                    </button>
+                  </div>
 
-{showHonsekiDocs && (
-  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <div className="mt-3 rounded-xl border border-black/40 bg-white/80 p-3">
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="text-xs font-semibold text-ink">身分証・本籍地書類</div>
+      <div className="flex flex-wrap gap-1 text-[10px]">
+        <span className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5">
+          種別: {form?.idDocType || "未設定"}
+        </span>
+        <span className="rounded border border-slate-300 bg-slate-50 px-2 py-0.5">
+          証明: {form?.residencyProof || "未設定"}
+        </span>
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
     {/* 顔写真付き */}
     <div className="flex flex-col items-center">
-      <div className="w-full text-left text-[11px] text-muted mb-1">
-        顔写真付き（id_with_face）
+      <div className="mb-1 flex w-full items-center justify-between gap-2 text-left text-[11px] text-muted">
+        <span>顔写真付き（id_with_face）</span>
+        <span
+          className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+            idWithFacePreviewUrl
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {idWithFacePreviewUrl ? "登録済み" : "未登録"}
+        </span>
       </div>
 
       <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
         {idWithFacePreviewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={idWithFacePreviewUrl}
-            alt="id_with_face"
-            className="w-full h-full object-cover"
-          />
+          <button
+            type="button"
+            className="h-full w-full"
+            onClick={() =>
+              setIdDocPreview({
+                src: idWithFacePreviewUrl,
+                label: "顔写真付き身分証",
+              })
+            }
+            aria-label="顔写真付き身分証を拡大"
+          >
+            <CastPhotoImage
+              src={idWithFacePreviewUrl}
+              alt="顔写真付き身分証"
+              className="w-full h-full object-cover"
+              fallback={<span className="text-[10px] text-muted">表示不可</span>}
+            />
+          </button>
         ) : (
           <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
             <div className="font-semibold">アップロード＋</div>
@@ -2847,18 +2873,39 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
 
     {/* 顔写真なし */}
     <div className="flex flex-col items-center">
-      <div className="w-full text-left text-[11px] text-muted mb-1">
-        顔写真なし（id_without_face）
+      <div className="mb-1 flex w-full items-center justify-between gap-2 text-left text-[11px] text-muted">
+        <span>顔写真なし（id_without_face）</span>
+        <span
+          className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+            idWithoutFacePreviewUrl
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {idWithoutFacePreviewUrl ? "登録済み" : "未登録"}
+        </span>
       </div>
 
       <div className="w-24 sm:w-28 aspect-[3/4] rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
         {idWithoutFacePreviewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={idWithoutFacePreviewUrl}
-            alt="id_without_face"
-            className="w-full h-full object-cover"
-          />
+          <button
+            type="button"
+            className="h-full w-full"
+            onClick={() =>
+              setIdDocPreview({
+                src: idWithoutFacePreviewUrl,
+                label: "顔写真なし身分証",
+              })
+            }
+            aria-label="顔写真なし身分証を拡大"
+          >
+            <CastPhotoImage
+              src={idWithoutFacePreviewUrl}
+              alt="顔写真なし身分証"
+              className="w-full h-full object-cover"
+              fallback={<span className="text-[10px] text-muted">表示不可</span>}
+            />
+          </button>
         ) : (
           <label className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer text-[11px] text-muted">
             <div className="font-semibold">アップロード＋</div>
@@ -2925,10 +2972,12 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
       </button>
     </div>
   </div>
-)}
-
-
-                  </div>
+  {form?.idMemo ? (
+    <div className="mt-2 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+      備考: {form.idMemo}
+    </div>
+  ) : null}
+</div>
                     {faceUploadErr && (
                       <div className="pt-1 text-xs text-red-600">
                         顔写真アップロードエラー: {faceUploadErr}
@@ -3198,6 +3247,38 @@ const [faceUploadErr, setFaceUploadErr] = useState<string | null>(null);
                 src={photoEntries[activePhotoIndex]?.display}
                 fallbackSrc={photoEntries[activePhotoIndex]?.fallback}
                 alt="拡大写真"
+                className="w-full h-auto object-contain max-h-[75vh]"
+                fallback={<div className="h-[40vh] w-full bg-black" />}
+                loading="eager"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {idDocPreview && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setIdDocPreview(null)}
+        >
+          <div
+            className="relative w-full max-w-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute top-3 right-3 z-10 h-10 px-4 rounded-full bg-white/90 text-sm"
+              onClick={() => setIdDocPreview(null)}
+            >
+              閉じる
+            </button>
+            <div className="mb-2 text-sm font-semibold text-white">
+              {idDocPreview.label}
+            </div>
+            <div className="w-full rounded-2xl overflow-hidden bg-black">
+              <CastPhotoImage
+                src={idDocPreview.src}
+                alt={idDocPreview.label}
                 className="w-full h-auto object-contain max-h-[75vh]"
                 fallback={<div className="h-[40vh] w-full bg-black" />}
                 loading="eager"

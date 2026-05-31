@@ -195,6 +195,10 @@ export default function ReceiptsPage() {
     value: "uncollected" | "collected",
   ) => {
     if (!row.assignmentId) return;
+    if (value === "collected" && row.receiptRevisionStatus === "needs_reissue") {
+      alert("領収書の内容が最新ではありません。再発行後に回収済みにしてください。");
+      return;
+    }
     const previous = row.receiptStatus ?? "uncollected";
     setRows((current) =>
       current.map((item) =>
@@ -236,7 +240,16 @@ export default function ReceiptsPage() {
     setSavingFeeKey(key);
     setRows((current) =>
       current.map((item) =>
-        rowKey(item) === key ? { ...item, fee: nextFee ?? undefined } : item,
+        rowKey(item) === key
+          ? {
+              ...item,
+              fee: nextFee ?? undefined,
+              receiptRevisionStatus:
+                item.receiptRevisionStatus === "issued"
+                  ? "needs_reissue"
+                  : item.receiptRevisionStatus,
+            }
+          : item,
       ),
     );
     try {
@@ -271,6 +284,18 @@ export default function ReceiptsPage() {
         startTime: payload.startTime ?? null,
         endTime: payload.endTime ?? null,
       });
+      setRows((current) =>
+        current.map((item) =>
+          rowKey(item) === rowKey(activeRow)
+            ? {
+                ...item,
+                receiptIssuedFee: payload.fee ?? null,
+                receiptRevisionStatus: "issued",
+                receiptPrintedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
       const res = await fetch("/api/receipts/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -466,6 +491,8 @@ export default function ReceiptsPage() {
                 {visibleRows.map((row, index) => {
                   const key = rowKey(row);
                   const isCanceled = row.assignmentStatus === "canceled";
+                  const needsReissue =
+                    row.receiptRevisionStatus === "needs_reissue";
                   const collectionValue =
                     row.receiptStatus === "collected"
                       ? "collected"
@@ -490,6 +517,11 @@ export default function ReceiptsPage() {
                       </td>
                       <td className="break-words border border-slate-700 px-1 py-0.5 text-[11px] font-semibold">
                         {row.castName}
+                        {needsReissue && (
+                          <div className="text-[8px] font-bold text-rose-700">
+                            要再発行
+                          </div>
+                        )}
                         {row.businessDate !== businessDate && (
                           <div className="text-[8px] font-normal text-amber-700">
                             未回収: {row.businessDate}
@@ -526,7 +558,13 @@ export default function ReceiptsPage() {
                           onClick={() => handleOpenModal(row)}
                           disabled={isCanceled}
                         >
-                          {isCanceled ? "-" : "発行"}
+                          {isCanceled
+                            ? "-"
+                            : needsReissue
+                              ? "再発行"
+                              : row.receiptRevisionStatus === "issued"
+                                ? "再発行"
+                                : "発行"}
                         </button>
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-right text-[11px]">
@@ -555,7 +593,7 @@ export default function ReceiptsPage() {
                         <select
                           className="h-6 w-full border border-slate-500 bg-white text-center text-sm leading-none"
                           value={collectionValue}
-                          disabled={isCanceled}
+                          disabled={isCanceled || needsReissue}
                           onChange={(event) =>
                             handleCollectionChange(
                               row,

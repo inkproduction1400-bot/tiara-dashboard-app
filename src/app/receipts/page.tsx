@@ -60,6 +60,13 @@ const formatAmount = (value?: number) => {
   return value.toLocaleString("ja-JP");
 };
 
+const receiptDisplayPriority = (row: AssignmentRow, businessDate: string) => {
+  const isPastOpen = row.businessDate !== businessDate;
+  if (isPastOpen) return 2;
+  if (row.assignmentStatus === "canceled") return 1;
+  return 0;
+};
+
 type ReceiptFormState = {
   businessDate: string;
   receiptDate: string;
@@ -157,7 +164,19 @@ export default function ReceiptsPage() {
     });
   }, [businessDate]);
 
-  const visibleRows = rows;
+  const visibleRows = useMemo(
+    () =>
+      [...rows].sort((a, b) => {
+        const priorityDiff =
+          receiptDisplayPriority(a, businessDate) -
+          receiptDisplayPriority(b, businessDate);
+        if (priorityDiff !== 0) return priorityDiff;
+        const dateDiff = a.businessDate.localeCompare(b.businessDate);
+        if (dateDiff !== 0) return dateDiff;
+        return rowKey(a).localeCompare(rowKey(b));
+      }),
+    [businessDate, rows],
+  );
 
   const reiwa = useMemo(() => formatReiwa(businessDate), [businessDate]);
   const weekday = useMemo(() => formatWeekday(businessDate), [businessDate]);

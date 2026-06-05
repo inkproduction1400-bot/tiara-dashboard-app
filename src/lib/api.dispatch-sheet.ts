@@ -21,6 +21,7 @@ export type DispatchSheetRow = {
   managementNumber: string;
   castCode: string | null;
   displayName: string;
+  ownerStaffName: string | null;
   age: number | null;
   desiredHourly: number | null;
   assignmentId: string | null;

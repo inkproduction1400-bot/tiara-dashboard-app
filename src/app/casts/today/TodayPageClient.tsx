@@ -2412,13 +2412,24 @@ export default function Page() {
     return list;
   }, [filteredShops, shopSortKey]);
 
+  const filteredDispatchRows = useMemo(() => {
+    if (担当者 === "all") return dispatchRows;
+    return dispatchRows.filter((row) =>
+      (row.ownerStaffName ?? "").includes(担当者),
+    );
+  }, [dispatchRows, 担当者]);
+
   const dispatchSlots = useMemo(() => {
-    return buildDispatchSlots(dispatchRows, { includeCanceledTail: true });
-  }, [dispatchRows]);
+    return buildDispatchSlots(filteredDispatchRows, {
+      includeCanceledTail: true,
+    });
+  }, [filteredDispatchRows]);
 
   const dispatchPrintSlots = useMemo(() => {
-    return buildDispatchSlots(dispatchRows, { includeCanceledTail: false });
-  }, [dispatchRows]);
+    return buildDispatchSlots(filteredDispatchRows, {
+      includeCanceledTail: false,
+    });
+  }, [filteredDispatchRows]);
 
   const shopWageOptions: WageFilter[] = [
     "2500",
@@ -2450,12 +2461,12 @@ export default function Page() {
 
   const todayWageCounts = useMemo(() => buildWageCounts(todayCasts), [todayCasts]);
   const orderSummary = useMemo(() => {
-    const assignedRows = dispatchRows.filter((row) => Boolean(row.shopId));
+    const assignedRows = filteredDispatchRows.filter((row) => Boolean(row.shopId));
     return {
       count: assignedRows.length,
       headcount: assignedRows.filter((row) => row.status === "confirmed").length,
     };
-  }, [dispatchRows]);
+  }, [filteredDispatchRows]);
 
   const applyMatchedFromOrders = useCallback((orders: any[]) => {
     const set = new Set<string>();
@@ -2675,7 +2686,7 @@ export default function Page() {
   );
 
   const openIdDocPrintModal = useCallback(async () => {
-    const confirmedRows = dispatchRows.filter(
+    const confirmedRows = filteredDispatchRows.filter(
       (row) => row.status === "confirmed" && row.shopId,
     );
     if (confirmedRows.length === 0) {
@@ -2736,7 +2747,7 @@ export default function Page() {
       setIdDocPrintLoading(false);
     }
   }, [
-    dispatchRows,
+    filteredDispatchRows,
     dispatchShops,
     castDetailById,
     idDocPrintMode,
@@ -2917,7 +2928,7 @@ export default function Page() {
   };
 
   const confirmAllDispatchRows = async () => {
-    const targetIds = dispatchRows
+    const targetIds = filteredDispatchRows
       .filter(
         (row) =>
           row.assignmentId &&
@@ -4013,7 +4024,7 @@ export default function Page() {
                     value={担当者}
                     onChange={(e) => set担当者(e.target.value)}
                   >
-                    <option value="all">担当者</option>
+                    <option value="all">担当者：すべて</option>
                     {ownerStaffOptions.map((name) => (
                       <option key={name} value={name}>
                         {name}

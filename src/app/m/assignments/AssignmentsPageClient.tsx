@@ -61,6 +61,7 @@ function buildDisplayRows(rows: DispatchSheetRow[]) {
       managementNumber: "",
       castCode: null,
       displayName: "",
+      ownerStaffName: null,
       age: null,
       desiredHourly: null,
       assignmentId: null,

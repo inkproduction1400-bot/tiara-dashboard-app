@@ -4808,15 +4808,27 @@ export default function Page() {
                           </div>
                         )}
                         {requestStatus && (
-                          <div className="absolute right-1 top-1 z-10 bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                          <div
+                            className={`absolute right-1 top-1 z-10 px-1.5 py-0.5 text-[10px] font-semibold ${
+                              requestStatus === "requested"
+                                ? "bg-amber-100 text-amber-800"
+                                : requestStatus === "ok"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : requestStatus === "ng"
+                                    ? "bg-rose-100 text-rose-800"
+                                    : requestStatus === "added"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
                             {requestStatus === "requested"
-                              ? "依頼済"
+                              ? "依頼済み"
                               : requestStatus === "ok"
-                                ? "OK"
+                                ? "出勤OK"
                                 : requestStatus === "ng"
-                                  ? "NG"
+                                  ? "出勤NG"
                                   : requestStatus === "added"
-                                    ? "追加済"
+                                    ? "追加済み"
                                     : "取消"}
                           </div>
                         )}

@@ -85,6 +85,7 @@ type WageFilter =
   | "5500"
   | "6000"
   | "6500";
+type ShopSortKey = "number" | "kana" | "favorite";
 
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
 const assignmentPickStorageKey = "tiara:assignments:pick";
@@ -220,6 +221,7 @@ type Shop = {
   caution?: string | null;
   /** 担当者（店舗管理の情報） */
   ownerStaff?: string | null;
+  rank?: string | null;
   [key: string]: any;
 };
 
@@ -590,6 +592,15 @@ const shopNumberKey = (shop: Shop): number => {
 /** 店舗の「50音ソート用キー」（店舗名ベース） */
 const shopKanaKey = (shop: Shop): string => {
   return shop.name ?? "";
+};
+
+const shopFavoriteKey = (shop: Shop): number => {
+  const raw = String(shop.rank ?? "").trim().toUpperCase();
+  if (raw === "S") return 4;
+  if (raw === "A") return 3;
+  if (raw === "B") return 2;
+  if (raw === "C") return 1;
+  return 0;
 };
 
 const resolvePhotoUrl = (item: any): string | undefined =>
@@ -1081,6 +1092,11 @@ export default function Page() {
   // 追加: キャストジャンル・年齢レンジでの絞り込み
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
   const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
+  const [castWageFilter, setCastWageFilter] = useState<WageFilter>("");
+  const [castExclusiveFilter, setCastExclusiveFilter] =
+    useState<YesNoFilter>("");
+  const [castNominatedFilter, setCastNominatedFilter] =
+    useState<YesNoFilter>("");
 
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -1128,21 +1144,13 @@ export default function Page() {
     void getCurrentUser()
       .then((user) => {
         if (!mounted) return;
-        const userType = user.userType?.toLowerCase() ?? "";
         const staffName = user.staffName?.trim() ?? "";
         setCurrentStaffName(staffName);
-        if (userType !== "admin" && staffName) {
-          set担当者(staffName);
-        }
       })
       .catch(() => {
         if (typeof window === "undefined" || !mounted) return;
-        const storedType = localStorage.getItem("tiara:user_type") ?? "";
         const storedStaff = localStorage.getItem("tiara:staff_name") ?? "";
         setCurrentStaffName(storedStaff);
-        if (storedType.toLowerCase() !== "admin" && storedStaff) {
-          set担当者(storedStaff);
-        }
       });
     return () => {
       mounted = false;
@@ -1204,7 +1212,7 @@ export default function Page() {
   const [ngSelectedShopIds, setNgSelectedShopIds] = useState<string[]>([]);
 
   const [panelTab, setPanelTab] = useState<"casts" | "shops">("casts");
-  const [shopSortKey, setShopSortKey] = useState<"number" | "kana">("number");
+  const [shopSortKey, setShopSortKey] = useState<ShopSortKey>("number");
   const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(
     null,
   );
@@ -1932,6 +1940,9 @@ export default function Page() {
     sortNumberLargeFirst,
     castGenreFilter,
     ageRangeFilter,
+    castWageFilter,
+    castExclusiveFilter,
+    castNominatedFilter,
   ]);
 
   // NGモーダルが開いた時点で、対象キャストの既存NG店舗を初期選択にする
@@ -2187,6 +2198,23 @@ export default function Page() {
       list = list.filter((c) => isInAgeRange(c.age, ageRangeFilter));
     }
 
+    if (castWageFilter) {
+      const wage = Number(castWageFilter);
+      list = list.filter((c) => bucketWage(c.desiredHourly) === wage);
+    }
+
+    if (castExclusiveFilter) {
+      list = list.filter((c) =>
+        castExclusiveFilter === "yes" ? !!c.hasExclusive : !c.hasExclusive,
+      );
+    }
+
+    if (castNominatedFilter) {
+      list = list.filter((c) =>
+        castNominatedFilter === "yes" ? !!c.hasNominated : !c.hasNominated,
+      );
+    }
+
     // ⑧ 既存ソート（年齢・時給）
     switch (sortKey) {
       case "hourlyDesc":
@@ -2317,6 +2345,9 @@ export default function Page() {
     currentPage,
     castGenreFilter,
     ageRangeFilter,
+    castWageFilter,
+    castExclusiveFilter,
+    castNominatedFilter,
     sortKana,
     sortNumberSmallFirst,
     sortNumberLargeFirst,
@@ -2406,6 +2437,12 @@ export default function Page() {
     const list = [...filteredShops];
     if (shopSortKey === "number") {
       list.sort((a, b) => shopNumberKey(a) - shopNumberKey(b));
+    } else if (shopSortKey === "favorite") {
+      list.sort((a, b) => {
+        const rankDiff = shopFavoriteKey(b) - shopFavoriteKey(a);
+        if (rankDiff !== 0) return rankDiff;
+        return shopNumberKey(a) - shopNumberKey(b);
+      });
     } else {
       list.sort((a, b) => shopKanaKey(a).localeCompare(shopKanaKey(b), "ja"));
     }
@@ -3909,6 +3946,15 @@ export default function Page() {
                   <option value="sms">SMS</option>
                   <option value="tel">TEL</option>
                 </select>
+                <select
+                  className="tiara-input rounded-none h-8 !w-[125px] !py-1 text-[10px] leading-tight flex-none"
+                  value={shopSortKey}
+                  onChange={(e) => setShopSortKey(e.target.value as ShopSortKey)}
+                >
+                  <option value="number">店舗番号順</option>
+                  <option value="kana">50音順</option>
+                  <option value="favorite">注文実績順</option>
+                </select>
                 <button
                   type="button"
                   className="border border-slate-300 bg-white px-3 h-8 text-xs flex-none"
@@ -3919,6 +3965,7 @@ export default function Page() {
                     setShopFilterIdReq("");
                     setShopFilterGenre("");
                     setShopFilterContact("");
+                    setShopSortKey("number");
                   }}
                 >
                   クリア
@@ -4060,6 +4107,42 @@ export default function Page() {
                     <option value="ok">出勤OK</option>
                     <option value="ng">出勤NG</option>
                     <option value="added">追加済み</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[100px] text-[10px] leading-tight flex-none"
+                    value={castWageFilter}
+                    onChange={(e) =>
+                      setCastWageFilter(e.target.value as WageFilter)
+                    }
+                  >
+                    <option value="">時給</option>
+                    {shopWageOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}円帯
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
+                    value={castExclusiveFilter}
+                    onChange={(e) =>
+                      setCastExclusiveFilter(e.target.value as YesNoFilter)
+                    }
+                  >
+                    <option value="">専属指名</option>
+                    <option value="yes">専属あり</option>
+                    <option value="no">専属なし</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[95px] text-[10px] leading-tight flex-none"
+                    value={castNominatedFilter}
+                    onChange={(e) =>
+                      setCastNominatedFilter(e.target.value as YesNoFilter)
+                    }
+                  >
+                    <option value="">指名</option>
+                    <option value="yes">指名あり</option>
+                    <option value="no">指名なし</option>
                   </select>
                   <select
                     className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none"

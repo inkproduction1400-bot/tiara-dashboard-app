@@ -4262,7 +4262,7 @@ export default function Page() {
                   )}
                   <div className="flex flex-wrap items-center gap-1.5">
                     {[
-                      { id: "today", label: "本日出勤" },
+                      { id: "today", label: "派遣表" },
                       { id: "all", label: "全キャスト" },
                       { id: "dormant", label: "休眠キャスト" },
                     ].map((tab) => {

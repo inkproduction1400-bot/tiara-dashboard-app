@@ -1084,7 +1084,7 @@ export default function Page() {
   const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
   const [dispatchStatusFilter, setDispatchStatusFilter] =
     useState<DispatchStatusFilter>("");
-  const [statusTab, setStatusTab] = useState<CastStatusTab>("today");
+  const [statusTab, setStatusTab] = useState<CastStatusTab>("all");
   const [castListMode, setCastListMode] =
     useState<CastListMode>("proposal");
 

@@ -2183,6 +2183,7 @@ export default function Page() {
       list = list.filter((c) => {
         const row = dispatchRowByCastId.get(c.id);
         const hasDispatchShop = Boolean(row?.shopId);
+        if (dispatchStatusFilter === "unassigned") return !row;
         return dispatchStatusFilter === "matched" ? hasDispatchShop : true;
       });
     }
@@ -4221,7 +4222,7 @@ export default function Page() {
                   {castListMode === "proposal" ? (
                     <select
                       className="h-8 w-[130px] flex-none border-2 border-sky-600 bg-sky-50 px-2 text-[10px] font-semibold text-sky-900"
-                      value={dispatchStatusFilter === "matched" ? "matched" : ""}
+                      value={dispatchStatusFilter}
                       onChange={(e) =>
                         setDispatchStatusFilter(
                           e.target.value as DispatchStatusFilter,
@@ -4229,6 +4230,7 @@ export default function Page() {
                       }
                     >
                       <option value="">本日出勤すべて</option>
+                      <option value="unassigned">未割当のみ</option>
                       <option value="matched">マッチ済み</option>
                     </select>
                   ) : (
@@ -5061,9 +5063,10 @@ export default function Page() {
                   const dispatchRow = dispatchRows.find(
                     (row) => row.castId === cast.id,
                   );
-                  const isMatched = Boolean(dispatchRow?.shopId);
                   const attendanceBadgeLabel =
-                    requestStatus === "requested"
+                    dispatchRow
+                      ? "割当済み"
+                      : requestStatus === "requested"
                       ? "依頼済み"
                       : requestStatus === "ng"
                         ? "出勤NG"
@@ -5073,7 +5076,9 @@ export default function Page() {
                           ? "出勤OK"
                           : null;
                   const attendanceBadgeClass =
-                    requestStatus === "requested"
+                    dispatchRow
+                      ? "bg-blue-100 text-blue-800"
+                      : requestStatus === "requested"
                       ? "bg-amber-100 text-amber-800"
                       : requestStatus === "ng"
                         ? "bg-rose-100 text-rose-800"
@@ -5134,20 +5139,13 @@ export default function Page() {
                             ))}
                           </div>
                         )}
-                        {(attendanceBadgeLabel || isMatched) && (
+                        {attendanceBadgeLabel && (
                           <div className="absolute right-1 top-1 z-10 flex flex-col items-end gap-1">
-                            {attendanceBadgeLabel && (
-                              <div
-                                className={`px-1.5 py-0.5 text-[10px] font-semibold ${attendanceBadgeClass}`}
-                              >
-                                {attendanceBadgeLabel}
-                              </div>
-                            )}
-                            {isMatched && (
-                              <div className="bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">
-                                マッチ済み
-                              </div>
-                            )}
+                            <div
+                              className={`px-1.5 py-0.5 text-[10px] font-semibold ${attendanceBadgeClass}`}
+                            >
+                              {attendanceBadgeLabel}
+                            </div>
                           </div>
                         )}
                       </div>

@@ -1182,6 +1182,7 @@ export default function Page() {
   >("cast-list");
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [bulkRequestSending, setBulkRequestSending] = useState(false);
   const [chatDisabledUntil, setChatDisabledUntil] = useState<Date | null>(null);
   const chatTemplateStorageKey = "tiara:matching-chat-templates:v1";
   const defaultChatTemplates = useMemo(
@@ -2361,6 +2362,70 @@ export default function Page() {
     sortNumberLargeFirst,
     pendingDispatchSlotIndex,
   ]);
+
+  const handleBulkRequestChat = useCallback(async () => {
+    const text = chatTemplates.request.trim();
+    if (!text) {
+      alert("出勤依頼の定型文を入力してください。");
+      return;
+    }
+
+    const targets = filteredCasts;
+    if (targets.length === 0) {
+      alert("一括送信の対象キャストが表示されていません。");
+      return;
+    }
+
+    const ok = window.confirm(
+      `現在表示中の${targets.length}名に出勤依頼チャットを一括送信します。よろしいですか？`,
+    );
+    if (!ok) return;
+
+    setBulkRequestSending(true);
+    let sentCount = 0;
+    let failedCount = 0;
+    let latestAttendanceItems: AttendanceRequestItem[] | null = null;
+
+    for (const cast of targets) {
+      try {
+        await apiFetch("/chat/staff/messages", {
+          method: "POST",
+          headers: {
+            "x-chat-source": "matching-bulk",
+          },
+          body: JSON.stringify({
+            castId: cast.id,
+            text,
+          }),
+        });
+        const res = await upsertAttendanceRequest({
+          date: todayKey(),
+          castId: cast.id,
+          status: "requested",
+          displayOrder: null,
+        });
+        latestAttendanceItems = res.items ?? latestAttendanceItems;
+        sentCount += 1;
+      } catch (err) {
+        failedCount += 1;
+        console.warn("[casts/today] bulk request chat failed", {
+          castId: cast.id,
+          err,
+        });
+      }
+    }
+
+    if (latestAttendanceItems) {
+      setAttendanceRequests(latestAttendanceItems);
+    }
+
+    setBulkRequestSending(false);
+    if (failedCount > 0) {
+      alert(`${sentCount}名に送信しました。${failedCount}名は送信に失敗しました。`);
+      return;
+    }
+    alert(`${sentCount}名に送信しました。`);
+  }, [chatTemplates.request, filteredCasts]);
 
   const ownerStaffOptions = useMemo(() => {
     const names = new Set<string>();
@@ -4136,6 +4201,19 @@ export default function Page() {
                       <option value="ok">出勤OK</option>
                       <option value="ng">出勤NG</option>
                     </select>
+                  )}
+                  {castListMode === "proposal" && statusTab !== "today" && (
+                    <button
+                      type="button"
+                      className="h-8 flex-none border-2 border-amber-500 bg-amber-50 px-3 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={handleBulkRequestChat}
+                      disabled={bulkRequestSending || filteredCasts.length === 0}
+                      title="現在表示されているキャストカード全員に出勤依頼チャットを送信します"
+                    >
+                      {bulkRequestSending
+                        ? "一括送信中..."
+                        : `表示中${filteredCasts.length}名に出勤依頼`}
+                    </button>
                   )}
                   <div className="ml-auto flex w-[180px] flex-none flex-col gap-0.5">
                     <button

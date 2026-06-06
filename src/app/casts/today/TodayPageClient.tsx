@@ -2363,6 +2363,17 @@ export default function Page() {
     pendingDispatchSlotIndex,
   ]);
 
+  const bulkRequestTargets = useMemo(() => {
+    if (castListMode !== "request" || statusTab !== "all") return [];
+    const requestByCastId = new Map(
+      attendanceRequests.map((item) => [item.castId, item]),
+    );
+    return filteredCasts.filter((cast) => {
+      const status = requestByCastId.get(cast.id)?.status ?? null;
+      return !status;
+    });
+  }, [attendanceRequests, castListMode, filteredCasts, statusTab]);
+
   const handleBulkRequestChat = useCallback(async () => {
     const text = chatTemplates.request.trim();
     if (!text) {
@@ -2370,14 +2381,23 @@ export default function Page() {
       return;
     }
 
-    const targets = filteredCasts;
-    if (targets.length === 0) {
-      alert("一括送信の対象キャストが表示されていません。");
+    if (castListMode !== "request" || statusTab !== "all") {
+      alert("一括送信は出勤依頼モードの全キャスト画面で実行してください。");
+      return;
+    }
+
+    const skippedCount = filteredCasts.length - bulkRequestTargets.length;
+    if (bulkRequestTargets.length === 0) {
+      alert(
+        skippedCount > 0
+          ? "表示中のキャストはすでに出勤依頼済み、または出勤OK/NGのため送信対象がありません。"
+          : "一括送信の対象キャストが表示されていません。",
+      );
       return;
     }
 
     const ok = window.confirm(
-      `現在表示中の${targets.length}名に出勤依頼チャットを一括送信します。よろしいですか？`,
+      `現在表示中の未送信${bulkRequestTargets.length}名に出勤依頼チャットを一括送信します。${skippedCount > 0 ? `送信済みの${skippedCount}名は除外します。` : ""}よろしいですか？`,
     );
     if (!ok) return;
 
@@ -2386,7 +2406,7 @@ export default function Page() {
     let failedCount = 0;
     let latestAttendanceItems: AttendanceRequestItem[] | null = null;
 
-    for (const cast of targets) {
+    for (const cast of bulkRequestTargets) {
       try {
         await apiFetch("/chat/staff/messages", {
           method: "POST",
@@ -2425,7 +2445,13 @@ export default function Page() {
       return;
     }
     alert(`${sentCount}名に送信しました。`);
-  }, [chatTemplates.request, filteredCasts]);
+  }, [
+    bulkRequestTargets,
+    castListMode,
+    chatTemplates.request,
+    filteredCasts.length,
+    statusTab,
+  ]);
 
   const ownerStaffOptions = useMemo(() => {
     const names = new Set<string>();
@@ -4202,17 +4228,19 @@ export default function Page() {
                       <option value="ng">出勤NG</option>
                     </select>
                   )}
-                  {castListMode === "proposal" && statusTab !== "today" && (
+                  {castListMode === "request" && statusTab === "all" && (
                     <button
                       type="button"
                       className="h-8 flex-none border-2 border-amber-500 bg-amber-50 px-3 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                       onClick={handleBulkRequestChat}
-                      disabled={bulkRequestSending || filteredCasts.length === 0}
-                      title="現在表示されているキャストカード全員に出勤依頼チャットを送信します"
+                      disabled={
+                        bulkRequestSending || bulkRequestTargets.length === 0
+                      }
+                      title="現在表示されている未送信キャストに出勤依頼チャットを送信します"
                     >
                       {bulkRequestSending
                         ? "一括送信中..."
-                        : `表示中${filteredCasts.length}名に出勤依頼`}
+                        : `未送信${bulkRequestTargets.length}名に一括送信`}
                     </button>
                   )}
                   <div className="ml-auto flex w-[180px] flex-none flex-col gap-0.5">

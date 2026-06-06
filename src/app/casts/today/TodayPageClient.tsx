@@ -158,6 +158,7 @@ type Cast = {
   id: string;
   code: string;
   name: string;
+  nickname?: string | null;
   age: number;
   desiredHourly: number;
   heightCm?: number | null;
@@ -556,6 +557,12 @@ const castNumberKey = (cast: Cast): number => {
 
 /** キャストの「50音ソート用キー」（名前ベース） */
 const castKanaKey = (cast: Cast): string => {
+  return getCastCardName(cast);
+};
+
+const getCastCardName = (cast: Cast): string => {
+  const nickname = cast.nickname?.trim();
+  if (nickname) return nickname;
   return cast.name ?? "";
 };
 
@@ -1826,6 +1833,7 @@ export default function Page() {
           id: item.castId,
           code: item.managementNumber ?? item.castId.slice(0, 8),
           name: item.displayName,
+          nickname: (item as any).nickname ?? null,
           age: item.age ?? 0,
           desiredHourly: item.desiredHourly ?? 0,
           heightCm: getHeightFromDetail(item),
@@ -1860,6 +1868,7 @@ export default function Page() {
           if (fromToday) {
             return {
               ...fromToday,
+              nickname: (item as any).nickname ?? fromToday.nickname ?? null,
               ownerStaffName:
                 (item as any).ownerStaffName ?? fromToday.ownerStaffName ?? null,
             };
@@ -1869,6 +1878,7 @@ export default function Page() {
             id: item.userId,
             code: item.managementNumber ?? item.userId.slice(0, 8),
             name: item.displayName,
+            nickname: item.nickname ?? null,
             age: item.age ?? 0,
             desiredHourly: item.desiredHourly ?? 0,
             heightCm: getHeightFromDetail(item),
@@ -5023,6 +5033,7 @@ export default function Page() {
                   const isFixed =
                     !!selectedShop &&
                     selectedShopFixedCastIdSet.has(cast.id);
+                  const cardName = getCastCardName(cast);
                   return (
                     <div
                       key={cast.id}
@@ -5043,7 +5054,7 @@ export default function Page() {
                           <CastPhotoImage
                             src={displayPhotoUrl}
                             fallbackSrc={photoFallbackUrl || undefined}
-                            alt={cast.name}
+                            alt={cardName}
                             className="w-full h-full object-cover"
                             debugPhoto={shouldShowDebugCard}
                             fallback={
@@ -5090,7 +5101,7 @@ export default function Page() {
 
                         <div className="px-3 pt-1.5 pb-2.5 flex flex-col gap-0.5">
                           <div className="font-semibold text-[13px] leading-tight truncate">
-                            {cast.name}
+                            {cardName}
                           </div>
                           <div className="text-[11px] leading-tight">
                             <span className="text-slate-500 mr-1">時給</span>

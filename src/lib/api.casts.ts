@@ -570,6 +570,7 @@ export async function listCasts(
   const mapItem = (it: any): CastListItem => ({
     userId: it.userId ?? it.id ?? "",
     displayName: it.displayName ?? "",
+    nickname: it.nickname ?? null,
     furigana: it.furigana ?? null,
     phone: it.phone ?? null,
     email: it.email ?? null,

@@ -13,6 +13,22 @@ export type DispatchSheetShop = {
   idDocumentRequirement?: string | null;
   addressLine: string | null;
   buildingName: string | null;
+  fixedCastCount?: number;
+  fixed_cast_count?: number;
+  hasFixedCasts?: boolean;
+  has_fixed_casts?: boolean;
+  exclusiveCount?: number;
+  exclusive_count?: number;
+  hasExclusive?: boolean;
+  has_exclusive?: boolean;
+  nominatedCastCount?: number;
+  nominated_cast_count?: number;
+  hasNominatedCasts?: boolean;
+  has_nominated_casts?: boolean;
+  nominationCount?: number;
+  nomination_count?: number;
+  hasNomination?: boolean;
+  has_nomination?: boolean;
   blockedCastIds?: string[];
 };
 

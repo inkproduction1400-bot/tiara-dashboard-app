@@ -47,6 +47,7 @@ import {
 } from "@/lib/api.matching";
 import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 import {
+  bulkAttendanceRequest,
   cancelDispatchSheetRow,
   confirmDispatchSheet,
   confirmDispatchSheetRow,
@@ -2450,51 +2451,32 @@ export default function Page() {
     if (!ok) return;
 
     setBulkRequestSending(true);
-    let sentCount = 0;
-    let failedCount = 0;
-    let latestAttendanceItems: AttendanceRequestItem[] | null = null;
-
-    for (const cast of bulkRequestTargets) {
-      try {
-        await apiFetch("/chat/staff/messages", {
-          method: "POST",
-          headers: {
-            "x-chat-source": "matching-bulk",
-          },
-          body: JSON.stringify({
-            castId: cast.id,
-            text,
-          }),
-        });
-        const res = await upsertAttendanceRequest({
-          date: todayKey(),
-          castId: cast.id,
-          status: "requested",
-          displayOrder: null,
-        });
-        latestAttendanceItems = res.items ?? latestAttendanceItems;
-        sentCount += 1;
-      } catch (err) {
-        failedCount += 1;
-        console.warn("[casts/today] bulk request chat failed", {
-          castId: cast.id,
-          err,
-        });
+    try {
+      const res = await bulkAttendanceRequest({
+        date: todayKey(),
+        text,
+        castIds: allFilteredCasts.map((cast) => cast.id),
+      });
+      setAttendanceRequests(res.items ?? []);
+      if (res.sentCount === 0) {
+        alert(
+          res.skippedCount > 0
+            ? "対象キャストは他スタッフの操作を含め、すでに出勤依頼済み、または出勤OK/NGのため送信対象がありません。"
+            : "一括送信の対象キャストがありません。",
+        );
+        return;
       }
+      alert(
+        `${res.sentCount}名に送信しました。${res.skippedCount > 0 ? `重複防止のため${res.skippedCount}名はスキップしました。` : ""}`,
+      );
+    } catch (err) {
+      console.warn("[casts/today] bulk request chat failed", err);
+      alert("一括送信に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setBulkRequestSending(false);
     }
-
-    if (latestAttendanceItems) {
-      setAttendanceRequests(latestAttendanceItems);
-    }
-
-    setBulkRequestSending(false);
-    if (failedCount > 0) {
-      alert(`${sentCount}名に送信しました。${failedCount}名は送信に失敗しました。`);
-      return;
-    }
-    alert(`${sentCount}名に送信しました。`);
   }, [
-    allFilteredCasts.length,
+    allFilteredCasts,
     bulkRequestTargets,
     castListMode,
     chatTemplates.request,

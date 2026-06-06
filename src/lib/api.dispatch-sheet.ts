@@ -77,6 +77,14 @@ export type AttendanceRequestResponse = {
   items: AttendanceRequestItem[];
 };
 
+export type BulkAttendanceRequestResponse = AttendanceRequestResponse & {
+  sentCount: number;
+  skippedCount: number;
+  failedCount: number;
+  requestedCastIds: string[];
+  skippedCastIds: string[];
+};
+
 export type UpsertDispatchSheetRowPayload = {
   date: string;
   castId: string;
@@ -118,6 +126,20 @@ export async function upsertAttendanceRequest(payload: {
     "/dispatch-sheet/attendance-requests",
     {
       method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function bulkAttendanceRequest(payload: {
+  date: string;
+  text: string;
+  castIds: string[];
+}): Promise<BulkAttendanceRequestResponse> {
+  return apiFetch<BulkAttendanceRequestResponse>(
+    "/dispatch-sheet/attendance-requests/bulk-request",
+    {
+      method: "POST",
       body: JSON.stringify(payload),
     },
   );

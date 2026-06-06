@@ -1657,14 +1657,41 @@ export default function Page() {
   }, []);
 
   const effectiveShops = useMemo(() => {
-    if (todayShops.length === 0) return fallbackShops;
+    const dispatchShopMetaById = new Map(
+      dispatchShops.map((shop) => [
+        shop.id,
+        {
+          fixedCastCount: shop.fixedCastCount,
+          fixed_cast_count: shop.fixed_cast_count,
+          hasFixedCasts: shop.hasFixedCasts,
+          has_fixed_casts: shop.has_fixed_casts,
+          exclusiveCount: shop.exclusiveCount,
+          exclusive_count: shop.exclusive_count,
+          hasExclusive: shop.hasExclusive,
+          has_exclusive: shop.has_exclusive,
+          nominatedCastCount: shop.nominatedCastCount,
+          nominated_cast_count: shop.nominated_cast_count,
+          hasNominatedCasts: shop.hasNominatedCasts,
+          has_nominated_casts: shop.has_nominated_casts,
+          nominationCount: shop.nominationCount,
+          nomination_count: shop.nomination_count,
+          hasNomination: shop.hasNomination,
+          has_nomination: shop.has_nomination,
+        },
+      ]),
+    );
+    const shopsWithDispatchMeta = fallbackShops.map((shop) => {
+      const meta = dispatchShopMetaById.get(shop.id);
+      return meta ? { ...shop, ...meta } : shop;
+    });
+    if (todayShops.length === 0) return shopsWithDispatchMeta;
     const statusByShop = new Map(
       todayShops.map((shop) => [
         shop.id,
         { contactStatus: shop.contactStatus ?? null, requestId: shop.requestId },
       ]),
     );
-    return fallbackShops.map((shop) => {
+    return shopsWithDispatchMeta.map((shop) => {
       const match = statusByShop.get(shop.id);
       return match
         ? {
@@ -1674,7 +1701,7 @@ export default function Page() {
           }
         : shop;
     });
-  }, [fallbackShops, todayShops]);
+  }, [dispatchShops, fallbackShops, todayShops]);
 
   const selectedShop = useMemo(
     () => effectiveShops.find((s: Shop) => s.id === selectedShopId) ?? null,

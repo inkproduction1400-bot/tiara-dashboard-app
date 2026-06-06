@@ -1148,6 +1148,9 @@ export default function Page() {
   const [pendingDispatchSlotIndex, setPendingDispatchSlotIndex] = useState<
     number | null
   >(null);
+  const [dragOverDispatchSlotIndex, setDragOverDispatchSlotIndex] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     let mounted = true;
@@ -2982,19 +2985,24 @@ export default function Page() {
     setCurrentPage(1);
   };
 
+  const addCastToDispatchSlot = async (castId: string, slotIndex: number) => {
+    if (dispatchRows.some((row) => row.castId === castId)) {
+      alert("このキャストはすでに派遣表に追加されています。");
+      return;
+    }
+    await markAttendanceRequest(castId, "added", slotIndex);
+    setPendingDispatchSlotIndex(null);
+    setDragOverDispatchSlotIndex(null);
+    setStatusTab("today");
+  };
+
   const addSelectedCastToDispatchSlot = async () => {
     if (!selectedCast) return;
     if (pendingDispatchSlotIndex === null) {
       alert("追加先の派遣表枠を選択してください。");
       return;
     }
-    await markAttendanceRequest(
-      selectedCast.id,
-      "added",
-      pendingDispatchSlotIndex,
-    );
-    setPendingDispatchSlotIndex(null);
-    setStatusTab("today");
+    await addCastToDispatchSlot(selectedCast.id, pendingDispatchSlotIndex);
     closeCastDetail();
   };
 
@@ -4448,6 +4456,23 @@ export default function Page() {
                           onClick={() =>
                             setStatusTab(tab.id as CastStatusTab)
                           }
+                          onDragEnter={(e) => {
+                            if (tab.id !== "today") return;
+                            if (!e.dataTransfer.types.includes("text/plain")) {
+                              return;
+                            }
+                            e.preventDefault();
+                            setStatusTab("today");
+                            setPendingDispatchSlotIndex(null);
+                          }}
+                          onDragOver={(e) => {
+                            if (tab.id !== "today") return;
+                            if (!e.dataTransfer.types.includes("text/plain")) {
+                              return;
+                            }
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
                         >
                           {tab.label}
                         </button>
@@ -4659,7 +4684,32 @@ export default function Page() {
                           return (
                             <div
                               key={`dispatch-empty-${slotIndex}`}
-                              className="border-2 border-slate-950 bg-white"
+                              className={
+                                "border-2 border-slate-950 bg-white " +
+                                (dragOverDispatchSlotIndex === slotIndex
+                                  ? "outline outline-3 outline-amber-400"
+                                  : "")
+                              }
+                              onDragOver={(e) => {
+                                if (!e.dataTransfer.types.includes("text/plain")) {
+                                  return;
+                                }
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                                setDragOverDispatchSlotIndex(slotIndex);
+                              }}
+                              onDragLeave={() => {
+                                setDragOverDispatchSlotIndex((prev) =>
+                                  prev === slotIndex ? null : prev,
+                                );
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const castId =
+                                  e.dataTransfer.getData("text/plain");
+                                if (!castId) return;
+                                void addCastToDispatchSlot(castId, slotIndex);
+                              }}
                             >
                               <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
                                 <tbody>
@@ -5046,6 +5096,9 @@ export default function Page() {
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", cast.id);
                           e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => {
+                          setDragOverDispatchSlotIndex(null);
                         }}
                         onClick={() => openCastDetail(cast)}
                       >

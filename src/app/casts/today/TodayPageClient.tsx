@@ -1153,6 +1153,8 @@ export default function Page() {
   >(null);
   const [proposalOrderHeadcount, setProposalOrderHeadcount] =
     useState<number>(1);
+  const [proposalOrderWage, setProposalOrderWage] = useState<WageFilter>("");
+  const [proposalOrderAlcohol, setProposalOrderAlcohol] = useState("");
   const [proposalOrderSaving, setProposalOrderSaving] = useState(false);
 
   useEffect(() => {
@@ -3033,7 +3035,7 @@ export default function Page() {
             endTime: null,
             castHourly: cast?.desiredHourly ?? null,
             shopFee: null,
-            note: null,
+            note: slotRow.note ?? null,
             displayOrder,
           });
           setDispatchRows(res.rows ?? []);
@@ -3817,6 +3819,12 @@ export default function Page() {
       return;
     }
     const headcount = Math.max(1, Math.min(20, proposalOrderHeadcount || 1));
+    const orderNote = [
+      proposalOrderWage ? `時給: ${proposalOrderWage}円` : "",
+      proposalOrderAlcohol ? `お酒: ${proposalOrderAlcohol}` : "",
+    ]
+      .filter(Boolean)
+      .join(" / ");
     setProposalOrderSaving(true);
     try {
       const date = todayKey();
@@ -3847,11 +3855,13 @@ export default function Page() {
         orderNo: maxOrderNo + 1 || 1,
         headcount,
         status: "draft",
-        note: "proposal-order-slots",
+        note: orderNote || null,
       });
       await setContactStatus(selectedShopId, "ordered", { force: true });
       setSelectedShopId("");
       setProposalOrderHeadcount(1);
+      setProposalOrderWage("");
+      setProposalOrderAlcohol("");
       await loadDispatchSheet();
     } catch (err) {
       console.warn("[casts/today] failed to create dispatch order slots", err);
@@ -4591,6 +4601,33 @@ export default function Page() {
                           </option>
                         ),
                       )}
+                    </select>
+                    <select
+                      className="h-7 w-[105px] border border-sky-300 bg-white px-2 text-[11px]"
+                      value={proposalOrderWage}
+                      onChange={(e) =>
+                        setProposalOrderWage(e.target.value as WageFilter)
+                      }
+                      disabled={proposalOrderSaving}
+                    >
+                      <option value="">時給</option>
+                      {shopWageOptions.map((wage) => (
+                        <option key={`proposal-order-wage-${wage}`} value={wage}>
+                          {wage}円
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="h-7 w-[105px] border border-sky-300 bg-white px-2 text-[11px]"
+                      value={proposalOrderAlcohol}
+                      onChange={(e) => setProposalOrderAlcohol(e.target.value)}
+                      disabled={proposalOrderSaving}
+                    >
+                      <option value="">お酒</option>
+                      <option value="必須">必須</option>
+                      <option value="不要">不要</option>
+                      <option value="飲める子">飲める子</option>
+                      <option value="NG不可">NG不可</option>
                     </select>
                     <button
                       type="button"

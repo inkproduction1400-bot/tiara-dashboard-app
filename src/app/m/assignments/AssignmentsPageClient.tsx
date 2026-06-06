@@ -575,7 +575,7 @@ export default function AssignmentsPageClient() {
             endTime: null,
             castHourly: cast.desiredHourly ?? null,
             shopFee: null,
-            note: null,
+            note: slotRow.note ?? null,
             displayOrder:
               typeof slotRow.displayOrder === "number"
                 ? slotRow.displayOrder

@@ -2127,6 +2127,28 @@ export default function Page() {
     setSettingsDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
+  const todayCastIdSet = useMemo(
+    () => new Set(todayCasts.map((cast) => cast.id)),
+    [todayCasts],
+  );
+  const getEffectiveAttendanceStatus = useCallback(
+    (castId: string): AttendanceRequestStatus | null => {
+      const requestStatus =
+        attendanceRequests.find((row) => row.castId === castId)?.status ?? null;
+      if (requestStatus === "ng") return "ng";
+      if (
+        requestStatus === "ok" ||
+        requestStatus === "added" ||
+        todayCastIdSet.has(castId)
+      ) {
+        return "ok";
+      }
+      if (requestStatus === "requested") return "requested";
+      return requestStatus;
+    },
+    [attendanceRequests, todayCastIdSet],
+  );
+
   const {
     allItems: allFilteredCasts,
     items: filteredCasts,
@@ -2176,7 +2198,7 @@ export default function Page() {
 
     if (castListMode === "request" && attendanceRequestFilter) {
       list = list.filter((c) => {
-        const status = attendanceRequestByCastId.get(c.id)?.status ?? null;
+        const status = getEffectiveAttendanceStatus(c.id);
         if (attendanceRequestFilter === "none") return !status;
         return status === attendanceRequestFilter;
       });
@@ -2365,6 +2387,7 @@ export default function Page() {
     担当者,
     attendanceRequests,
     attendanceRequestFilter,
+    getEffectiveAttendanceStatus,
     dispatchRows,
     dispatchStatusFilter,
     selectedShop,
@@ -5396,8 +5419,7 @@ export default function Page() {
                   const shouldShowDebugCard = debugMatchingCard && index < 5;
                   const badgeIcons = getCastBadgeIcons(cast);
                   const requestStatus =
-                    attendanceRequests.find((row) => row.castId === cast.id)
-                      ?.status ?? null;
+                    getEffectiveAttendanceStatus(cast.id);
                   const dispatchRow = dispatchRows.find(
                     (row) => row.castId === cast.id,
                   );
@@ -6331,9 +6353,7 @@ export default function Page() {
                   {castDetailSource !== "dispatch-sheet" &&
                     (() => {
                       const requestStatus =
-                        attendanceRequests.find(
-                          (row) => row.castId === selectedCast.id,
-                        )?.status ?? null;
+                        getEffectiveAttendanceStatus(selectedCast.id);
                       return (
                         <div className="mb-2 flex flex-wrap items-center gap-2 border border-slate-200 bg-slate-50 px-2 py-1.5">
                           <span className="text-[11px] font-semibold text-slate-700">

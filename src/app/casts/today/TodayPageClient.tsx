@@ -1151,6 +1151,9 @@ export default function Page() {
   const [dragOverDispatchSlotIndex, setDragOverDispatchSlotIndex] = useState<
     number | null
   >(null);
+  const [proposalOrderHeadcount, setProposalOrderHeadcount] =
+    useState<number>(1);
+  const [proposalOrderSaving, setProposalOrderSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -1491,7 +1494,7 @@ export default function Page() {
       case "confirmed":
         return "◯済";
       case "rejected":
-        return "済";
+        return "NG";
       default:
         return "-";
     }
@@ -2180,7 +2183,9 @@ export default function Page() {
     // ③ 派遣票の入力状態フィルタ
     if (castListMode === "proposal" && dispatchStatusFilter) {
       const dispatchRowByCastId = new Map(
-        dispatchRows.map((row) => [row.castId, row]),
+        dispatchRows
+          .filter((row) => row.castId)
+          .map((row) => [row.castId as string, row]),
       );
       list = list.filter((c) => {
         const row = dispatchRowByCastId.get(c.id);
@@ -2776,6 +2781,7 @@ export default function Page() {
     patch: Partial<DispatchSheetRow> = {},
   ): Promise<DispatchSheetRow[] | null> => {
     const next = { ...row, ...patch };
+    if (!next.castId) return null;
     if (!next.shopId) return null;
     const startTime = normalizeDispatchTimeForSave(next.startTime);
     if (!startTime) return null;
@@ -2785,6 +2791,7 @@ export default function Page() {
         date: todayKey(),
         castId: next.castId,
         assignmentId: next.assignmentId,
+        orderId: next.orderId,
         shopId: next.shopId,
         startTime,
         endTime: next.endTime || null,
@@ -2841,7 +2848,8 @@ export default function Page() {
 
   const openIdDocPrintModal = useCallback(async () => {
     const confirmedRows = filteredDispatchRows.filter(
-      (row) => row.status === "confirmed" && row.shopId,
+      (row): row is DispatchSheetRow & { castId: string } =>
+        row.status === "confirmed" && Boolean(row.shopId) && Boolean(row.castId),
     );
     if (confirmedRows.length === 0) {
       alert("確定済みの派遣がないため、身分証印刷対象がありません。");
@@ -2993,12 +3001,48 @@ export default function Page() {
       alert("このキャストはすでに派遣表に追加されています。");
       return;
     }
+    const slotRow = dispatchSlots[slotIndex];
     const orderShop =
-      selectedShop && selectedShop.contactStatus === "editing"
+      slotRow?.shopId
+        ? {
+            id: slotRow.shopId,
+            name: slotRow.shopName ?? "",
+            code: slotRow.shopNumber ?? "",
+          }
+        : selectedShop && selectedShop.contactStatus === "editing"
         ? selectedShop
         : null;
-    await markAttendanceRequest(castId, "added", slotIndex);
+    const displayOrder =
+      typeof slotRow?.displayOrder === "number"
+        ? slotRow.displayOrder
+        : slotIndex;
+    await markAttendanceRequest(castId, "added", displayOrder);
     if (orderShop) {
+      const cast =
+        todayCasts.find((item) => item.id === castId) ??
+        allCasts.find((item) => item.id === castId) ??
+        null;
+      if (slotRow?.isOrderSlot && slotRow.orderId && slotRow.shopId) {
+        try {
+          const res = await upsertDispatchSheetRow({
+            date: todayKey(),
+            castId,
+            orderId: slotRow.orderId,
+            shopId: slotRow.shopId,
+            startTime: "00:00",
+            endTime: null,
+            castHourly: cast?.desiredHourly ?? null,
+            shopFee: null,
+            note: null,
+            displayOrder,
+          });
+          setDispatchRows(res.rows ?? []);
+          setDispatchShops(res.shops ?? dispatchShops);
+        } catch (err) {
+          console.warn("[casts/today] failed to assign cast to order slot", err);
+          alert("オーダー枠へのキャスト割当保存に失敗しました。");
+        }
+      }
       setDispatchRows((prev) =>
         prev.map((row) =>
           row.castId === castId
@@ -3007,12 +3051,12 @@ export default function Page() {
                 shopId: orderShop.id,
                 shopName: orderShop.name,
                 shopNumber: orderShop.code,
+                orderId: slotRow?.orderId ?? row.orderId,
+                orderNo: slotRow?.orderNo ?? row.orderNo,
               }
             : row,
         ),
       );
-      await setContactStatus(orderShop.id, "ordered", { force: true });
-      setSelectedShopId("");
     }
     setPendingDispatchSlotIndex(null);
     setDragOverDispatchSlotIndex(null);
@@ -3030,6 +3074,10 @@ export default function Page() {
   };
 
   const confirmOneDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.castId) {
+      alert("先にキャストを選択してください。");
+      return;
+    }
     if (!row.shopId) {
       alert("派遣先を選択してください。");
       return;
@@ -3056,6 +3104,7 @@ export default function Page() {
   };
 
   const cancelOneDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.castId) return;
     if (!row.assignmentId) return;
     const reason =
       window.prompt(
@@ -3080,6 +3129,7 @@ export default function Page() {
   };
 
   const removeManualDispatchRow = async (row: DispatchSheetRow) => {
+    if (!row.castId) return;
     if (!row.manualAdded || row.status !== "draft") return;
     if (
       !window.confirm(
@@ -3396,6 +3446,7 @@ export default function Page() {
   };
 
   const openDispatchCastDetail = (row: DispatchSheetRow) => {
+    if (!row.castId) return;
     const existing =
       todayCasts.find((cast) => cast.id === row.castId) ??
       allCasts.find((cast) => cast.id === row.castId);
@@ -3758,6 +3809,73 @@ export default function Page() {
       ),
     );
     return { ...newOrder, apiOrderId: created.id };
+  };
+
+  const createDispatchOrderSlotsFromSelectedShop = async () => {
+    if (!selectedShopId || !selectedShop) {
+      alert("店舗一覧で稼働中の店舗を選択してください。");
+      return;
+    }
+    const headcount = Math.max(1, Math.min(20, proposalOrderHeadcount || 1));
+    setProposalOrderSaving(true);
+    try {
+      const date = todayKey();
+      const orders = await listShopOrders(date).catch((err) => {
+        console.warn("[casts/today] listShopOrders failed", {
+          date,
+          selectedShopId,
+          err,
+        });
+        return [] as any[];
+      });
+      const matches = orders.filter(
+        (order) =>
+          order?.shopId === selectedShopId ||
+          order?.shop?.id === selectedShopId,
+      );
+      const maxOrderNo = matches.reduce((max, order) => {
+        const orderNo = Number(order?.orderNo ?? order?.order_no ?? 0);
+        return Number.isFinite(orderNo) && orderNo > max ? orderNo : max;
+      }, 0);
+      const shopRequestId = await ensureShopRequestId(
+        selectedShopId,
+        date,
+        headcount,
+      );
+      await createShopOrder({
+        shopRequestId,
+        orderNo: maxOrderNo + 1 || 1,
+        headcount,
+        status: "draft",
+        note: "proposal-order-slots",
+      });
+      await setContactStatus(selectedShopId, "ordered", { force: true });
+      setSelectedShopId("");
+      setProposalOrderHeadcount(1);
+      await loadDispatchSheet();
+    } catch (err) {
+      console.warn("[casts/today] failed to create dispatch order slots", err);
+      alert("オーダー枠の作成に失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setProposalOrderSaving(false);
+    }
+  };
+
+  const rejectSelectedShopFromProposal = async () => {
+    if (!selectedShopId || !selectedShop) {
+      alert("店舗一覧で稼働中の店舗を選択してください。");
+      return;
+    }
+    if (!window.confirm(`${selectedShop.name} を本日オーダーNGでクローズしますか？`)) {
+      return;
+    }
+    setProposalOrderSaving(true);
+    try {
+      await setContactStatus(selectedShopId, "rejected", { force: true });
+      setSelectedShopId("");
+    } finally {
+      setProposalOrderSaving(false);
+    }
   };
 
   const resetOrderState = () => {
@@ -4145,19 +4263,22 @@ export default function Page() {
                     ) : (
                       sortedTodayShops.map((shop) => {
                         const isSelected = shop.id === selectedShopId;
-                        const isOrdered = shop.contactStatus === "ordered";
+                        const isClosed =
+                          shop.contactStatus === "ordered" ||
+                          shop.contactStatus === "rejected" ||
+                          shop.contactStatus === "confirmed";
                         return (
                           <tr
                             key={shop.id}
                             className={`${
                               isSelected ? "bg-sky-100" : ""
                             } ${
-                              isOrdered
+                              isClosed
                                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                                 : "hover:bg-slate-50 cursor-pointer"
                             }`}
                             onClick={() => {
-                              if (isOrdered) return;
+                              if (isClosed) return;
                               setSelectedShopId((prev) => {
                                 const next = prev === shop.id ? "" : shop.id;
                                 return next;
@@ -4447,6 +4568,56 @@ export default function Page() {
                     <option value="ageDesc">年齢が高い順</option>
                   </select>
                 </div>
+
+                {castListMode === "proposal" && selectedShop ? (
+                  <div className="flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-950">
+                    <span className="font-semibold">稼働中店舗</span>
+                    <span className="max-w-[260px] truncate">
+                      {selectedShop.code ? `${selectedShop.code} / ` : ""}
+                      {selectedShop.name}
+                    </span>
+                    <select
+                      className="h-7 w-[88px] border border-sky-300 bg-white px-2 text-[11px]"
+                      value={proposalOrderHeadcount}
+                      onChange={(e) =>
+                        setProposalOrderHeadcount(Number(e.target.value))
+                      }
+                      disabled={proposalOrderSaving}
+                    >
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map(
+                        (count) => (
+                          <option key={count} value={count}>
+                            {count}人
+                          </option>
+                        ),
+                      )}
+                    </select>
+                    <button
+                      type="button"
+                      className="h-7 border border-sky-700 bg-sky-600 px-3 text-[11px] font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                      onClick={() => void createDispatchOrderSlotsFromSelectedShop()}
+                      disabled={proposalOrderSaving}
+                    >
+                      セット
+                    </button>
+                    <button
+                      type="button"
+                      className="h-7 border border-rose-700 bg-white px-3 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                      onClick={() => void rejectSelectedShopFromProposal()}
+                      disabled={proposalOrderSaving}
+                    >
+                      オーダーNG
+                    </button>
+                    <button
+                      type="button"
+                      className="h-7 border border-slate-300 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50"
+                      onClick={() => setSelectedShopId("")}
+                      disabled={proposalOrderSaving}
+                    >
+                      選択解除
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="flex flex-wrap items-center gap-1.5">
                   {pendingDispatchSlotIndex !== null && (
@@ -4802,11 +4973,113 @@ export default function Page() {
                             </div>
                           );
                         }
-                        const saving = dispatchSavingKey === row.castId;
+                        if (!row.castId) {
+                          return (
+                            <div
+                              key={`dispatch-order-slot-${row.orderId ?? slotIndex}-${slotIndex}`}
+                              className={
+                                "border-2 border-slate-950 bg-amber-50 " +
+                                (dragOverDispatchSlotIndex === slotIndex
+                                  ? "outline outline-3 outline-amber-400"
+                                  : "")
+                              }
+                              onDragOver={(e) => {
+                                if (!e.dataTransfer.types.includes("text/plain")) {
+                                  return;
+                                }
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = "move";
+                                setDragOverDispatchSlotIndex(slotIndex);
+                              }}
+                              onDragLeave={() => {
+                                setDragOverDispatchSlotIndex((prev) =>
+                                  prev === slotIndex ? null : prev,
+                                );
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const castId =
+                                  e.dataTransfer.getData("text/plain");
+                                if (!castId) return;
+                                void addCastToDispatchSlot(castId, slotIndex);
+                              }}
+                            >
+                              <table className="w-full table-fixed border-collapse text-[11px] leading-tight text-slate-950">
+                                <tbody>
+                                  <tr>
+                                    <th className="w-[58px] border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                      源氏名
+                                    </th>
+                                    <td className="border-b border-slate-400 px-1 py-1">
+                                      <button
+                                        type="button"
+                                        className="h-4 w-full text-left text-[10px] font-semibold text-amber-700 hover:bg-amber-100"
+                                        onClick={() =>
+                                          startManualDispatchPick(slotIndex)
+                                        }
+                                      >
+                                        キャスト選択
+                                      </button>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                      派遣先
+                                    </th>
+                                    <td className="border-b border-slate-400 p-0.5">
+                                      <div className="h-7 border border-amber-300 bg-white px-1.5 text-[11px] leading-7">
+                                        <span className="block truncate">
+                                          {row.shopNumber
+                                            ? `${row.shopNumber} / `
+                                            : ""}
+                                          {row.shopName ?? ""}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                      時給・手数料
+                                    </th>
+                                    <td className="border-b border-slate-400 p-0.5">
+                                      <div className="grid grid-cols-2 gap-1">
+                                        <div className="h-7 border border-slate-200 bg-white" />
+                                        <div className="h-7 border border-slate-200 bg-white" />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <th className="border-b border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                      時間
+                                    </th>
+                                    <td className="border-b border-slate-400 p-0.5">
+                                      <div className="h-7 border border-slate-200 bg-white" />
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <th className="border-r border-slate-400 bg-slate-100 px-1 py-1 text-left font-semibold">
+                                      メモ
+                                    </th>
+                                    <td className="p-0.5">
+                                      <div className="grid grid-cols-[1fr_74px] gap-1">
+                                        <div className="h-7 border border-slate-200 bg-white" />
+                                        <div className="h-7 border border-slate-200 bg-white text-center text-[10px] leading-7 text-amber-700">
+                                          注文枠
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        }
+                        const castId = row.castId;
+                        const saving = dispatchSavingKey === castId;
                         const isCanceledRow = row.status === "canceled";
                         return (
                           <div
-                            key={row.castId}
+                            key={castId}
                             className={
                               "border-2 border-slate-950 " +
                               (row.status === "confirmed"
@@ -4858,7 +5131,7 @@ export default function Page() {
                                           : "border-slate-300 bg-white")
                                       }
                                       onClick={() => {
-                                        setDispatchShopPickerCastId(row.castId);
+                                        setDispatchShopPickerCastId(castId);
                                         setDispatchShopQuery("");
                                       }}
                                     >
@@ -4894,7 +5167,7 @@ export default function Page() {
                                         placeholder="時給"
                                         value={row.castHourly ?? ""}
                                         onChange={(e) =>
-                                          updateDispatchRowLocal(row.castId, {
+                                          updateDispatchRowLocal(castId, {
                                             castHourly: e.target.value
                                               ? Number(e.target.value)
                                               : null,
@@ -4904,7 +5177,7 @@ export default function Page() {
                                           void saveDispatchRow(
                                             dispatchRows.find(
                                               (item) =>
-                                                item.castId === row.castId,
+                                                item.castId === castId,
                                             ) ?? row,
                                           )
                                         }
@@ -4920,7 +5193,7 @@ export default function Page() {
                                         placeholder="手数料"
                                         value={row.shopFee ?? ""}
                                         onChange={(e) =>
-                                          updateDispatchRowLocal(row.castId, {
+                                          updateDispatchRowLocal(castId, {
                                             shopFee: e.target.value
                                               ? Number(e.target.value)
                                               : null,
@@ -4930,7 +5203,7 @@ export default function Page() {
                                           void saveDispatchRow(
                                             dispatchRows.find(
                                               (item) =>
-                                                item.castId === row.castId,
+                                                item.castId === castId,
                                             ) ?? row,
                                           )
                                         }
@@ -4955,7 +5228,7 @@ export default function Page() {
                                       placeholder="21:00~"
                                       value={row.startTime || ""}
                                       onChange={(e) =>
-                                        updateDispatchRowLocal(row.castId, {
+                                        updateDispatchRowLocal(castId, {
                                           startTime: e.target.value,
                                         })
                                       }
@@ -4963,7 +5236,7 @@ export default function Page() {
                                         void saveDispatchRow(
                                           dispatchRows.find(
                                             (item) =>
-                                              item.castId === row.castId,
+                                              item.castId === castId,
                                           ) ?? row,
                                         )
                                       }
@@ -4991,7 +5264,7 @@ export default function Page() {
                                         }
                                         value={row.note ?? ""}
                                         onChange={(e) =>
-                                          updateDispatchRowLocal(row.castId, {
+                                          updateDispatchRowLocal(castId, {
                                             note: e.target.value,
                                           })
                                         }
@@ -4999,7 +5272,7 @@ export default function Page() {
                                           void saveDispatchRow(
                                             dispatchRows.find(
                                               (item) =>
-                                                item.castId === row.castId,
+                                                item.castId === castId,
                                             ) ?? row,
                                           )
                                         }

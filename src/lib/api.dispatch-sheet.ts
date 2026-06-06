@@ -17,7 +17,7 @@ export type DispatchSheetShop = {
 };
 
 export type DispatchSheetRow = {
-  castId: string;
+  castId: string | null;
   managementNumber: string;
   castCode: string | null;
   displayName: string;
@@ -38,6 +38,7 @@ export type DispatchSheetRow = {
   status: "draft" | "confirmed" | "canceled";
   orderId: string | null;
   orderNo: number | null;
+  isOrderSlot?: boolean;
   cancellationReason?: string | null;
   canceledAt?: string | null;
   attendanceRequestId?: string | null;
@@ -80,6 +81,7 @@ export type UpsertDispatchSheetRowPayload = {
   date: string;
   castId: string;
   assignmentId?: string | null;
+  orderId?: string | null;
   shopId: string;
   startTime: string;
   endTime?: string | null;

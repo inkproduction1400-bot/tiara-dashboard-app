@@ -104,6 +104,7 @@ function DispatchMiniCard({
   onCancel: (row: DispatchSheetRow) => void;
 }) {
   const isEmpty = !row.displayName;
+  const rowCastId = row.castId ?? "";
   const disabled = isEmpty || saving;
   const canCancel =
     !isEmpty &&
@@ -147,7 +148,9 @@ function DispatchMiniCard({
         <button
           type="button"
           disabled={isEmpty}
-          onClick={() => onOpenShopPicker(row.castId)}
+          onClick={() => {
+            if (rowCastId) onOpenShopPicker(rowCastId);
+          }}
           className={`min-w-0 truncate px-1.5 py-1 text-left ${
             row.shopName ? "text-slate-900" : "text-slate-400"
           }`}
@@ -166,7 +169,7 @@ function DispatchMiniCard({
           disabled={disabled}
           value={row.castHourly ?? ""}
           onChange={(event) =>
-            onPatch(row.castId, {
+            onPatch(rowCastId, {
               castHourly: event.target.value ? Number(event.target.value) : null,
             })
           }
@@ -184,7 +187,7 @@ function DispatchMiniCard({
           disabled={disabled}
           value={row.shopFee ?? ""}
           onChange={(event) =>
-            onPatch(row.castId, {
+            onPatch(rowCastId, {
               shopFee: event.target.value ? Number(event.target.value) : null,
             })
           }
@@ -207,7 +210,7 @@ function DispatchMiniCard({
           disabled={disabled}
           value={row.startTime ? `${normalizeTime(row.startTime)}~` : ""}
           onChange={(event) =>
-            onPatch(row.castId, { startTime: event.target.value })
+            onPatch(rowCastId, { startTime: event.target.value })
           }
           onBlur={(event) =>
             onSave(row, { startTime: normalizeTime(event.target.value) })
@@ -224,7 +227,7 @@ function DispatchMiniCard({
         <input
           disabled={disabled}
           value={row.note ?? ""}
-          onChange={(event) => onPatch(row.castId, { note: event.target.value })}
+          onChange={(event) => onPatch(rowCastId, { note: event.target.value })}
           onBlur={(event) => onSave(row, { note: event.target.value })}
           className={`${inputClass} border-y-0 border-l-0`}
         />
@@ -458,6 +461,7 @@ export default function AssignmentsPageClient() {
     async (row: DispatchSheetRow, patch: Partial<DispatchSheetRow> = {}) => {
       const current = rows.find((item) => item.castId === row.castId) ?? row;
       const next = { ...current, ...patch };
+      if (!next.castId) return null;
       if (!next.displayName || !next.shopId) return null;
       setSavingCastId(next.castId);
       try {
@@ -465,6 +469,7 @@ export default function AssignmentsPageClient() {
           date,
           castId: next.castId,
           assignmentId: next.assignmentId,
+          orderId: next.orderId,
           shopId: next.shopId,
           startTime: normalizeTime(next.startTime),
           endTime: next.endTime || null,
@@ -491,7 +496,7 @@ export default function AssignmentsPageClient() {
     async (shop: DispatchSheetShop) => {
       if (!shopPickerCastId) return;
       const row = rows.find((item) => item.castId === shopPickerCastId);
-      if (!row) return;
+      if (!row?.castId) return;
       const patch: Partial<DispatchSheetRow> = {
         shopId: shop.id,
         shopName: shop.name,
@@ -548,14 +553,35 @@ export default function AssignmentsPageClient() {
   const selectCast = useCallback(
     async (cast: CastListItem) => {
       if (castPickerSlotIndex === null) return;
+      const slotRow = displayRows[castPickerSlotIndex];
       setSavingCastId(cast.userId);
       try {
         await upsertAttendanceRequest({
           date,
           castId: cast.userId,
           status: "added",
-          displayOrder: castPickerSlotIndex,
+          displayOrder:
+            typeof slotRow?.displayOrder === "number"
+              ? slotRow.displayOrder
+              : castPickerSlotIndex,
         });
+        if (slotRow?.isOrderSlot && slotRow.orderId && slotRow.shopId) {
+          await upsertDispatchSheetRow({
+            date,
+            castId: cast.userId,
+            orderId: slotRow.orderId,
+            shopId: slotRow.shopId,
+            startTime: "00:00",
+            endTime: null,
+            castHourly: cast.desiredHourly ?? null,
+            shopFee: null,
+            note: null,
+            displayOrder:
+              typeof slotRow.displayOrder === "number"
+                ? slotRow.displayOrder
+                : castPickerSlotIndex,
+          });
+        }
         setCastPickerSlotIndex(null);
         await load();
       } catch (err) {
@@ -565,12 +591,13 @@ export default function AssignmentsPageClient() {
         setSavingCastId(null);
       }
     },
-    [castPickerSlotIndex, date, load],
+    [castPickerSlotIndex, date, displayRows, load],
   );
 
   const confirmRow = useCallback(
     async (row: DispatchSheetRow) => {
       const current = rows.find((item) => item.castId === row.castId) ?? row;
+      if (!current.castId) return;
       if (!current.shopId) {
         alert("派遣先を選択してください。");
         return;
@@ -600,6 +627,7 @@ export default function AssignmentsPageClient() {
   const cancelOrRemoveRow = useCallback(
     async (row: DispatchSheetRow) => {
       if (row.status === "confirmed") {
+        if (!row.castId) return;
         if (!row.assignmentId) return;
         const reason =
           window.prompt(
@@ -625,6 +653,7 @@ export default function AssignmentsPageClient() {
       }
 
       if (!row.manualAdded || row.status !== "draft") return;
+      if (!row.castId) return;
       if (
         !window.confirm(
           `${row.displayName} を派遣表から外しますか？入力ミス扱いのため、キャンセル履歴には含めません。`,

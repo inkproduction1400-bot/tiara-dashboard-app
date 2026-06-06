@@ -1486,6 +1486,8 @@ export default function Page() {
     switch (status) {
       case "editing":
         return "入力中";
+      case "ordered":
+        return "オーダー済";
       case "confirmed":
         return "◯済";
       case "rejected":
@@ -2991,7 +2993,27 @@ export default function Page() {
       alert("このキャストはすでに派遣表に追加されています。");
       return;
     }
+    const orderShop =
+      selectedShop && selectedShop.contactStatus === "editing"
+        ? selectedShop
+        : null;
     await markAttendanceRequest(castId, "added", slotIndex);
+    if (orderShop) {
+      setDispatchRows((prev) =>
+        prev.map((row) =>
+          row.castId === castId
+            ? {
+                ...row,
+                shopId: orderShop.id,
+                shopName: orderShop.name,
+                shopNumber: orderShop.code,
+              }
+            : row,
+        ),
+      );
+      await setContactStatus(orderShop.id, "ordered", { force: true });
+      setSelectedShopId("");
+    }
     setPendingDispatchSlotIndex(null);
     setDragOverDispatchSlotIndex(null);
     setStatusTab("today");
@@ -3580,7 +3602,7 @@ export default function Page() {
     if (!options?.force) {
       if (
         status === "editing" &&
-        (current === "confirmed" || current === "rejected")
+        (current === "confirmed" || current === "rejected" || current === "ordered")
       ) {
         return;
       }
@@ -4123,18 +4145,24 @@ export default function Page() {
                     ) : (
                       sortedTodayShops.map((shop) => {
                         const isSelected = shop.id === selectedShopId;
+                        const isOrdered = shop.contactStatus === "ordered";
                         return (
                           <tr
                             key={shop.id}
                             className={`${
                               isSelected ? "bg-sky-100" : ""
-                            } hover:bg-slate-50 cursor-pointer`}
-                            onClick={() =>
+                            } ${
+                              isOrdered
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : "hover:bg-slate-50 cursor-pointer"
+                            }`}
+                            onClick={() => {
+                              if (isOrdered) return;
                               setSelectedShopId((prev) => {
                                 const next = prev === shop.id ? "" : shop.id;
                                 return next;
-                              })
-                            }
+                              });
+                            }}
                           >
                           {shopTableColumns.map((col, idx) => {
                             const isEditing = shop.contactStatus === "editing";

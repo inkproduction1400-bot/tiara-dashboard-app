@@ -2108,6 +2108,7 @@ export default function Page() {
   };
 
   const {
+    allItems: allFilteredCasts,
     items: filteredCasts,
     total: filteredTotal,
     totalPages,
@@ -2328,6 +2329,7 @@ export default function Page() {
     const paged = list.slice(start, end);
 
     return {
+      allItems: list,
       items: paged,
       total,
       totalPages: tp,
@@ -2368,11 +2370,11 @@ export default function Page() {
     const requestByCastId = new Map(
       attendanceRequests.map((item) => [item.castId, item]),
     );
-    return filteredCasts.filter((cast) => {
+    return allFilteredCasts.filter((cast) => {
       const status = requestByCastId.get(cast.id)?.status ?? null;
       return !status;
     });
-  }, [attendanceRequests, castListMode, filteredCasts, statusTab]);
+  }, [allFilteredCasts, attendanceRequests, castListMode, statusTab]);
 
   const handleBulkRequestChat = useCallback(async () => {
     const text = chatTemplates.request.trim();
@@ -2386,18 +2388,18 @@ export default function Page() {
       return;
     }
 
-    const skippedCount = filteredCasts.length - bulkRequestTargets.length;
+    const skippedCount = allFilteredCasts.length - bulkRequestTargets.length;
     if (bulkRequestTargets.length === 0) {
       alert(
         skippedCount > 0
-          ? "表示中のキャストはすでに出勤依頼済み、または出勤OK/NGのため送信対象がありません。"
+          ? "条件に該当するキャストはすでに出勤依頼済み、または出勤OK/NGのため送信対象がありません。"
           : "一括送信の対象キャストが表示されていません。",
       );
       return;
     }
 
     const ok = window.confirm(
-      `現在表示中の未送信${bulkRequestTargets.length}名に出勤依頼チャットを一括送信します。${skippedCount > 0 ? `送信済みの${skippedCount}名は除外します。` : ""}よろしいですか？`,
+      `現在の絞り込み条件に該当する未送信${bulkRequestTargets.length}名に出勤依頼チャットを一括送信します。${skippedCount > 0 ? `送信済みの${skippedCount}名は除外します。` : ""}よろしいですか？`,
     );
     if (!ok) return;
 
@@ -2446,10 +2448,10 @@ export default function Page() {
     }
     alert(`${sentCount}名に送信しました。`);
   }, [
+    allFilteredCasts.length,
     bulkRequestTargets,
     castListMode,
     chatTemplates.request,
-    filteredCasts.length,
     statusTab,
   ]);
 
@@ -4236,11 +4238,11 @@ export default function Page() {
                       disabled={
                         bulkRequestSending || bulkRequestTargets.length === 0
                       }
-                      title="現在表示されている未送信キャストに出勤依頼チャットを送信します"
+                      title="現在の絞り込み条件に該当する未送信キャスト全員に出勤依頼チャットを送信します"
                     >
                       {bulkRequestSending
                         ? "一括送信中..."
-                        : `未送信${bulkRequestTargets.length}名に一括送信`}
+                        : `条件内の未送信${bulkRequestTargets.length}名に一括送信`}
                     </button>
                   )}
                   <div className="ml-auto flex w-[180px] flex-none flex-col gap-0.5">

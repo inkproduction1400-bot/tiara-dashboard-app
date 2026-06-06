@@ -95,6 +95,7 @@ const DISPATCH_TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
 const DISPATCH_TIME_DATALIST_ID = "dispatch-time-options";
 type DispatchStatusFilter = "" | "unassigned" | "matched";
 type CastStatusTab = "today" | "all" | "dormant";
+type CastListMode = "proposal" | "request";
 type AttendanceRequestFilter = "" | "none" | AttendanceRequestStatus;
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
@@ -1077,6 +1078,8 @@ export default function Page() {
   const [dispatchStatusFilter, setDispatchStatusFilter] =
     useState<DispatchStatusFilter>("");
   const [statusTab, setStatusTab] = useState<CastStatusTab>("today");
+  const [castListMode, setCastListMode] =
+    useState<CastListMode>("proposal");
 
   // 既存ソート（年齢・時給など）
   const [sortKey, setSortKey] = useState<SortKey>("default");
@@ -1928,6 +1931,7 @@ export default function Page() {
     setCurrentPage(1);
   }, [
     statusTab,
+    castListMode,
     担当者,
     keyword,
     selectedShopId,
@@ -2113,10 +2117,11 @@ export default function Page() {
       attendanceRequests.map((row) => [row.castId, row]),
     );
 
-    // ① ベース集合の選択（タブの役割）
-    // - 本日出勤：本日シフトがあるキャスト
+    // ① ベース集合の選択（タブ + 業務モード）
+    // - 派遣表：本日シフトがあるキャスト
     // - 全キャスト：休眠ではない稼働対象キャスト
     // - 休眠キャスト：休眠ステータスが付いたキャスト
+    // - マッチング提案モード：カード一覧では本日出勤キャストに絞る
     let base: Cast[];
     if (statusTab === "all") {
       base = allCasts.filter(isActiveCast);
@@ -2127,6 +2132,10 @@ export default function Page() {
     }
 
     let list: Cast[] = [...base];
+
+    if (statusTab !== "today" && castListMode === "proposal") {
+      list = list.filter((c) => todayIds.has(c.id));
+    }
 
     if (pendingDispatchSlotIndex !== null) {
       const assignedCastIds = new Set(
@@ -2139,11 +2148,11 @@ export default function Page() {
       });
     }
 
-    if (担当者 !== "all") {
+    if (castListMode === "request" && 担当者 !== "all") {
       list = list.filter((c) => (c.ownerStaffName ?? "").includes(担当者));
     }
 
-    if (attendanceRequestFilter) {
+    if (castListMode === "request" && attendanceRequestFilter) {
       list = list.filter((c) => {
         const status = attendanceRequestByCastId.get(c.id)?.status ?? null;
         if (attendanceRequestFilter === "none") return !status;
@@ -2152,16 +2161,14 @@ export default function Page() {
     }
 
     // ③ 派遣票の入力状態フィルタ
-    if (dispatchStatusFilter) {
+    if (castListMode === "proposal" && dispatchStatusFilter) {
       const dispatchRowByCastId = new Map(
         dispatchRows.map((row) => [row.castId, row]),
       );
       list = list.filter((c) => {
         const row = dispatchRowByCastId.get(c.id);
         const hasDispatchShop = Boolean(row?.shopId);
-        return dispatchStatusFilter === "matched"
-          ? hasDispatchShop
-          : !hasDispatchShop;
+        return dispatchStatusFilter === "matched" ? hasDispatchShop : true;
       });
     }
 
@@ -2328,6 +2335,7 @@ export default function Page() {
   }, [
     allCasts,
     todayCasts,
+    castListMode,
     担当者,
     attendanceRequests,
     attendanceRequestFilter,
@@ -4066,134 +4074,69 @@ export default function Page() {
                     value={keyword}
                     onChange={(e) => setKeyword(e.target.value)}
                   />
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[110px] text-[10px] leading-tight flex-none"
-                    value={担当者}
-                    onChange={(e) => set担当者(e.target.value)}
-                  >
-                    <option value="all">担当者：すべて</option>
-                    {ownerStaffOptions.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                        {name === currentStaffName ? "（自分）" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[110px] text-[10px] leading-tight flex-none"
-                    value={dispatchStatusFilter}
-                    onChange={(e) =>
-                      setDispatchStatusFilter(
-                        e.target.value as DispatchStatusFilter,
-                      )
-                    }
-                  >
-                    <option value="">派遣状態</option>
-                    <option value="unassigned">未配属</option>
-                    <option value="matched">マッチ済み</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[118px] text-[10px] leading-tight flex-none"
-                    value={attendanceRequestFilter}
-                    onChange={(e) =>
-                      setAttendanceRequestFilter(
-                        e.target.value as AttendanceRequestFilter,
-                      )
-                    }
-                  >
-                    <option value="">出勤依頼</option>
-                    <option value="none">未依頼</option>
-                    <option value="requested">依頼済み</option>
-                    <option value="ok">出勤OK</option>
-                    <option value="ng">出勤NG</option>
-                    <option value="added">追加済み</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[100px] text-[10px] leading-tight flex-none"
-                    value={castWageFilter}
-                    onChange={(e) =>
-                      setCastWageFilter(e.target.value as WageFilter)
-                    }
-                  >
-                    <option value="">時給</option>
-                    {shopWageOptions.map((v) => (
-                      <option key={v} value={v}>
-                        {v}円帯
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
-                    value={castExclusiveFilter}
-                    onChange={(e) =>
-                      setCastExclusiveFilter(e.target.value as YesNoFilter)
-                    }
-                  >
-                    <option value="">専属指名</option>
-                    <option value="yes">専属あり</option>
-                    <option value="no">専属なし</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[95px] text-[10px] leading-tight flex-none"
-                    value={castNominatedFilter}
-                    onChange={(e) =>
-                      setCastNominatedFilter(e.target.value as YesNoFilter)
-                    }
-                  >
-                    <option value="">指名</option>
-                    <option value="yes">指名あり</option>
-                    <option value="no">指名なし</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none"
-                    value={sortKey}
-                    onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  >
-                    <option value="default">並び替え</option>
-                    <option value="hourlyDesc">時給が高い順</option>
-                    <option value="ageAsc">年齢が若い順</option>
-                    <option value="ageDesc">年齢が高い順</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
-                    value={drinkSort}
-                    onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
-                  >
-                    <option value="none">飲酒</option>
-                    <option value="okFirst">飲める順</option>
-                    <option value="ngFirst">飲めない順</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none"
-                    value={castGenreFilter}
-                    onChange={(e) =>
-                      setCastGenreFilter(
-                        (e.target.value || "") as CastGenre | "",
-                      )
-                    }
-                  >
-                    <option value="">ジャンル</option>
-                    <option value="club">クラブ</option>
-                    <option value="cabaret">キャバ</option>
-                    <option value="snack">スナック</option>
-                    <option value="gb">ガルバ</option>
-                  </select>
-                  <select
-                    className="tiara-input rounded-none h-8 !w-[115px] text-[10px] leading-tight flex-none"
-                    value={ageRangeFilter}
-                    onChange={(e) =>
-                      setAgeRangeFilter(e.target.value as AgeRangeFilter)
-                    }
-                  >
-                    <option value="">年齢レンジ</option>
-                    <option value="18-19">18〜19歳</option>
-                    <option value="20-24">20〜24歳</option>
-                    <option value="25-29">25〜29歳</option>
-                    <option value="30-34">30〜34歳</option>
-                    <option value="35-39">35〜39歳</option>
-                    <option value="40-49">40〜49歳</option>
-                    <option value="50-">50歳以上</option>
-                  </select>
+                  <div className="inline-flex h-8 overflow-hidden border border-slate-900 bg-white text-[10px] font-semibold flex-none">
+                    <button
+                      type="button"
+                      className={
+                        "px-3 " +
+                        (castListMode === "proposal"
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-700 hover:bg-slate-50")
+                      }
+                      onClick={() => {
+                        setCastListMode("proposal");
+                        setAttendanceRequestFilter("");
+                        set担当者("all");
+                      }}
+                    >
+                      マッチング提案
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        "border-l border-slate-900 px-3 " +
+                        (castListMode === "request"
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-700 hover:bg-slate-50")
+                      }
+                      onClick={() => {
+                        setCastListMode("request");
+                        setDispatchStatusFilter("");
+                      }}
+                    >
+                      出勤依頼
+                    </button>
+                  </div>
+                  {castListMode === "proposal" ? (
+                    <select
+                      className="h-8 w-[130px] flex-none border-2 border-sky-600 bg-sky-50 px-2 text-[10px] font-semibold text-sky-900"
+                      value={dispatchStatusFilter === "matched" ? "matched" : ""}
+                      onChange={(e) =>
+                        setDispatchStatusFilter(
+                          e.target.value as DispatchStatusFilter,
+                        )
+                      }
+                    >
+                      <option value="">本日出勤すべて</option>
+                      <option value="matched">マッチ済み</option>
+                    </select>
+                  ) : (
+                    <select
+                      className="h-8 w-[130px] flex-none border-2 border-amber-500 bg-amber-50 px-2 text-[10px] font-semibold text-amber-900"
+                      value={attendanceRequestFilter}
+                      onChange={(e) =>
+                        setAttendanceRequestFilter(
+                          e.target.value as AttendanceRequestFilter,
+                        )
+                      }
+                    >
+                      <option value="">依頼状態すべて</option>
+                      <option value="none">未依頼</option>
+                      <option value="requested">依頼済み</option>
+                      <option value="ok">出勤OK</option>
+                      <option value="ng">出勤NG</option>
+                    </select>
+                  )}
                   <div className="ml-auto flex w-[180px] flex-none flex-col gap-0.5">
                     <button
                       type="button"
@@ -4240,6 +4183,113 @@ export default function Page() {
                       </label>
                     </div>
                   </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1">
+                  <span className="mr-1 text-[10px] font-semibold text-slate-500">
+                    補助フィルター
+                  </span>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[100px] text-[10px] leading-tight flex-none bg-white"
+                    value={castWageFilter}
+                    onChange={(e) =>
+                      setCastWageFilter(e.target.value as WageFilter)
+                    }
+                  >
+                    <option value="">時給</option>
+                    {shopWageOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}円帯
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    value={castExclusiveFilter}
+                    onChange={(e) =>
+                      setCastExclusiveFilter(e.target.value as YesNoFilter)
+                    }
+                  >
+                    <option value="">専属指名</option>
+                    <option value="yes">専属あり</option>
+                    <option value="no">専属なし</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[95px] text-[10px] leading-tight flex-none bg-white"
+                    value={castNominatedFilter}
+                    onChange={(e) =>
+                      setCastNominatedFilter(e.target.value as YesNoFilter)
+                    }
+                  >
+                    <option value="">指名</option>
+                    <option value="yes">指名あり</option>
+                    <option value="no">指名なし</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    value={drinkSort}
+                    onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
+                  >
+                    <option value="none">飲酒</option>
+                    <option value="okFirst">飲める順</option>
+                    <option value="ngFirst">飲めない順</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    value={castGenreFilter}
+                    onChange={(e) =>
+                      setCastGenreFilter(
+                        (e.target.value || "") as CastGenre | "",
+                      )
+                    }
+                  >
+                    <option value="">ジャンル</option>
+                    <option value="club">クラブ</option>
+                    <option value="cabaret">キャバ</option>
+                    <option value="snack">スナック</option>
+                    <option value="gb">ガルバ</option>
+                  </select>
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[115px] text-[10px] leading-tight flex-none bg-white"
+                    value={ageRangeFilter}
+                    onChange={(e) =>
+                      setAgeRangeFilter(e.target.value as AgeRangeFilter)
+                    }
+                  >
+                    <option value="">年齢レンジ</option>
+                    <option value="18-19">18〜19歳</option>
+                    <option value="20-24">20〜24歳</option>
+                    <option value="25-29">25〜29歳</option>
+                    <option value="30-34">30〜34歳</option>
+                    <option value="35-39">35〜39歳</option>
+                    <option value="40-49">40〜49歳</option>
+                    <option value="50-">50歳以上</option>
+                  </select>
+                  {castListMode === "request" && (
+                    <select
+                      className="tiara-input rounded-none h-8 !w-[125px] text-[10px] leading-tight flex-none bg-white"
+                      value={担当者}
+                      onChange={(e) => set担当者(e.target.value)}
+                    >
+                      <option value="all">担当者：すべて</option>
+                      {ownerStaffOptions.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                          {name === currentStaffName ? "（自分）" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <select
+                    className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none bg-white"
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  >
+                    <option value="default">並び替え</option>
+                    <option value="hourlyDesc">時給が高い順</option>
+                    <option value="ageAsc">年齢が若い順</option>
+                    <option value="ageDesc">年齢が高い順</option>
+                  </select>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -4840,6 +4890,28 @@ export default function Page() {
                   const requestStatus =
                     attendanceRequests.find((row) => row.castId === cast.id)
                       ?.status ?? null;
+                  const dispatchRow = dispatchRows.find(
+                    (row) => row.castId === cast.id,
+                  );
+                  const isMatched = Boolean(dispatchRow?.shopId);
+                  const attendanceBadgeLabel =
+                    requestStatus === "requested"
+                      ? "依頼済み"
+                      : requestStatus === "ng"
+                        ? "出勤NG"
+                        : requestStatus === "ok" ||
+                            requestStatus === "added" ||
+                            castListMode === "proposal"
+                          ? "出勤OK"
+                          : null;
+                  const attendanceBadgeClass =
+                    requestStatus === "requested"
+                      ? "bg-amber-100 text-amber-800"
+                      : requestStatus === "ng"
+                        ? "bg-rose-100 text-rose-800"
+                        : attendanceBadgeLabel === "出勤OK"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-slate-100 text-slate-700";
                   const isFixed =
                     !!selectedShop &&
                     selectedShopFixedCastIdSet.has(cast.id);
@@ -4890,29 +4962,20 @@ export default function Page() {
                             ))}
                           </div>
                         )}
-                        {requestStatus && (
-                          <div
-                            className={`absolute right-1 top-1 z-10 px-1.5 py-0.5 text-[10px] font-semibold ${
-                              requestStatus === "requested"
-                                ? "bg-amber-100 text-amber-800"
-                                : requestStatus === "ok"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : requestStatus === "ng"
-                                    ? "bg-rose-100 text-rose-800"
-                                    : requestStatus === "added"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {requestStatus === "requested"
-                              ? "依頼済み"
-                              : requestStatus === "ok"
-                                ? "出勤OK"
-                                : requestStatus === "ng"
-                                  ? "出勤NG"
-                                  : requestStatus === "added"
-                                    ? "追加済み"
-                                    : "取消"}
+                        {(attendanceBadgeLabel || isMatched) && (
+                          <div className="absolute right-1 top-1 z-10 flex flex-col items-end gap-1">
+                            {attendanceBadgeLabel && (
+                              <div
+                                className={`px-1.5 py-0.5 text-[10px] font-semibold ${attendanceBadgeClass}`}
+                              >
+                                {attendanceBadgeLabel}
+                              </div>
+                            )}
+                            {isMatched && (
+                              <div className="bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">
+                                マッチ済み
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

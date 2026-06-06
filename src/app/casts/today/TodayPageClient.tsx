@@ -4481,7 +4481,7 @@ export default function Page() {
                     </button>
                   </div>
 
-                  <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 text-[10px]">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                     <div className="grid grid-rows-2 border border-slate-200 bg-white">
                       <div className="border-b border-slate-200 px-1.5 py-0.5 leading-tight">
                         <span className="font-semibold">オーダー数</span>

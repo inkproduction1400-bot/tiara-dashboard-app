@@ -182,10 +182,26 @@ export async function confirmDispatchSheetRow(
 export async function cancelDispatchSheetRow(
   assignmentId: string,
   reason?: string | null,
-): Promise<{ ok: boolean; assignmentId: string; status: "canceled"; reason: string }> {
-  return apiFetch<{ ok: boolean; assignmentId: string; status: "canceled"; reason: string }>(
+  cancelType?: "cast" | "shop",
+): Promise<{
+  ok: boolean;
+  assignmentId: string;
+  status: "canceled";
+  reason: string;
+  cancelType?: "cast" | "shop";
+}> {
+  return apiFetch<{
+    ok: boolean;
+    assignmentId: string;
+    status: "canceled";
+    reason: string;
+    cancelType?: "cast" | "shop";
+  }>(
     `/dispatch-sheet/rows/${assignmentId}/cancel`,
-    { method: "POST", body: JSON.stringify({ reason: reason ?? null }) },
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: reason ?? null, cancelType }),
+    },
   );
 }
 

@@ -629,19 +629,50 @@ export default function AssignmentsPageClient() {
       if (row.status === "confirmed") {
         if (!row.castId) return;
         if (!row.assignmentId) return;
+        const typeInput =
+          window.prompt(
+            [
+              "キャンセル種別を選択してください。",
+              "",
+              "1: キャスト都合（キャストだけ外し、店舗オーダー枠は残す）",
+              "2: 店舗都合（店舗オーダーごとキャンセル）",
+            ].join("\n"),
+            "1",
+          ) ?? "";
+        const normalizedType = typeInput.trim();
+        if (!normalizedType) return;
+        const cancelType =
+          normalizedType === "2" ||
+          normalizedType === "店舗" ||
+          normalizedType === "shop"
+            ? "shop"
+            : normalizedType === "1" ||
+                normalizedType === "キャスト" ||
+                normalizedType === "cast"
+              ? "cast"
+              : null;
+        if (!cancelType) {
+          alert("キャンセル種別は 1 または 2 で選択してください。");
+          return;
+        }
         const reason =
           window.prompt(
             "キャンセル理由を入力してください。",
-            row.cancellationReason || "当日欠勤",
+            row.cancellationReason ||
+              (cancelType === "shop" ? "店舗都合キャンセル" : "当日欠勤"),
           ) ?? "";
         const trimmed = reason.trim();
         if (!trimmed) return;
-        if (!window.confirm(`${row.displayName} の確定済み派遣をキャンセルしますか？`)) {
+        const confirmMessage =
+          cancelType === "shop"
+            ? `${row.displayName} の確定済み派遣を店舗都合でキャンセルします。\n派遣表の店舗オーダー枠もキャンセルされます。よろしいですか？`
+            : `${row.displayName} の確定済み派遣をキャスト都合でキャンセルします。\nキャストのキャンセル回数に加算し、店舗オーダー枠は残します。よろしいですか？`;
+        if (!window.confirm(`${confirmMessage}\n\n理由: ${trimmed}`)) {
           return;
         }
         setSavingCastId(row.castId);
         try {
-          await cancelDispatchSheetRow(row.assignmentId, trimmed);
+          await cancelDispatchSheetRow(row.assignmentId, trimmed, cancelType);
           await load();
         } catch (err) {
           console.warn("[m/assignments] failed to cancel dispatch row", err);

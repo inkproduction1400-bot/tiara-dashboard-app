@@ -4778,7 +4778,7 @@ export default function Page() {
             <>
               {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
               <div className="flex flex-col gap-1.5 text-xs">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1.5 overflow-hidden">
                   <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
                     <button
                       type="button"
@@ -5139,7 +5139,7 @@ export default function Page() {
                       </button>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-none items-center gap-1.5">
                     {[
                       { id: "today", label: "派遣表" },
                       { id: "all", label: "全キャスト" },
@@ -5186,7 +5186,7 @@ export default function Page() {
                     })}
                   </div>
 
-                  <div className="inline-flex h-7 items-center bg-gray-100 text-gray-800 border border-gray-300 px-2 gap-2 ml-1">
+                  <div className="ml-1 inline-flex h-7 flex-none items-center gap-2 border border-gray-300 bg-gray-100 px-2 text-gray-800">
                     <button
                       type="button"
                       className="text-xs px-2 h-5 border border-gray-300 disabled:opacity-40"
@@ -5212,8 +5212,8 @@ export default function Page() {
                     </button>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <div className="grid grid-rows-2 border border-slate-200 bg-white">
+                  <div className="flex min-w-0 flex-1 items-stretch gap-1.5 text-[10px]">
+                    <div className="grid flex-none grid-rows-2 border border-slate-200 bg-white">
                       <div className="border-b border-slate-200 px-1.5 py-0.5 leading-tight">
                         <span className="font-semibold">オーダー数</span>
                         <span className="ml-2">{orderSummary.count} 件</span>
@@ -5223,7 +5223,7 @@ export default function Page() {
                         <span className="ml-2">{orderSummary.headcount} 人</span>
                       </div>
                     </div>
-                    <div className="border border-slate-200 bg-white px-1.5 py-0.5">
+                    <div className="flex-none border border-slate-200 bg-white px-1.5 py-0.5">
                       <div className="mb-0.5 font-semibold leading-none">
                         時給別（本日出勤予定）
                       </div>
@@ -5235,7 +5235,7 @@ export default function Page() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex min-w-[280px] max-w-[520px] flex-1 items-start gap-2 border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
+                    <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
                       <div className="grid h-7 w-7 flex-none place-items-center rounded-full border border-indigo-300 bg-white text-[10px] font-black text-indigo-700 shadow-sm">
                         AI
                       </div>
@@ -5243,7 +5243,7 @@ export default function Page() {
                         <div className="mb-0.5 font-semibold leading-none text-indigo-900">
                           次のアクション
                         </div>
-                        <div className="grid gap-0.5">
+                        <div className="grid max-h-[38px] gap-0.5 overflow-hidden">
                           {matchingAdvices.slice(0, 2).map((advice, index) => (
                             <div
                               key={`${advice.tone}-${index}`}

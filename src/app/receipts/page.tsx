@@ -437,7 +437,7 @@ export default function ReceiptsPage() {
             <div className="text-xl font-semibold tracking-[0.16em]">ティアラ</div>
             <div className="absolute right-0 bottom-0 text-xs font-semibold">
               {businessDate.split("-")[0]} 年 {Number(businessDate.split("-")[1])} 月{" "}
-              {Number(businessDate.split("-")[2])} 日 {weekday} 入力
+              {Number(businessDate.split("-")[2])} 日 {weekday}
             </div>
           </div>
           <div className="mb-2 flex justify-end print:hidden">
@@ -540,7 +540,10 @@ export default function ReceiptsPage() {
                   const startTime = row.startTime ? `${row.startTime} ～` : "～";
 
                   return (
-                    <tr key={key} className={rowClass}>
+                    <tr
+                      key={key}
+                      className={`${rowClass} ${isCanceled ? "receipt-canceled-row" : ""}`}
+                    >
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         {isCanceled || isPastOpen ? "" : attendanceNumber}
                       </td>
@@ -632,7 +635,7 @@ export default function ReceiptsPage() {
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         <select
-                          className="h-6 w-full border border-slate-500 bg-white text-center text-sm leading-none"
+                          className="receipt-collection-select h-6 w-full border border-slate-500 bg-white text-center text-sm leading-none"
                           value={collectionValue}
                           disabled={isCanceled || needsReissue}
                           onChange={(event) =>
@@ -646,6 +649,9 @@ export default function ReceiptsPage() {
                           <option value="uncollected">○</option>
                           <option value="collected">✓</option>
                         </select>
+                        <span className="receipt-collection-print-mark text-sm font-semibold leading-none">
+                          {collectionValue === "collected" ? "✓" : "○"}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -941,6 +947,23 @@ export default function ReceiptsPage() {
             page-break-inside: avoid;
             page-break-after: auto;
           }
+
+          .receipt-canceled-row {
+            display: none !important;
+          }
+
+          .receipt-collection-select {
+            display: none !important;
+          }
+
+          .receipt-collection-print-mark {
+            display: inline !important;
+            visibility: visible !important;
+          }
+        }
+
+        .receipt-collection-print-mark {
+          display: none;
         }
       `}</style>
     </AppShell>

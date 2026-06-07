@@ -1043,19 +1043,39 @@ const isDormantCast = (cast: Cast): boolean => {
 
 const isActiveCast = (cast: Cast): boolean => !isDormantCast(cast);
 
-/**
- * 店舗条件・NG情報を元に「この店舗にマッチするキャストか？」を判定
- * - 今回は NG のみで非表示にする
- */
+const getShopNgFlags = (
+  cast: Cast,
+  shopId: string | null | undefined,
+  shopNgSet?: Set<string>,
+): { shopNg: boolean; castNg: boolean } => ({
+  shopNg: Boolean(shopId && shopNgSet?.has(cast.id)),
+  castNg: Boolean(shopId && cast.ngShopIds?.includes(shopId)),
+});
+
+const getShopNgBlockMessages = (
+  cast: Cast,
+  shopId: string | null | undefined,
+  shopNgSet?: Set<string>,
+): string[] => {
+  const flags = getShopNgFlags(cast, shopId, shopNgSet);
+  const messages: string[] = [];
+  if (flags.shopNg) {
+    messages.push("店舗側でこのキャストがNG登録されています。");
+  }
+  if (flags.castNg) {
+    messages.push("キャスト側でこの店舗がNG登録されています。");
+  }
+  return messages;
+};
+
+/** 店舗条件を元に「この店舗にマッチするキャストか？」を判定 */
 const matchesShopConditions = (
   cast: Cast,
   shop: Shop | null,
-  shopNgSet?: Set<string>,
+  _shopNgSet?: Set<string>,
   shopFixedSet?: Set<string>,
 ): boolean => {
   if (!shop) return true;
-  if (cast.ngShopIds?.includes(shop.id)) return false;
-  if (shopNgSet && shopNgSet.has(cast.id)) return false;
   if (cast.hasExclusive && shopFixedSet && !shopFixedSet.has(cast.id))
     return false;
   return true;
@@ -1162,6 +1182,9 @@ export default function Page() {
   const [selectedShopNgCastIds, setSelectedShopNgCastIds] = useState<string[]>(
     [],
   );
+  const [shopNgCastIdsByShopId, setShopNgCastIdsByShopId] = useState<
+    Record<string, string[]>
+  >({});
   const [selectedShopFixedCastIds, setSelectedShopFixedCastIds] = useState<
     string[]
   >([]);
@@ -1865,12 +1888,15 @@ export default function Page() {
           listShopFixedCasts(selectedShopId),
         ]);
         if (cancelled) return;
+        const ngCastIds = (ngCasts ?? [])
+          .map((row) => row.castId ?? row.cast?.userId ?? "")
+          .filter((id) => id);
         setSelectedShopDetail(detail);
-        setSelectedShopNgCastIds(
-          (ngCasts ?? [])
-            .map((row) => row.castId ?? row.cast?.userId ?? "")
-            .filter((id) => id),
-        );
+        setSelectedShopNgCastIds(ngCastIds);
+        setShopNgCastIdsByShopId((prev) => ({
+          ...prev,
+          [selectedShopId]: ngCastIds,
+        }));
         setSelectedShopFixedCastIds(
           (fixedCasts ?? [])
             .map((row) => row.castId ?? row.cast?.userId ?? "")
@@ -3145,6 +3171,20 @@ export default function Page() {
     }
   };
 
+  const loadShopNgCastIdsForShop = useCallback(
+    async (shopId: string): Promise<string[]> => {
+      const cached = shopNgCastIdsByShopId[shopId];
+      if (cached) return cached;
+      const ngCasts = await listShopNgCasts(shopId);
+      const ids = (ngCasts ?? [])
+        .map((row) => row.castId ?? row.cast?.userId ?? "")
+        .filter((id) => id);
+      setShopNgCastIdsByShopId((prev) => ({ ...prev, [shopId]: ids }));
+      return ids;
+    },
+    [shopNgCastIdsByShopId],
+  );
+
   const startManualDispatchPick = (slotIndex: number) => {
     setPendingDispatchSlotIndex(slotIndex);
     setStatusTab("all");
@@ -3175,6 +3215,37 @@ export default function Page() {
       todayCasts.find((item) => item.id === castId) ??
       allCasts.find((item) => item.id === castId) ??
       null;
+    const targetShopId = slotRow?.shopId ?? orderShop?.id ?? null;
+    if (cast && targetShopId) {
+      try {
+        const shopNgCastIds = await loadShopNgCastIdsForShop(targetShopId);
+        const ngMessages = getShopNgBlockMessages(
+          cast,
+          targetShopId,
+          new Set(shopNgCastIds),
+        );
+        if (ngMessages.length > 0) {
+          alert(
+            [
+              "NG登録されているため、この店舗には割り当てできません。",
+              "",
+              ...ngMessages.map((message) => `・${message}`),
+            ].join("\n"),
+          );
+          setDragOverDispatchSlotIndex(null);
+          return;
+        }
+      } catch (err) {
+        console.warn("[casts/today] failed to check shop NG before assign", {
+          shopId: targetShopId,
+          castId,
+          err,
+        });
+        alert("NG情報の確認に失敗しました。時間をおいて再度お試しください。");
+        setDragOverDispatchSlotIndex(null);
+        return;
+      }
+    }
     const warnings = getDispatchOrderMismatchWarnings(cast, slotRow);
     if (warnings.length > 0) {
       const confirmed = window.confirm(
@@ -5658,6 +5729,13 @@ export default function Page() {
                   const isFixed =
                     !!selectedShop &&
                     selectedShopFixedCastIdSet.has(cast.id);
+                  const selectedShopNgFlags = selectedShop
+                    ? getShopNgFlags(cast, selectedShop.id, selectedShopNgCastIdSet)
+                    : { shopNg: false, castNg: false };
+                  const ngBadges = [
+                    selectedShopNgFlags.shopNg ? "店舗NG" : "",
+                    selectedShopNgFlags.castNg ? "キャストNG" : "",
+                  ].filter(Boolean);
                   const cardName = getCastCardName(cast);
                   return (
                     <div
@@ -5711,13 +5789,23 @@ export default function Page() {
                             ))}
                           </div>
                         )}
-                        {attendanceBadgeLabel && (
+                        {(attendanceBadgeLabel || ngBadges.length > 0) && (
                           <div className="absolute right-1 top-1 z-10 flex flex-col items-end gap-1">
-                            <div
-                              className={`px-1.5 py-0.5 text-[10px] font-semibold ${attendanceBadgeClass}`}
-                            >
-                              {attendanceBadgeLabel}
-                            </div>
+                            {attendanceBadgeLabel && (
+                              <div
+                                className={`px-1.5 py-0.5 text-[10px] font-semibold ${attendanceBadgeClass}`}
+                              >
+                                {attendanceBadgeLabel}
+                              </div>
+                            )}
+                            {ngBadges.map((label) => (
+                              <div
+                                key={label}
+                                className="px-1.5 py-0.5 text-[10px] font-semibold bg-rose-600 text-white"
+                              >
+                                {label}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>

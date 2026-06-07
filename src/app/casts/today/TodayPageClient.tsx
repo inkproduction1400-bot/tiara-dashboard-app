@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Bot } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import { CastPhotoImage } from "@/components/CastPhotoImage";
 import {
@@ -5275,8 +5276,8 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
-                      <div className="grid h-7 w-7 flex-none place-items-center rounded-full border border-indigo-300 bg-white text-[10px] font-black text-indigo-700 shadow-sm">
-                        AI
+                      <div className="grid h-7 w-7 flex-none place-items-center rounded-full border border-indigo-300 bg-white text-indigo-700 shadow-sm">
+                        <Bot className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="mb-0.5 font-semibold leading-none text-indigo-900">

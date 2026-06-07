@@ -1535,6 +1535,9 @@ export default function Page() {
     }
   };
 
+  const isClosedContactStatus = (status?: string | null) =>
+    status === "ordered" || status === "rejected" || status === "confirmed";
+
   const renderShopCell = (
     shop: Shop,
     key: (typeof shopTableColumns)[number]["key"],
@@ -4369,10 +4372,9 @@ export default function Page() {
                     ) : (
                       sortedTodayShops.map((shop) => {
                         const isSelected = shop.id === selectedShopId;
-                        const isClosed =
-                          shop.contactStatus === "ordered" ||
-                          shop.contactStatus === "rejected" ||
-                          shop.contactStatus === "confirmed";
+                        const isClosed = isClosedContactStatus(
+                          shop.contactStatus,
+                        );
                         return (
                           <tr
                             key={shop.id}
@@ -4380,11 +4382,24 @@ export default function Page() {
                               isSelected ? "bg-sky-100" : ""
                             } ${
                               isClosed
-                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                ? "bg-slate-100 text-slate-400 cursor-pointer hover:bg-slate-200"
                                 : "hover:bg-slate-50 cursor-pointer"
                             }`}
-                            onClick={() => {
-                              if (isClosed) return;
+                            onClick={async () => {
+                              if (isClosed) {
+                                const label = formatContactStatus(
+                                  shop.contactStatus,
+                                );
+                                const ok = window.confirm(
+                                  `この店舗は「${label}」です。再度選択しますか？`,
+                                );
+                                if (!ok) return;
+                                await setContactStatus(shop.id, "editing", {
+                                  force: true,
+                                });
+                                setSelectedShopId(shop.id);
+                                return;
+                              }
                               setSelectedShopId((prev) => {
                                 const next = prev === shop.id ? "" : shop.id;
                                 return next;

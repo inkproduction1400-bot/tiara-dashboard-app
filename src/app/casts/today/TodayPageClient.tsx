@@ -439,8 +439,8 @@ const buildIdDocPrintHtml = (
 };
 
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
-type DrinkSort = "none" | "okFirst" | "ngFirst";
 type DrinkLevelOption = Exclude<DrinkLevel, null>;
+type DrinkLevelFilter = "" | DrinkLevelOption;
 
 // NG登録モード
 type NgMode = "shopToCast" | "castToShop";
@@ -1202,7 +1202,8 @@ export default function Page() {
 
   // 既存ソート（年齢・時給など）
   const [sortKey, setSortKey] = useState<SortKey>("default");
-  const [drinkSort, setDrinkSort] = useState<DrinkSort>("none");
+  const [drinkLevelFilter, setDrinkLevelFilter] =
+    useState<DrinkLevelFilter>("");
 
   // 追加: 複数選択可能な並び順（50音順 / 番号小さい順 / 番号大きい順）
   const [sortKana, setSortKana] = useState<boolean>(false);
@@ -2110,7 +2111,7 @@ export default function Page() {
     dispatchStatusFilter,
     attendanceRequestFilter,
     sortKey,
-    drinkSort,
+    drinkLevelFilter,
     sortKana,
     sortNumberSmallFirst,
     sortNumberLargeFirst,
@@ -2421,6 +2422,10 @@ export default function Page() {
       );
     }
 
+    if (drinkLevelFilter) {
+      list = list.filter((c) => c.drinkLevel === drinkLevelFilter);
+    }
+
     // ⑧ 既存ソート（年齢・時給）
     switch (sortKey) {
       case "hourlyDesc":
@@ -2457,21 +2462,6 @@ export default function Page() {
         }
         return 0;
       });
-    }
-
-    // ⑩ 飲酒ソート（チェックボックスで制御）
-    if (drinkSort === "okFirst") {
-      // 強い → 普通 → 弱い → NG → 未登録
-      list.sort(
-        (a: Cast, b: Cast) =>
-          drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel),
-      );
-    } else if (drinkSort === "ngFirst") {
-      // NG → 弱い → 普通 → 強い → 未登録
-      list.sort(
-        (a: Cast, b: Cast) =>
-          drinkScore(a.drinkLevel) - drinkScore(b.drinkLevel),
-      );
     }
 
     if (
@@ -2578,7 +2568,7 @@ export default function Page() {
     effectiveMatchingSettings,
     keyword,
     sortKey,
-    drinkSort,
+    drinkLevelFilter,
     proposalOrderAlcohol,
     statusTab,
     currentPage,
@@ -4846,12 +4836,16 @@ export default function Page() {
                   </select>
                   <select
                     className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
-                    value={drinkSort}
-                    onChange={(e) => setDrinkSort(e.target.value as DrinkSort)}
+                    value={drinkLevelFilter}
+                    onChange={(e) =>
+                      setDrinkLevelFilter(e.target.value as DrinkLevelFilter)
+                    }
                   >
-                    <option value="none">飲酒</option>
-                    <option value="okFirst">飲める順</option>
-                    <option value="ngFirst">飲めない順</option>
+                    <option value="">飲酒</option>
+                    <option value="strong">強い</option>
+                    <option value="normal">普通</option>
+                    <option value="weak">弱い</option>
+                    <option value="ng">NG</option>
                   </select>
                   <select
                     className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"

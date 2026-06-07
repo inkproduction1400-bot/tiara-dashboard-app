@@ -2286,6 +2286,7 @@ export default function Page() {
     (castId: string): AttendanceRequestStatus | null => {
       const requestStatus =
         attendanceRequests.find((row) => row.castId === castId)?.status ?? null;
+      if (requestStatus === "no_show") return "no_show";
       if (requestStatus === "ng") return "ng";
       if (
         requestStatus === "ok" ||
@@ -2767,7 +2768,7 @@ export default function Page() {
 
   const dispatchSlots = useMemo(() => {
     return buildDispatchSlots(filteredDispatchRows, {
-      includeCanceledTail: true,
+      includeCanceledTail: false,
     });
   }, [filteredDispatchRows]);
 
@@ -4714,6 +4715,7 @@ export default function Page() {
                       <option value="requested">依頼済み</option>
                       <option value="ok">出勤OK</option>
                       <option value="ng">出勤NG</option>
+                      <option value="no_show">当日欠勤</option>
                     </select>
                   )}
                   {castListMode === "request" && statusTab === "all" && (
@@ -5728,6 +5730,8 @@ export default function Page() {
                       ? "割当済み"
                       : requestStatus === "requested"
                       ? "依頼済み"
+                      : requestStatus === "no_show"
+                        ? "当日欠勤"
                       : requestStatus === "ng"
                         ? "出勤NG"
                         : requestStatus === "ok" ||
@@ -5740,6 +5744,8 @@ export default function Page() {
                       ? "bg-blue-100 text-blue-800"
                       : requestStatus === "requested"
                       ? "bg-amber-100 text-amber-800"
+                      : requestStatus === "no_show"
+                        ? "bg-slate-700 text-white"
                       : requestStatus === "ng"
                         ? "bg-rose-100 text-rose-800"
                         : attendanceBadgeLabel === "出勤OK"
@@ -6684,6 +6690,8 @@ export default function Page() {
                                   ? "出勤OK"
                                   : requestStatus === "ng"
                                     ? "出勤NG"
+                                    : requestStatus === "no_show"
+                                      ? "当日欠勤"
                                     : requestStatus === "added"
                                       ? "派遣表追加済み"
                                       : "未依頼"}

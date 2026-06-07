@@ -74,7 +74,8 @@ export type AttendanceRequestStatus =
   | "ng"
   | "added"
   | "canceled"
-  | "removed";
+  | "removed"
+  | "no_show";
 
 export type AttendanceRequestItem = {
   id: string;

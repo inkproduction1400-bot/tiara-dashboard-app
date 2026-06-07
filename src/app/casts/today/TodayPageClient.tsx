@@ -5275,15 +5275,15 @@ export default function Page() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
-                      <div className="grid h-7 w-7 flex-none place-items-center rounded-full border border-indigo-300 bg-white text-indigo-700 shadow-sm">
-                        <Bot className="h-4 w-4" aria-hidden="true" />
+                    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
+                      <div className="flex h-full w-10 flex-none flex-col items-center justify-center gap-0.5 text-indigo-700">
+                        <span className="text-[9px] font-semibold leading-none text-indigo-900">
+                          アドバイス
+                        </span>
+                        <Bot className="h-5 w-5" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="mb-0.5 font-semibold leading-none text-indigo-900">
-                          次のアクション
-                        </div>
-                        <div className="grid max-h-[38px] gap-0.5 overflow-hidden">
+                        <div className="grid max-h-[48px] gap-0.5 overflow-hidden">
                           {matchingAdvices.slice(0, 2).map((advice, index) => (
                             <div
                               key={`${advice.tone}-${index}`}

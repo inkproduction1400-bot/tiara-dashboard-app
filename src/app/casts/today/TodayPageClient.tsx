@@ -5276,10 +5276,7 @@ export default function Page() {
                       </div>
                     </div>
                     <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
-                      <div className="flex h-full w-10 flex-none flex-col items-center justify-center gap-0.5 text-indigo-700">
-                        <span className="text-[9px] font-semibold leading-none text-indigo-900">
-                          アドバイス
-                        </span>
+                      <div className="flex h-full w-8 flex-none items-center justify-center text-indigo-700">
                         <Bot className="h-5 w-5" aria-hidden="true" />
                       </div>
                       <div className="min-w-0 flex-1">

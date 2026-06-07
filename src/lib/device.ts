@@ -39,6 +39,9 @@ export function clearAuth(): void {
     localStorage.removeItem("access_token");
     localStorage.removeItem("tiara_token");
     localStorage.removeItem("tiara:user_id");
+    localStorage.removeItem("tiara:user_type");
+    localStorage.removeItem("tiara:staff_name");
+    localStorage.removeItem("tiara:must_change_password");
     localStorage.removeItem("tiara_user_name");
     localStorage.removeItem("tiara_login_id");
   } catch {

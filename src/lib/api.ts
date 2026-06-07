@@ -1,7 +1,7 @@
 // src/lib/api.ts
 "use client";
 
-import { getToken } from "./device";
+import { clearAuth, getToken } from "./device";
 
 // NEXT_PUBLIC_API_URL が未設定/空なら /api/v1 まで入ったデフォルトを使う
 const RAW_BASE =
@@ -99,6 +99,9 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 && !isPublicAuthPath) {
+      clearAuth();
+    }
     throw new Error(`API ${res.status} ${res.statusText}`);
   }
 

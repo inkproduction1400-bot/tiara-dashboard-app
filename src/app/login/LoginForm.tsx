@@ -4,7 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import OtpDialog from "./OtpDialog";
-import { getDeviceId, saveToken } from "@/lib/device";
+import { clearAuth, getDeviceId, saveToken } from "@/lib/device";
 import { changeDashboardPassword, login, verifyChallenge } from "@/lib/api";
 import { isCurrentPhoneDevice } from "@/lib/mobile-device";
 
@@ -46,6 +46,7 @@ export default function LoginForm() {
       return;
     }
     setLoading(true);
+    clearAuth();
     const device_id = getDeviceId();
 
     try {
@@ -90,7 +91,7 @@ export default function LoginForm() {
         return;
       }
       if (res.status === "denied") {
-        setErr("この端末は未許可です。管理者の承認をお待ちください。");
+        setErr("IDまたはパスワードが正しくありません。");
         return;
       }
       setErr("不明な応答です");

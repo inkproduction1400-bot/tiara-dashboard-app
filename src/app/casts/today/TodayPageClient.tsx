@@ -2818,6 +2818,9 @@ export default function Page() {
 
   const matchingAdvices = useMemo<MatchingAdvice[]>(() => {
     const shopById = new Map(effectiveShops.map((shop) => [shop.id, shop]));
+    const requestByCastId = new Map(
+      attendanceRequests.map((item) => [item.castId, item]),
+    );
     const assignedCastIds = new Set(
       filteredDispatchRows
         .filter((row) => row.status !== "canceled" && row.castId)
@@ -2893,52 +2896,88 @@ export default function Page() {
       const drinkLabel = shortage.drinkLevel
         ? `・飲酒${formatDrinkLevelShort(shortage.drinkLevel)}`
         : "";
-      advices.push({
-        tone: "shortage",
-        title: "不足しています",
-        body: `${wageLabel}・${genreLabel}系${drinkLabel}のオーダーが${shortage.count}名分あります。条件に合う未割当キャストが不足しているため、出勤依頼モードで該当キャストへ依頼してください。`,
-      });
+      if (castListMode === "request") {
+        advices.push({
+          tone: "shortage",
+          title: "依頼対象",
+          body: `${wageLabel}・${genreLabel}系${drinkLabel}のオーダーが${shortage.count}名分あります。条件に合う出勤キャストが不足しているため、この条件に近いキャストへ出勤依頼を送ってください。`,
+        });
+      } else {
+        advices.push({
+          tone: "shortage",
+          title: "不足しています",
+          body: `${wageLabel}・${genreLabel}系${drinkLabel}のオーダーが${shortage.count}名分あります。条件に合う未割当キャストが不足しています。出勤依頼モードで該当キャストへ依頼してください。`,
+        });
+      }
     }
 
-    const surplusGroups = new Map<
-      string,
-      { count: number; wage: number | null; genre: CastGenre | null }
-    >();
-    for (const cast of availableCasts) {
-      const wage = bucketWage(cast.desiredHourly);
-      const genre = getPrimaryCastGenre(cast);
-      const key = `${wage ?? "none"}:${genre ?? "none"}`;
-      const prev = surplusGroups.get(key);
-      surplusGroups.set(key, {
-        count: (prev?.count ?? 0) + 1,
-        wage,
-        genre,
-      });
+    if (castListMode === "proposal") {
+      const surplusGroups = new Map<
+        string,
+        { count: number; wage: number | null; genre: CastGenre | null }
+      >();
+      for (const cast of availableCasts) {
+        const wage = bucketWage(cast.desiredHourly);
+        const genre = getPrimaryCastGenre(cast);
+        const key = `${wage ?? "none"}:${genre ?? "none"}`;
+        const prev = surplusGroups.get(key);
+        surplusGroups.set(key, {
+          count: (prev?.count ?? 0) + 1,
+          wage,
+          genre,
+        });
+      }
+
+      const surplus = Array.from(surplusGroups.values())
+        .filter((group) => group.count >= 2)
+        .sort((a, b) => b.count - a.count)[0];
+      if (surplus && advices.length < 2) {
+        const wageLabel = surplus.wage ? `${surplus.wage.toLocaleString()}円` : "時給未設定";
+        const genreLabel = formatCastGenreShort(surplus.genre);
+        advices.push({
+          tone: "surplus",
+          title: "営業できます",
+          body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
+        });
+      }
+    } else {
+      const unrequestedCount = allCasts.filter((cast) => {
+        if (!isActiveCast(cast)) return false;
+        const status = getEffectiveAttendanceStatus(cast.id);
+        return !status && !requestByCastId.get(cast.id)?.status;
+      }).length;
+      if (unrequestedCount > 0 && advices.length < 2) {
+        advices.push({
+          tone: "normal",
+          title: "未依頼あり",
+          body: `未依頼のキャストが${unrequestedCount}名います。不足している時給帯・ジャンルで絞り込み、一括送信で出勤依頼を進めてください。`,
+        });
+      }
     }
 
-    const surplus = Array.from(surplusGroups.values())
-      .filter((group) => group.count >= 2)
-      .sort((a, b) => b.count - a.count)[0];
-    if (surplus && advices.length < 2) {
-      const wageLabel = surplus.wage ? `${surplus.wage.toLocaleString()}円` : "時給未設定";
-      const genreLabel = formatCastGenreShort(surplus.genre);
-      advices.push({
-        tone: "surplus",
-        title: "営業できます",
-        body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
-      });
-    }
-
-    if (advices.length === 0) {
+    if (advices.length === 0 && castListMode === "proposal") {
       advices.push({
         tone: "normal",
         title: "状況確認",
         body: "大きな不足や余りはありません。未連絡店舗と未割当キャストを確認しながら進めてください。",
       });
+    } else if (advices.length === 0) {
+      advices.push({
+        tone: "normal",
+        title: "状況確認",
+        body: "不足条件は大きく出ていません。依頼済み・出勤OK・出勤NGのステータスを確認して次の連絡対象を整理してください。",
+      });
     }
 
     return advices;
-  }, [allCasts, effectiveShops, filteredDispatchRows, getEffectiveAttendanceStatus]);
+  }, [
+    allCasts,
+    attendanceRequests,
+    castListMode,
+    effectiveShops,
+    filteredDispatchRows,
+    getEffectiveAttendanceStatus,
+  ]);
 
   const applyMatchedFromOrders = useCallback((orders: any[]) => {
     const set = new Set<string>();

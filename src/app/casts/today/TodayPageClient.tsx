@@ -88,6 +88,11 @@ type WageFilter =
   | "6500";
 type ShopSortKey = "number" | "kana" | "favorite";
 type DispatchCancelType = "cast" | "shop";
+type MatchingAdvice = {
+  title: string;
+  body: string;
+  tone: "shortage" | "surplus" | "normal";
+};
 
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
 const assignmentPickStorageKey = "tiara:assignments:pick";
@@ -654,6 +659,12 @@ const getCastCardName = (cast: Cast): string => {
   if (nickname) return nickname;
   return cast.name ?? "";
 };
+
+const getPrimaryCastGenre = (cast: Cast): CastGenre | null =>
+  cast.genres?.[0] ?? null;
+
+const formatCastGenreShort = (genre?: CastGenre | ShopGenre | null): string =>
+  genre ? (CAST_GENRE_LABEL as Record<string, string>)[genre] ?? "ジャンル未設定" : "ジャンル未設定";
 
 const bucketWage = (value?: number | null): number | null => {
   if (typeof value !== "number" || Number.isNaN(value)) return null;
@@ -2804,6 +2815,130 @@ export default function Page() {
       headcount: assignedRows.filter((row) => row.status === "confirmed").length,
     };
   }, [filteredDispatchRows]);
+
+  const matchingAdvices = useMemo<MatchingAdvice[]>(() => {
+    const shopById = new Map(effectiveShops.map((shop) => [shop.id, shop]));
+    const assignedCastIds = new Set(
+      filteredDispatchRows
+        .filter((row) => row.status !== "canceled" && row.castId)
+        .map((row) => row.castId as string),
+    );
+    const availableCasts = allCasts.filter((cast) => {
+      if (!isActiveCast(cast)) return false;
+      if (assignedCastIds.has(cast.id)) return false;
+      return getEffectiveAttendanceStatus(cast.id) === "ok";
+    });
+
+    const unfilledOrders = filteredDispatchRows.filter(
+      (row) =>
+        row.status !== "canceled" &&
+        Boolean(row.shopId) &&
+        !row.castId,
+    );
+
+    const orderGroups = new Map<
+      string,
+      {
+        count: number;
+        wage: number | null;
+        genre: CastGenre | null;
+        drinkLevel: DrinkLevelOption | "";
+      }
+    >();
+    for (const row of unfilledOrders) {
+      const conditions = parseDispatchOrderConditions(row.note);
+      const shop = row.shopId ? shopById.get(row.shopId) : null;
+      const wage =
+        bucketWage(conditions.wage) ??
+        bucketWage(parseWageMinFromLabel(shop?.wageLabel ?? null));
+      const genre = normalizeCastGenre(String(shop?.genre ?? "")) ?? null;
+      const drinkLevel = conditions.drinkLevel ?? "";
+      const key = `${wage ?? "none"}:${genre ?? "none"}:${drinkLevel || "none"}`;
+      const prev = orderGroups.get(key);
+      orderGroups.set(key, {
+        count: (prev?.count ?? 0) + 1,
+        wage,
+        genre,
+        drinkLevel,
+      });
+    }
+
+    const advices: MatchingAdvice[] = [];
+    const shortage = Array.from(orderGroups.values())
+      .map((group) => {
+        const compatibleCount = availableCasts.filter((cast) => {
+          if (group.wage && bucketWage(cast.desiredHourly) !== group.wage) {
+            return false;
+          }
+          if (group.genre && !cast.genres?.includes(group.genre)) {
+            return false;
+          }
+          if (group.drinkLevel) {
+            return drinkPreferencePriority(cast.drinkLevel, group.drinkLevel) === 0;
+          }
+          return true;
+        }).length;
+        return {
+          ...group,
+          shortageCount: Math.max(0, group.count - compatibleCount),
+          compatibleCount,
+        };
+      })
+      .filter((group) => group.shortageCount > 0)
+      .sort((a, b) => b.shortageCount - a.shortageCount)[0];
+
+    if (shortage) {
+      const wageLabel = shortage.wage ? `${shortage.wage.toLocaleString()}円` : "時給未指定";
+      const genreLabel = formatCastGenreShort(shortage.genre);
+      const drinkLabel = shortage.drinkLevel
+        ? `・飲酒${formatDrinkLevelShort(shortage.drinkLevel)}`
+        : "";
+      advices.push({
+        tone: "shortage",
+        title: "不足しています",
+        body: `${wageLabel}・${genreLabel}系${drinkLabel}のオーダーが${shortage.count}名分あります。条件に合う未割当キャストが不足しているため、出勤依頼モードで該当キャストへ依頼してください。`,
+      });
+    }
+
+    const surplusGroups = new Map<
+      string,
+      { count: number; wage: number | null; genre: CastGenre | null }
+    >();
+    for (const cast of availableCasts) {
+      const wage = bucketWage(cast.desiredHourly);
+      const genre = getPrimaryCastGenre(cast);
+      const key = `${wage ?? "none"}:${genre ?? "none"}`;
+      const prev = surplusGroups.get(key);
+      surplusGroups.set(key, {
+        count: (prev?.count ?? 0) + 1,
+        wage,
+        genre,
+      });
+    }
+
+    const surplus = Array.from(surplusGroups.values())
+      .filter((group) => group.count >= 2)
+      .sort((a, b) => b.count - a.count)[0];
+    if (surplus && advices.length < 2) {
+      const wageLabel = surplus.wage ? `${surplus.wage.toLocaleString()}円` : "時給未設定";
+      const genreLabel = formatCastGenreShort(surplus.genre);
+      advices.push({
+        tone: "surplus",
+        title: "営業できます",
+        body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
+      });
+    }
+
+    if (advices.length === 0) {
+      advices.push({
+        tone: "normal",
+        title: "状況確認",
+        body: "大きな不足や余りはありません。未連絡店舗と未割当キャストを確認しながら進めてください。",
+      });
+    }
+
+    return advices;
+  }, [allCasts, effectiveShops, filteredDispatchRows, getEffectiveAttendanceStatus]);
 
   const applyMatchedFromOrders = useCallback((orders: any[]) => {
     const set = new Set<string>();
@@ -5098,6 +5233,38 @@ export default function Page() {
                             {wage}円 {todayWageCounts[wage] ?? 0}名
                           </span>
                         ))}
+                      </div>
+                    </div>
+                    <div className="flex min-w-[280px] max-w-[520px] flex-1 items-start gap-2 border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
+                      <div className="grid h-7 w-7 flex-none place-items-center rounded-full border border-indigo-300 bg-white text-[10px] font-black text-indigo-700 shadow-sm">
+                        AI
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-0.5 font-semibold leading-none text-indigo-900">
+                          次のアクション
+                        </div>
+                        <div className="grid gap-0.5">
+                          {matchingAdvices.slice(0, 2).map((advice, index) => (
+                            <div
+                              key={`${advice.tone}-${index}`}
+                              className="leading-snug"
+                            >
+                              <span
+                                className={
+                                  "mr-1 inline-block border px-1 py-px font-semibold " +
+                                  (advice.tone === "shortage"
+                                    ? "border-rose-300 bg-rose-50 text-rose-700"
+                                    : advice.tone === "surplus"
+                                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                      : "border-slate-300 bg-white text-slate-600")
+                                }
+                              >
+                                {advice.title}
+                              </span>
+                              <span>{advice.body}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>

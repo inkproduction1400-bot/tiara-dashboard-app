@@ -5253,7 +5253,11 @@ export default function Page() {
                                     </th>
                                     <td className="p-0.5">
                                       <div className="grid grid-cols-[1fr_74px] gap-1">
-                                        <div className="h-7 border border-slate-200 bg-white" />
+                                        <div className="h-7 border border-slate-200 bg-white px-1.5 text-[11px] leading-7 text-slate-700">
+                                          <span className="block truncate">
+                                            {row.note ?? ""}
+                                          </span>
+                                        </div>
                                         <div className="h-7 border border-slate-200 bg-white text-center text-[10px] leading-7 text-amber-700">
                                           注文枠
                                         </div>

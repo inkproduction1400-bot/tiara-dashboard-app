@@ -43,6 +43,7 @@ function formatDateLabel(dateKey: string) {
 const EMPTY_ROWS = 100;
 const TIME_OPTIONS = ["21:00~", "21:30~", "22:00~"] as const;
 type AgeFilter = "" | "18-24" | "25-29" | "30-34" | "35-39" | "40-";
+type DispatchCancelType = "cast" | "shop";
 
 function normalizeTime(value: string) {
   const trimmed = value.trim();
@@ -286,6 +287,11 @@ export default function AssignmentsPageClient() {
   const [castPickerError, setCastPickerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelDialogRow, setCancelDialogRow] =
+    useState<DispatchSheetRow | null>(null);
+  const [cancelDialogType, setCancelDialogType] =
+    useState<DispatchCancelType>("cast");
+  const [cancelDialogReason, setCancelDialogReason] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -629,57 +635,9 @@ export default function AssignmentsPageClient() {
       if (row.status === "confirmed") {
         if (!row.castId) return;
         if (!row.assignmentId) return;
-        const typeInput =
-          window.prompt(
-            [
-              "キャンセル種別を選択してください。",
-              "",
-              "1: キャスト都合（キャストだけ外し、店舗オーダー枠は残す）",
-              "2: 店舗都合（店舗オーダーごとキャンセル）",
-            ].join("\n"),
-            "1",
-          ) ?? "";
-        const normalizedType = typeInput.trim();
-        if (!normalizedType) return;
-        const cancelType =
-          normalizedType === "2" ||
-          normalizedType === "店舗" ||
-          normalizedType === "shop"
-            ? "shop"
-            : normalizedType === "1" ||
-                normalizedType === "キャスト" ||
-                normalizedType === "cast"
-              ? "cast"
-              : null;
-        if (!cancelType) {
-          alert("キャンセル種別は 1 または 2 で選択してください。");
-          return;
-        }
-        const reason =
-          window.prompt(
-            "キャンセル理由を入力してください。",
-            row.cancellationReason ||
-              (cancelType === "shop" ? "店舗都合キャンセル" : "当日欠勤"),
-          ) ?? "";
-        const trimmed = reason.trim();
-        if (!trimmed) return;
-        const confirmMessage =
-          cancelType === "shop"
-            ? `${row.displayName} の確定済み派遣を店舗都合でキャンセルします。\n派遣表の店舗オーダー枠もキャンセルされます。よろしいですか？`
-            : `${row.displayName} の確定済み派遣をキャスト都合でキャンセルします。\nキャストのキャンセル回数に加算し、店舗オーダー枠は残します。よろしいですか？`;
-        if (!window.confirm(`${confirmMessage}\n\n理由: ${trimmed}`)) {
-          return;
-        }
-        setSavingCastId(row.castId);
-        try {
-          await cancelDispatchSheetRow(row.assignmentId, trimmed, cancelType);
-          await load();
-        } catch (err) {
-          console.warn("[m/assignments] failed to cancel dispatch row", err);
-          alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
-        } finally {
-          setSavingCastId(null);
-        }
+        setCancelDialogRow(row);
+        setCancelDialogType("cast");
+        setCancelDialogReason(row.cancellationReason || "当日欠勤");
         return;
       }
 
@@ -710,6 +668,30 @@ export default function AssignmentsPageClient() {
     },
     [date, load],
   );
+
+  const closeCancelDialog = useCallback(() => {
+    setCancelDialogRow(null);
+    setCancelDialogType("cast");
+    setCancelDialogReason("");
+  }, []);
+
+  const executeDispatchCancel = useCallback(async () => {
+    const row = cancelDialogRow;
+    if (!row?.castId || !row.assignmentId) return;
+    const trimmed = cancelDialogReason.trim();
+    if (!trimmed) return;
+    setSavingCastId(row.castId);
+    try {
+      await cancelDispatchSheetRow(row.assignmentId, trimmed, cancelDialogType);
+      closeCancelDialog();
+      await load();
+    } catch (err) {
+      console.warn("[m/assignments] failed to cancel dispatch row", err);
+      alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setSavingCastId(null);
+    }
+  }, [cancelDialogReason, cancelDialogRow, cancelDialogType, closeCancelDialog, load]);
 
   return (
     <MobileShell edgeToEdge>
@@ -1055,6 +1037,119 @@ export default function AssignmentsPageClient() {
                   店舗が見つかりません
                 </div>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cancelDialogRow ? (
+        <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-slate-950/45 px-3 pt-4">
+          <div className="w-full max-w-[420px] rounded-t-2xl bg-white pb-[calc(env(safe-area-inset-bottom)+14px)] shadow-2xl">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  キャンセル種別を選択
+                </p>
+                <p className="text-xs text-slate-500">
+                  {cancelDialogRow.displayName} の確定済み派遣
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCancelDialog}
+                className="rounded-full border border-slate-300 p-2 text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelDialogType("cast");
+                  if (
+                    !cancelDialogReason.trim() ||
+                    cancelDialogReason === "店舗都合キャンセル"
+                  ) {
+                    setCancelDialogReason("当日欠勤");
+                  }
+                }}
+                className={`flex w-full gap-3 rounded-xl border p-3 text-left ${
+                  cancelDialogType === "cast"
+                    ? "border-rose-500 bg-rose-50"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                <span className="mt-0.5 h-4 w-4 rounded-full border border-rose-500 p-0.5">
+                  {cancelDialogType === "cast" ? (
+                    <span className="block h-full w-full rounded-full bg-rose-500" />
+                  ) : null}
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    キャスト都合
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    キャストだけ外し、店舗オーダー枠は残します。
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelDialogType("shop");
+                  if (
+                    !cancelDialogReason.trim() ||
+                    cancelDialogReason === "当日欠勤"
+                  ) {
+                    setCancelDialogReason("店舗都合キャンセル");
+                  }
+                }}
+                className={`flex w-full gap-3 rounded-xl border p-3 text-left ${
+                  cancelDialogType === "shop"
+                    ? "border-rose-500 bg-rose-50"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                <span className="mt-0.5 h-4 w-4 rounded-full border border-rose-500 p-0.5">
+                  {cancelDialogType === "shop" ? (
+                    <span className="block h-full w-full rounded-full bg-rose-500" />
+                  ) : null}
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    店舗都合
+                  </span>
+                  <span className="mt-1 block text-xs text-slate-500">
+                    店舗オーダーごとキャンセルします。
+                  </span>
+                </span>
+              </button>
+              <label className="grid gap-1 text-xs font-bold text-slate-600">
+                キャンセル理由
+                <input
+                  value={cancelDialogReason}
+                  onChange={(event) => setCancelDialogReason(event.target.value)}
+                  className="h-10 rounded border border-slate-300 px-3 text-sm font-normal text-slate-900 outline-none focus:border-rose-500"
+                />
+              </label>
+            </div>
+            <div className="flex gap-2 border-t px-4 py-3">
+              <button
+                type="button"
+                onClick={closeCancelDialog}
+                className="h-11 flex-1 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-700"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                disabled={!cancelDialogReason.trim() || Boolean(savingCastId)}
+                onClick={() => void executeDispatchCancel()}
+                className="h-11 flex-1 rounded-xl bg-rose-600 text-sm font-bold text-white disabled:opacity-50"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>

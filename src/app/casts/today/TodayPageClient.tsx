@@ -87,6 +87,7 @@ type WageFilter =
   | "6000"
   | "6500";
 type ShopSortKey = "number" | "kana" | "favorite";
+type DispatchCancelType = "cast" | "shop";
 
 const WAGE_BUCKETS = [2500, 3000, 3500, 4500, 5000, 5500, 6000, 6500] as const;
 const assignmentPickStorageKey = "tiara:assignments:pick";
@@ -1223,6 +1224,11 @@ export default function Page() {
 
   // ローディング・エラー表示用
   const [loading, setLoading] = useState(true);
+  const [cancelDialogRow, setCancelDialogRow] =
+    useState<DispatchSheetRow | null>(null);
+  const [cancelDialogType, setCancelDialogType] =
+    useState<DispatchCancelType>("cast");
+  const [cancelDialogReason, setCancelDialogReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // 店舗選択モーダル用
@@ -3349,50 +3355,32 @@ export default function Page() {
   const cancelOneDispatchRow = async (row: DispatchSheetRow) => {
     if (!row.castId) return;
     if (!row.assignmentId) return;
-    const typeInput =
-      window.prompt(
-        [
-          "キャンセル種別を選択してください。",
-          "",
-          "1: キャスト都合（キャストだけ外し、店舗オーダー枠は残す）",
-          "2: 店舗都合（店舗オーダーごとキャンセル）",
-        ].join("\n"),
-        "1",
-      ) ?? "";
-    const normalizedType = typeInput.trim();
-    if (!normalizedType) return;
-    const cancelType =
-      normalizedType === "2" || normalizedType === "店舗" || normalizedType === "shop"
-        ? "shop"
-        : normalizedType === "1" ||
-            normalizedType === "キャスト" ||
-            normalizedType === "cast"
-          ? "cast"
-          : null;
-    if (!cancelType) {
-      alert("キャンセル種別は 1 または 2 で選択してください。");
-      return;
-    }
-    const reason =
-      window.prompt(
-        "キャンセル理由を入力してください。",
-        row.cancellationReason ||
-          (cancelType === "shop" ? "店舗都合キャンセル" : "当日欠勤"),
-      ) ?? "";
-    const trimmed = reason.trim();
+    setCancelDialogRow(row);
+    setCancelDialogType("cast");
+    setCancelDialogReason(row.cancellationReason || "当日欠勤");
+  };
+
+  const closeCancelDialog = () => {
+    setCancelDialogRow(null);
+    setCancelDialogType("cast");
+    setCancelDialogReason("");
+  };
+
+  const executeDispatchCancel = async () => {
+    const row = cancelDialogRow;
+    if (!row?.castId || !row.assignmentId) return;
+    const trimmed = cancelDialogReason.trim();
     if (!trimmed) return;
     const typeLabel =
-      cancelType === "shop" ? "店舗都合キャンセル" : "キャスト都合キャンセル";
-    const confirmMessage =
-      cancelType === "shop"
-        ? `${row.displayName} の確定済み派遣を店舗都合でキャンセルします。\n派遣表の店舗オーダー枠もキャンセルされます。よろしいですか？`
-        : `${row.displayName} の確定済み派遣をキャスト都合でキャンセルします。\nキャストのキャンセル回数に加算し、店舗オーダー枠は残します。よろしいですか？`;
-    if (!window.confirm(`${confirmMessage}\n\n理由: ${trimmed}`)) {
-      return;
-    }
+      cancelDialogType === "shop" ? "店舗都合キャンセル" : "キャスト都合キャンセル";
     setDispatchSavingKey(row.castId);
     try {
-      await cancelDispatchSheetRow(row.assignmentId, trimmed || typeLabel, cancelType);
+      await cancelDispatchSheetRow(
+        row.assignmentId,
+        trimmed || typeLabel,
+        cancelDialogType,
+      );
+      closeCancelDialog();
       await loadDispatchSheet();
     } catch (err) {
       console.warn("[casts/today] failed to cancel dispatch row", err);
@@ -7750,6 +7738,120 @@ export default function Page() {
                 送る
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {cancelDialogRow && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/45"
+            onClick={closeCancelDialog}
+          />
+          <div className="relative z-10 w-full max-w-md border border-gray-200 bg-white shadow-2xl">
+            <header className="border-b border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="text-sm font-semibold text-gray-900">
+                キャンセル種別を選択
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                {cancelDialogRow.displayName} の確定済み派遣をキャンセルします。
+              </div>
+            </header>
+            <div className="space-y-3 p-4 text-xs">
+              <label
+                className={
+                  "flex cursor-pointer gap-3 border p-3 " +
+                  (cancelDialogType === "cast"
+                    ? "border-rose-500 bg-rose-50"
+                    : "border-gray-200 bg-white")
+                }
+              >
+                <input
+                  type="radio"
+                  className="mt-0.5"
+                  name="dispatch-cancel-type"
+                  checked={cancelDialogType === "cast"}
+                  onChange={() => {
+                    setCancelDialogType("cast");
+                    if (
+                      !cancelDialogReason.trim() ||
+                      cancelDialogReason === "店舗都合キャンセル"
+                    ) {
+                      setCancelDialogReason("当日欠勤");
+                    }
+                  }}
+                />
+                <span>
+                  <span className="block font-semibold text-gray-900">
+                    キャスト都合
+                  </span>
+                  <span className="mt-1 block text-gray-500">
+                    キャストだけ外し、店舗オーダー枠は残します。
+                    キャストのキャンセル回数に加算されます。
+                  </span>
+                </span>
+              </label>
+              <label
+                className={
+                  "flex cursor-pointer gap-3 border p-3 " +
+                  (cancelDialogType === "shop"
+                    ? "border-rose-500 bg-rose-50"
+                    : "border-gray-200 bg-white")
+                }
+              >
+                <input
+                  type="radio"
+                  className="mt-0.5"
+                  name="dispatch-cancel-type"
+                  checked={cancelDialogType === "shop"}
+                  onChange={() => {
+                    setCancelDialogType("shop");
+                    if (
+                      !cancelDialogReason.trim() ||
+                      cancelDialogReason === "当日欠勤"
+                    ) {
+                      setCancelDialogReason("店舗都合キャンセル");
+                    }
+                  }}
+                />
+                <span>
+                  <span className="block font-semibold text-gray-900">
+                    店舗都合
+                  </span>
+                  <span className="mt-1 block text-gray-500">
+                    店舗オーダーごとキャンセルします。
+                    店舗側のキャンセルとして記録されます。
+                  </span>
+                </span>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold text-gray-600">
+                  キャンセル理由
+                </span>
+                <input
+                  className="h-9 w-full border border-gray-300 px-3 text-xs outline-none focus:border-rose-500"
+                  value={cancelDialogReason}
+                  onChange={(e) => setCancelDialogReason(e.target.value)}
+                />
+              </label>
+            </div>
+            <footer className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3">
+              <button
+                type="button"
+                className="border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800"
+                onClick={closeCancelDialog}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                disabled={!cancelDialogReason.trim() || Boolean(dispatchSavingKey)}
+                onClick={() => void executeDispatchCancel()}
+              >
+                OK
+              </button>
+            </footer>
           </div>
         </div>
       )}

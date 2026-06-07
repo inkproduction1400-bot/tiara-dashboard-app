@@ -1525,11 +1525,9 @@ export default function Page() {
       case "editing":
         return "入力中";
       case "ordered":
-        return "オーダー済";
       case "confirmed":
-        return "◯済";
       case "rejected":
-        return "NG";
+        return "完了";
       default:
         return "-";
     }
@@ -4387,11 +4385,8 @@ export default function Page() {
                             }`}
                             onClick={async () => {
                               if (isClosed) {
-                                const label = formatContactStatus(
-                                  shop.contactStatus,
-                                );
                                 const ok = window.confirm(
-                                  `この店舗は「${label}」です。再度選択しますか？`,
+                                  "この店舗は連絡完了済みです。再度選択しますか？",
                                 );
                                 if (!ok) return;
                                 await setContactStatus(shop.id, "editing", {

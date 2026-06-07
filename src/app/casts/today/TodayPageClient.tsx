@@ -1246,6 +1246,7 @@ export default function Page() {
     }
   }, [pickMode, initialTab]);
   const [dragging, setDragging] = useState(false);
+  const [castCardDragging, setCastCardDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
     x: 0,
     y: 0,
@@ -4718,10 +4719,13 @@ export default function Page() {
                           key={tab.id}
                           type="button"
                           className={
-                            "px-3 h-7 border text-xs " +
+                            "px-3 h-7 border text-xs relative overflow-visible " +
                             (active
                               ? "bg-sky-600 text-white border-sky-600"
-                              : "bg-white text-slate-700 border-slate-200")
+                              : "bg-white text-slate-700 border-slate-200") +
+                            (tab.id === "today" && castCardDragging
+                              ? " dispatch-drop-tab-hint"
+                              : "")
                           }
                           onClick={() =>
                             setStatusTab(tab.id as CastStatusTab)
@@ -4815,7 +4819,12 @@ export default function Page() {
               </div>
 
               {statusTab === "today" ? (
-                <div className="dispatch-sheet-section rounded-none border border-slate-900 bg-white">
+                <div
+                  className={
+                    "dispatch-sheet-section rounded-none border border-slate-900 bg-white " +
+                    (castCardDragging ? "dispatch-sheet-drop-hint" : "")
+                  }
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-2 py-1">
                     <div className="text-xs font-semibold text-slate-900">
                       本日出勤 派遣表
@@ -5470,8 +5479,10 @@ export default function Page() {
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", cast.id);
                           e.dataTransfer.effectAllowed = "move";
+                          setCastCardDragging(true);
                         }}
                         onDragEnd={() => {
+                          setCastCardDragging(false);
                           setDragOverDispatchSlotIndex(null);
                         }}
                         onClick={() => openCastDetail(cast)}
@@ -7435,6 +7446,59 @@ export default function Page() {
       <style jsx>{`
         :global(.tiara-input) {
           border-radius: 0 !important;
+        }
+        :global(.dispatch-drop-tab-hint) {
+          border-color: #f59e0b !important;
+          box-shadow:
+            0 0 0 2px rgba(245, 158, 11, 0.35),
+            0 0 0 8px rgba(245, 158, 11, 0.12);
+          animation: dispatchDropPulse 1.25s ease-out infinite;
+        }
+        :global(.dispatch-drop-tab-hint::after) {
+          content: "";
+          position: absolute;
+          inset: -8px;
+          border: 2px solid rgba(245, 158, 11, 0.45);
+          pointer-events: none;
+          animation: dispatchDropRipple 1.25s ease-out infinite;
+        }
+        :global(.dispatch-sheet-drop-hint) {
+          position: relative;
+          box-shadow:
+            0 0 0 2px rgba(245, 158, 11, 0.45),
+            0 0 0 10px rgba(245, 158, 11, 0.1);
+          animation: dispatchDropPulse 1.25s ease-out infinite;
+        }
+        :global(.dispatch-sheet-drop-hint::after) {
+          content: "";
+          position: absolute;
+          inset: -10px;
+          border: 2px solid rgba(245, 158, 11, 0.45);
+          pointer-events: none;
+          animation: dispatchDropRipple 1.25s ease-out infinite;
+        }
+        @keyframes dispatchDropPulse {
+          0%,
+          100% {
+            box-shadow:
+              0 0 0 2px rgba(245, 158, 11, 0.42),
+              0 0 0 8px rgba(245, 158, 11, 0.1);
+          }
+          50% {
+            box-shadow:
+              0 0 0 3px rgba(245, 158, 11, 0.65),
+              0 0 0 14px rgba(245, 158, 11, 0.16);
+          }
+        }
+        @keyframes dispatchDropRipple {
+          0% {
+            opacity: 0.7;
+            transform: scale(0.98);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.04);
+          }
         }
         @media print {
           @page {

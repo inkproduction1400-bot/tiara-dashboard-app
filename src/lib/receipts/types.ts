@@ -20,6 +20,7 @@ export type AssignmentRow = {
   receiptStatus?: ReceiptStatus;
   assignmentStatus?: "confirmed" | "canceled";
   cancellationReason?: string | null;
+  cancelType?: "cast" | "shop" | string | null;
   canceledAt?: string | null;
   rideRequested?: boolean;
   rideDestination?: string | null;

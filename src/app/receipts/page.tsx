@@ -63,10 +63,21 @@ const formatAmount = (value?: number) => {
 };
 
 const receiptDisplayPriority = (row: AssignmentRow, businessDate: string) => {
+  if (row.assignmentStatus === "canceled") return 2;
   const isPastOpen = row.businessDate !== businessDate;
-  if (isPastOpen) return 2;
-  if (row.assignmentStatus === "canceled") return 1;
+  if (isPastOpen) return 1;
   return 0;
+};
+
+const shouldCountAttendanceNumber = (
+  row: AssignmentRow,
+  businessDate: string,
+) => row.businessDate === businessDate && row.assignmentStatus !== "canceled";
+
+const formatCancelTypeLabel = (row: AssignmentRow) => {
+  if (row.cancelType === "shop") return "店舗都合";
+  if (row.cancelType === "cast") return "キャスト都合";
+  return row.cancellationReason?.includes("店舗") ? "店舗都合" : "キャスト都合";
 };
 
 type ReceiptFormState = {
@@ -180,6 +191,16 @@ export default function ReceiptsPage() {
       }),
     [businessDate, rows],
   );
+  const attendanceNumberByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    let count = 0;
+    for (const row of visibleRows) {
+      if (!shouldCountAttendanceNumber(row, businessDate)) continue;
+      count += 1;
+      map.set(rowKey(row), count);
+    }
+    return map;
+  }, [businessDate, visibleRows]);
 
   const reiwa = useMemo(() => formatReiwa(businessDate), [businessDate]);
   const weekday = useMemo(() => formatWeekday(businessDate), [businessDate]);
@@ -411,13 +432,22 @@ export default function ReceiptsPage() {
           </div>
         </header>
 
-        <div className="border border-slate-700 bg-white px-2 py-2">
+        <div className="border border-slate-700 bg-white px-2 py-2 receipt-table-print">
           <div className="relative mb-1 flex items-end justify-center">
             <div className="text-xl font-semibold tracking-[0.16em]">ティアラ</div>
             <div className="absolute right-0 bottom-0 text-xs font-semibold">
               {businessDate.split("-")[0]} 年 {Number(businessDate.split("-")[1])} 月{" "}
               {Number(businessDate.split("-")[2])} 日 {weekday} 入力
             </div>
+          </div>
+          <div className="mb-2 flex justify-end print:hidden">
+            <button
+              type="button"
+              className="border border-slate-700 bg-white px-3 py-1 text-xs font-semibold hover:bg-slate-100"
+              onClick={() => window.print()}
+            >
+              印刷
+            </button>
           </div>
           <div className="overflow-x-hidden">
             <table className="w-full table-fixed border-collapse text-[10px] leading-tight">
@@ -488,9 +518,11 @@ export default function ReceiptsPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row, index) => {
+                {visibleRows.map((row) => {
                   const key = rowKey(row);
                   const isCanceled = row.assignmentStatus === "canceled";
+                  const isPastOpen = row.businessDate !== businessDate;
+                  const attendanceNumber = attendanceNumberByKey.get(key) ?? "";
                   const needsReissue =
                     row.receiptRevisionStatus === "needs_reissue";
                   const collectionValue =
@@ -510,7 +542,7 @@ export default function ReceiptsPage() {
                   return (
                     <tr key={key} className={rowClass}>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center">
-                        {index + 1}
+                        {isCanceled || isPastOpen ? "" : attendanceNumber}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center font-semibold text-red-700">
                         {row.castManagementNumber ?? row.castCode ?? row.castId}
@@ -529,7 +561,16 @@ export default function ReceiptsPage() {
                         )}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
-                        {isCanceled ? "キャンセル" : "確定"}
+                        {isCanceled ? (
+                          <>
+                            <div>キャンセル</div>
+                            <div className="text-[8px] leading-tight text-rose-700">
+                              {formatCancelTypeLabel(row)}
+                            </div>
+                          </>
+                        ) : (
+                          "確定"
+                        )}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[10px] font-semibold">
                         {row.rideRequested ? "あり" : "なし"}
@@ -867,6 +908,41 @@ export default function ReceiptsPage() {
           </div>
         </div>
       )}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 7mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .receipt-table-print,
+          .receipt-table-print * {
+            visibility: visible !important;
+          }
+
+          .receipt-table-print {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            border: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+
+          .receipt-table-print table {
+            page-break-inside: auto;
+          }
+
+          .receipt-table-print tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+        }
+      `}</style>
     </AppShell>
   );
 }

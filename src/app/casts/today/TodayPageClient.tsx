@@ -1330,6 +1330,8 @@ export default function Page() {
   const [chatDraft, setChatDraft] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [bulkRequestSending, setBulkRequestSending] = useState(false);
+  const [bulkRequestModalOpen, setBulkRequestModalOpen] = useState(false);
+  const [bulkRequestDraft, setBulkRequestDraft] = useState("");
   const [chatDisabledUntil, setChatDisabledUntil] = useState<Date | null>(null);
   const chatTemplateStorageKey = "tiara:matching-chat-templates:v1";
   const defaultChatTemplates = useMemo(
@@ -2606,7 +2608,7 @@ export default function Page() {
     });
   }, [allFilteredCasts, attendanceRequests, castListMode, statusTab]);
 
-  const handleBulkRequestChat = useCallback(async () => {
+  const openBulkRequestModal = useCallback(() => {
     const text = chatTemplates.request.trim();
     if (!text) {
       alert("出勤依頼の定型文を入力してください。");
@@ -2628,10 +2630,22 @@ export default function Page() {
       return;
     }
 
-    const ok = window.confirm(
-      `現在の絞り込み条件に該当する未送信${bulkRequestTargets.length}名に出勤依頼チャットを一括送信します。${skippedCount > 0 ? `送信済みの${skippedCount}名は除外します。` : ""}よろしいですか？`,
-    );
-    if (!ok) return;
+    setBulkRequestDraft(text);
+    setBulkRequestModalOpen(true);
+  }, [
+    allFilteredCasts.length,
+    bulkRequestTargets.length,
+    castListMode,
+    chatTemplates.request,
+    statusTab,
+  ]);
+
+  const submitBulkRequestChat = useCallback(async () => {
+    const text = bulkRequestDraft.trim();
+    if (!text) {
+      alert("送信する本文を入力してください。");
+      return;
+    }
 
     setBulkRequestSending(true);
     try {
@@ -2649,6 +2663,7 @@ export default function Page() {
         );
         return;
       }
+      setBulkRequestModalOpen(false);
       alert(
         `${res.sentCount}名に送信しました。${res.skippedCount > 0 ? `重複防止のため${res.skippedCount}名はスキップしました。` : ""}`,
       );
@@ -2660,10 +2675,7 @@ export default function Page() {
     }
   }, [
     allFilteredCasts,
-    bulkRequestTargets,
-    castListMode,
-    chatTemplates.request,
-    statusTab,
+    bulkRequestDraft,
   ]);
 
   const ownerStaffOptions = useMemo(() => {
@@ -4910,7 +4922,7 @@ export default function Page() {
                     <button
                       type="button"
                       className="h-8 flex-none border-2 border-amber-500 bg-amber-50 px-3 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      onClick={handleBulkRequestChat}
+                      onClick={openBulkRequestModal}
                       disabled={
                         bulkRequestSending || bulkRequestTargets.length === 0
                       }
@@ -7145,6 +7157,78 @@ export default function Page() {
                   割当候補に追加
                 </button>
               )}
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {bulkRequestModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              if (!bulkRequestSending) setBulkRequestModalOpen(false);
+            }}
+          />
+          <div className="relative z-10 w-full max-w-xl bg-white border border-gray-200 shadow-xl">
+            <header className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  出勤依頼の一括送信
+                </h2>
+                <p className="mt-1 text-[11px] text-muted">
+                  条件内の未送信 {bulkRequestTargets.length} 名に送信します。
+                  {allFilteredCasts.length - bulkRequestTargets.length > 0
+                    ? ` 送信済み等の ${allFilteredCasts.length - bulkRequestTargets.length} 名は除外されます。`
+                    : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-gray-900 disabled:opacity-50"
+                onClick={() => setBulkRequestModalOpen(false)}
+                disabled={bulkRequestSending}
+              >
+                ✕
+              </button>
+            </header>
+            <div className="p-4">
+              <label className="text-[11px] font-semibold text-gray-700">
+                送信本文
+              </label>
+              <textarea
+                className="mt-2 h-40 w-full resize-none border border-gray-200 px-3 py-2 text-xs leading-relaxed"
+                value={bulkRequestDraft}
+                onChange={(e) => setBulkRequestDraft(e.target.value)}
+                disabled={bulkRequestSending}
+              />
+              <p className="mt-2 text-[11px] text-muted">
+                ここで編集した本文を、現在の絞り込み条件に該当する未送信キャストへ送信します。
+              </p>
+            </div>
+            <footer className="px-4 py-3 border-t border-gray-200 bg-white flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 border border-gray-300 bg-white text-gray-800 text-xs disabled:opacity-50"
+                onClick={() => setBulkRequestModalOpen(false)}
+                disabled={bulkRequestSending}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                className="tiara-btn text-xs disabled:opacity-50"
+                onClick={submitBulkRequestChat}
+                disabled={
+                  bulkRequestSending ||
+                  bulkRequestTargets.length === 0 ||
+                  !bulkRequestDraft.trim()
+                }
+              >
+                {bulkRequestSending
+                  ? "送信中..."
+                  : `${bulkRequestTargets.length}名に送信`}
+              </button>
             </footer>
           </div>
         </div>

@@ -4287,13 +4287,14 @@ export default function Page() {
       return;
     }
     const headcount = Math.max(1, Math.min(20, proposalOrderHeadcount || 1));
+    const effectiveHairSet = proposalOrderHairSet || selectedShop.hairSet || "";
     const orderNote = [
       proposalOrderWage ? `時給: ${proposalOrderWage}円` : "",
       proposalOrderAlcohol
         ? `お酒: ${formatDrinkLevelShort(proposalOrderAlcohol)}`
         : "",
-      proposalOrderHairSet
-        ? `ヘアセット: ${formatHairSetLabel(proposalOrderHairSet)}`
+      effectiveHairSet
+        ? `ヘアセット: ${formatHairSetLabel(effectiveHairSet)}`
         : "",
     ]
       .filter(Boolean)
@@ -5163,7 +5164,11 @@ export default function Page() {
                       onChange={(e) => setProposalOrderHairSet(e.target.value)}
                       disabled={proposalOrderSaving}
                     >
-                      <option value="">ヘアセット</option>
+                      <option value="">
+                        {selectedShop.hairSet
+                          ? `店舗設定: ${formatHairSetLabel(selectedShop.hairSet)}`
+                          : "ヘアセット"}
+                      </option>
                       <option value="none">不要</option>
                       <option value="need">必要</option>
                     </select>

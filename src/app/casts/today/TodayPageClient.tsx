@@ -2327,6 +2327,12 @@ export default function Page() {
     const attendanceRequestByCastId = new Map(
       attendanceRequests.map((row) => [row.castId, row]),
     );
+    const availableTodayIds = new Set(todayIds);
+    attendanceRequests.forEach((row) => {
+      if (row.status === "ok" || row.status === "added") {
+        availableTodayIds.add(row.castId);
+      }
+    });
 
     // ① ベース集合の選択（タブ + 業務モード）
     // - 派遣表：本日シフトがあるキャスト
@@ -2339,13 +2345,13 @@ export default function Page() {
     } else if (statusTab === "dormant") {
       base = allCasts.filter(isDormantCast);
     } else {
-      base = allCasts.filter((c) => todayIds.has(c.id));
+      base = allCasts.filter((c) => availableTodayIds.has(c.id));
     }
 
     let list: Cast[] = [...base];
 
     if (statusTab !== "today" && castListMode === "proposal") {
-      list = list.filter((c) => todayIds.has(c.id));
+      list = list.filter((c) => availableTodayIds.has(c.id));
     }
 
     if (pendingDispatchSlotIndex !== null) {

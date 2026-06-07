@@ -1287,6 +1287,7 @@ export default function Page() {
   const [proposalOrderAlcohol, setProposalOrderAlcohol] = useState<
     DrinkLevelOption | ""
   >("");
+  const [proposalOrderHairSet, setProposalOrderHairSet] = useState("");
   const [proposalOrderSaving, setProposalOrderSaving] = useState(false);
 
   useEffect(() => {
@@ -4291,6 +4292,9 @@ export default function Page() {
       proposalOrderAlcohol
         ? `お酒: ${formatDrinkLevelShort(proposalOrderAlcohol)}`
         : "",
+      proposalOrderHairSet
+        ? `ヘアセット: ${formatHairSetLabel(proposalOrderHairSet)}`
+        : "",
     ]
       .filter(Boolean)
       .join(" / ");
@@ -4367,6 +4371,7 @@ export default function Page() {
       setProposalOrderHeadcount(1);
       setProposalOrderWage("");
       setProposalOrderAlcohol("");
+      setProposalOrderHairSet("");
       await loadDispatchSheet();
     } catch (err) {
       console.warn("[casts/today] failed to create dispatch order slots", err);
@@ -5151,6 +5156,16 @@ export default function Page() {
                       <option value="normal">普通</option>
                       <option value="weak">弱い</option>
                       <option value="ng">NG</option>
+                    </select>
+                    <select
+                      className="h-7 w-[112px] border border-sky-300 bg-white px-2 text-[11px]"
+                      value={proposalOrderHairSet}
+                      onChange={(e) => setProposalOrderHairSet(e.target.value)}
+                      disabled={proposalOrderSaving}
+                    >
+                      <option value="">ヘアセット</option>
+                      <option value="none">不要</option>
+                      <option value="need">必要</option>
                     </select>
                     <button
                       type="button"

@@ -85,6 +85,7 @@ export type CreateShopRequestPayload = {
   maxAge?: number;
   requireDrinkOk?: boolean;
   contactStatus?: string | null;
+  force?: boolean;
   note?: string | null;
 };
 

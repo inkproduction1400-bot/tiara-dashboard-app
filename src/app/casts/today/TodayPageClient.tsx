@@ -2993,7 +2993,13 @@ export default function Page() {
       return res.rows ?? [];
     } catch (err) {
       console.warn("[casts/today] failed to save dispatch row", err);
-      alert("派遣表の保存に失敗しました。時間をおいて再度お試しください。");
+      await loadDispatchSheet();
+      const message = err instanceof Error ? err.message : "";
+      alert(
+        message.includes("409")
+          ? "他スタッフの操作と競合しました。このキャストは既に別の派遣表へ割り当てられている可能性があります。最新状態を再読み込みしました。"
+          : "派遣表の保存に失敗しました。最新状態を再読み込みしました。",
+      );
       return null;
     } finally {
       setDispatchSavingKey(null);
@@ -3270,7 +3276,7 @@ export default function Page() {
       }
     }
 
-    await markAttendanceRequest(castId, "added", displayOrder);
+    let savedToOrder = false;
     if (orderShop) {
       if (slotRow?.isOrderSlot && slotRow.orderId && slotRow.shopId) {
         try {
@@ -3288,9 +3294,18 @@ export default function Page() {
           });
           setDispatchRows(res.rows ?? []);
           setDispatchShops(res.shops ?? dispatchShops);
+          savedToOrder = true;
         } catch (err) {
           console.warn("[casts/today] failed to assign cast to order slot", err);
-          alert("オーダー枠へのキャスト割当保存に失敗しました。");
+          await loadDispatchSheet();
+          const message = err instanceof Error ? err.message : "";
+          alert(
+            message.includes("409")
+              ? "他スタッフの操作と競合しました。このキャストは既に別の派遣表へ割り当てられている可能性があります。最新状態を再読み込みしました。"
+              : "オーダー枠へのキャスト割当保存に失敗しました。最新状態を再読み込みしました。",
+          );
+          setDragOverDispatchSlotIndex(null);
+          return;
         }
       }
       setDispatchRows((prev) =>
@@ -3307,6 +3322,9 @@ export default function Page() {
             : row,
         ),
       );
+    }
+    if (!orderShop || savedToOrder) {
+      await markAttendanceRequest(castId, "added", displayOrder);
     }
     setPendingDispatchSlotIndex(null);
     setDragOverDispatchSlotIndex(null);
@@ -3936,13 +3954,18 @@ export default function Page() {
       return;
     }
     try {
-      await updateShopRequest(requestId, { contactStatus: status ?? null });
+      await updateShopRequest(requestId, {
+        contactStatus: status ?? null,
+        force: options?.force ?? false,
+      });
     } catch (err) {
       console.warn("[casts/today] update contactStatus failed", {
         shopId,
         status,
         err,
       });
+      await loadDispatchSheet();
+      alert("他スタッフの操作と競合しました。最新状態を再読み込みしました。");
     }
   };
 

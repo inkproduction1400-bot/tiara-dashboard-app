@@ -439,6 +439,7 @@ const buildIdDocPrintHtml = (
 
 type SortKey = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
 type DrinkSort = "none" | "okFirst" | "ngFirst";
+type DrinkLevelOption = Exclude<DrinkLevel, null>;
 
 // NG登録モード
 type NgMode = "shopToCast" | "castToShop";
@@ -469,6 +470,34 @@ const drinkScore = (level: DrinkLevel): number => {
     default:
       return -1; // 未登録は最後寄せ
   }
+};
+
+const formatDrinkLevelShort = (level: DrinkLevel): string => {
+  switch (level) {
+    case "strong":
+      return "強い";
+    case "normal":
+      return "普通";
+    case "weak":
+      return "弱い";
+    case "ng":
+      return "NG";
+    default:
+      return "";
+  }
+};
+
+const drinkPreferencePriority = (
+  castLevel: DrinkLevel,
+  requestedLevel: DrinkLevelOption | "",
+): number => {
+  if (!requestedLevel) return 0;
+  if (castLevel == null) return 4;
+  if (requestedLevel === "ng") return castLevel === "ng" ? 0 : 2;
+  const castScore = drinkScore(castLevel);
+  const requestedScore = drinkScore(requestedLevel);
+  if (requestedLevel === "strong") return castLevel === "strong" ? 0 : 3 - castScore + 1;
+  return castScore >= requestedScore ? 0 : requestedScore - castScore;
 };
 
 const normalizeShopDrinkPreference = (raw: any): DrinkLevel | null => {
@@ -1155,7 +1184,9 @@ export default function Page() {
   const [proposalOrderHeadcount, setProposalOrderHeadcount] =
     useState<number>(1);
   const [proposalOrderWage, setProposalOrderWage] = useState<WageFilter>("");
-  const [proposalOrderAlcohol, setProposalOrderAlcohol] = useState("");
+  const [proposalOrderAlcohol, setProposalOrderAlcohol] = useState<
+    DrinkLevelOption | ""
+  >("");
   const [proposalOrderSaving, setProposalOrderSaving] = useState(false);
 
   useEffect(() => {
@@ -2351,6 +2382,25 @@ export default function Page() {
       );
     }
 
+    if (
+      castListMode === "proposal" &&
+      statusTab !== "today" &&
+      proposalOrderAlcohol
+    ) {
+      const baseOrder = new Map(
+        list.map((c: Cast, idx: number) => [c.id, idx]),
+      );
+      list.sort((a, b) => {
+        const priorityDiff =
+          drinkPreferencePriority(a.drinkLevel, proposalOrderAlcohol) -
+          drinkPreferencePriority(b.drinkLevel, proposalOrderAlcohol);
+        if (priorityDiff !== 0) return priorityDiff;
+        const drinkDiff = drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel);
+        if (drinkDiff !== 0) return drinkDiff;
+        return (baseOrder.get(a.id) ?? 0) - (baseOrder.get(b.id) ?? 0);
+      });
+    }
+
     // ⑪ マッチング優先度（選択店舗がある場合のみ）
     if (selectedShop) {
       const baseOrder = new Map(
@@ -2385,6 +2435,16 @@ export default function Page() {
         if (requireDrinkOk) {
           const diff = drinkScore(b.drinkLevel) - drinkScore(a.drinkLevel);
           if (diff !== 0) return diff;
+        }
+        if (
+          castListMode === "proposal" &&
+          statusTab !== "today" &&
+          proposalOrderAlcohol
+        ) {
+          const priorityDiff =
+            drinkPreferencePriority(a.drinkLevel, proposalOrderAlcohol) -
+            drinkPreferencePriority(b.drinkLevel, proposalOrderAlcohol);
+          if (priorityDiff !== 0) return priorityDiff;
         }
         const sa = scoreMap.get(a.id) ?? 0;
         const sb = scoreMap.get(b.id) ?? 0;
@@ -2427,6 +2487,7 @@ export default function Page() {
     keyword,
     sortKey,
     drinkSort,
+    proposalOrderAlcohol,
     statusTab,
     currentPage,
     castGenreFilter,
@@ -3854,7 +3915,9 @@ export default function Page() {
     const headcount = Math.max(1, Math.min(20, proposalOrderHeadcount || 1));
     const orderNote = [
       proposalOrderWage ? `時給: ${proposalOrderWage}円` : "",
-      proposalOrderAlcohol ? `お酒: ${proposalOrderAlcohol}` : "",
+      proposalOrderAlcohol
+        ? `お酒: ${formatDrinkLevelShort(proposalOrderAlcohol)}`
+        : "",
     ]
       .filter(Boolean)
       .join(" / ");
@@ -4653,14 +4716,18 @@ export default function Page() {
                     <select
                       className="h-7 w-[105px] border border-sky-300 bg-white px-2 text-[11px]"
                       value={proposalOrderAlcohol}
-                      onChange={(e) => setProposalOrderAlcohol(e.target.value)}
+                      onChange={(e) =>
+                        setProposalOrderAlcohol(
+                          e.target.value as DrinkLevelOption | "",
+                        )
+                      }
                       disabled={proposalOrderSaving}
                     >
                       <option value="">お酒</option>
-                      <option value="必須">必須</option>
-                      <option value="不要">不要</option>
-                      <option value="飲める子">飲める子</option>
-                      <option value="NG不可">NG不可</option>
+                      <option value="strong">強い</option>
+                      <option value="normal">普通</option>
+                      <option value="weak">弱い</option>
+                      <option value="ng">NG</option>
                     </select>
                     <button
                       type="button"

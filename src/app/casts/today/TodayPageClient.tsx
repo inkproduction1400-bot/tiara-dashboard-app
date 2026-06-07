@@ -487,6 +487,64 @@ const formatDrinkLevelShort = (level: DrinkLevel): string => {
   }
 };
 
+const parseDispatchOrderConditions = (
+  note?: string | null,
+): { wage: number | null; drinkLevel: DrinkLevel } => {
+  const text = note ?? "";
+  const wageMatch = text.match(/時給:\s*([\d,]+)\s*円/);
+  const drinkMatch = text.match(/お酒:\s*(強い|普通|弱い|NG)/);
+  const wage = wageMatch
+    ? Number(wageMatch[1].replaceAll(",", ""))
+    : null;
+  const drinkLabel = drinkMatch?.[1] ?? "";
+  const drinkLevel =
+    drinkLabel === "強い"
+      ? "strong"
+      : drinkLabel === "普通"
+        ? "normal"
+        : drinkLabel === "弱い"
+          ? "weak"
+          : drinkLabel === "NG"
+            ? "ng"
+            : null;
+  return {
+    wage: Number.isFinite(wage) ? wage : null,
+    drinkLevel,
+  };
+};
+
+const getDispatchOrderMismatchWarnings = (
+  cast: Cast | null,
+  slotRow?: DispatchSheetRow,
+): string[] => {
+  if (!cast || !slotRow?.isOrderSlot) return [];
+  const conditions = parseDispatchOrderConditions(slotRow.note);
+  const warnings: string[] = [];
+
+  if (
+    conditions.wage != null &&
+    conditions.wage > 0 &&
+    cast.desiredHourly > 0 &&
+    cast.desiredHourly < conditions.wage
+  ) {
+    warnings.push(
+      `時給: オーダーは${conditions.wage.toLocaleString()}円ですが、キャスト時給は${cast.desiredHourly.toLocaleString()}円です。`,
+    );
+  }
+
+  if (conditions.drinkLevel && conditions.drinkLevel !== "ng") {
+    const requestedScore = drinkScore(conditions.drinkLevel);
+    const castScore = drinkScore(cast.drinkLevel);
+    if (castScore < requestedScore) {
+      warnings.push(
+        `お酒: オーダーは「${formatDrinkLevelShort(conditions.drinkLevel)}」ですが、キャストは「${formatDrinkLevelShort(cast.drinkLevel) || "未登録"}」です。`,
+      );
+    }
+  }
+
+  return warnings;
+};
+
 const drinkPreferencePriority = (
   castLevel: DrinkLevel,
   requestedLevel: DrinkLevelOption | "",
@@ -3113,12 +3171,29 @@ export default function Page() {
       typeof slotRow?.displayOrder === "number"
         ? slotRow.displayOrder
         : slotIndex;
+    const cast =
+      todayCasts.find((item) => item.id === castId) ??
+      allCasts.find((item) => item.id === castId) ??
+      null;
+    const warnings = getDispatchOrderMismatchWarnings(cast, slotRow);
+    if (warnings.length > 0) {
+      const confirmed = window.confirm(
+        [
+          "オーダー条件に対して不足している可能性があります。",
+          "",
+          ...warnings.map((warning) => `・${warning}`),
+          "",
+          "このまま派遣表にセットしますか？",
+        ].join("\n"),
+      );
+      if (!confirmed) {
+        setDragOverDispatchSlotIndex(null);
+        return;
+      }
+    }
+
     await markAttendanceRequest(castId, "added", displayOrder);
     if (orderShop) {
-      const cast =
-        todayCasts.find((item) => item.id === castId) ??
-        allCasts.find((item) => item.id === castId) ??
-        null;
       if (slotRow?.isOrderSlot && slotRow.orderId && slotRow.shopId) {
         try {
           const res = await upsertDispatchSheetRow({

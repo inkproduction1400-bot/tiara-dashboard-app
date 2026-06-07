@@ -3938,22 +3938,58 @@ export default function Page() {
           order?.shopId === selectedShopId ||
           order?.shop?.id === selectedShopId,
       );
-      const maxOrderNo = matches.reduce((max, order) => {
-        const orderNo = Number(order?.orderNo ?? order?.order_no ?? 0);
-        return Number.isFinite(orderNo) && orderNo > max ? orderNo : max;
-      }, 0);
       const shopRequestId = await ensureShopRequestId(
         selectedShopId,
         date,
         headcount,
       );
-      await createShopOrder({
-        shopRequestId,
-        orderNo: maxOrderNo + 1 || 1,
-        headcount,
-        status: "draft",
-        note: orderNote || null,
-      });
+      const activeMatches = matches
+        .filter((order) => order?.status !== "canceled")
+        .sort((a, b) => {
+          const aCreated = Date.parse(String(a?.createdAt ?? ""));
+          const bCreated = Date.parse(String(b?.createdAt ?? ""));
+          if (Number.isFinite(aCreated) && Number.isFinite(bCreated)) {
+            return aCreated - bCreated;
+          }
+          const aNo = Number(a?.orderNo ?? a?.order_no ?? 0);
+          const bNo = Number(b?.orderNo ?? b?.order_no ?? 0);
+          return aNo - bNo;
+        });
+      const primaryOrder = activeMatches[0] ?? null;
+      if (primaryOrder?.id) {
+        await updateShopOrder(primaryOrder.id, {
+          shopRequestId,
+          headcount,
+          status: "draft",
+          note: orderNote || null,
+        });
+        await Promise.all(
+          activeMatches.slice(1).map((order) =>
+            order?.id
+              ? updateShopOrder(order.id, { status: "canceled" }).catch(
+                  (err) => {
+                    console.warn("[casts/today] failed to cancel duplicate order", {
+                      orderId: order.id,
+                      err,
+                    });
+                  },
+                )
+              : Promise.resolve(),
+          ),
+        );
+      } else {
+        const maxOrderNo = matches.reduce((max, order) => {
+          const orderNo = Number(order?.orderNo ?? order?.order_no ?? 0);
+          return Number.isFinite(orderNo) && orderNo > max ? orderNo : max;
+        }, 0);
+        await createShopOrder({
+          shopRequestId,
+          orderNo: maxOrderNo + 1 || 1,
+          headcount,
+          status: "draft",
+          note: orderNote || null,
+        });
+      }
       await setContactStatus(selectedShopId, "ordered", { force: true });
       setSelectedShopId("");
       setProposalOrderHeadcount(1);

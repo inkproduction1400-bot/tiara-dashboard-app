@@ -212,6 +212,13 @@ aside.side-nav {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.side--manabi .side__nav::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 .side--manabi .nav__section {
   margin: 8px 0 12px;

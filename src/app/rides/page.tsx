@@ -6,24 +6,10 @@ import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
 } from "react";
 import AppShell from "@/components/AppShell";
-import { ListRides, updateRide } from "@/lib/api.rides";
-import {
-  listRideDrivers,
-  type RideDriver,
-} from "@/lib/api.ride-drivers";
-import {
-  listRideVehicles,
-  type RideVehicle,
-} from "@/lib/api.ride-vehicles";
-import {
-  type RideListItem,
-  type RideStatus,
-  type UpdateRidePayload,
-} from "@/lib/types.rides";
-import { generateTimes } from "@/lib/time";
+import { ListRides } from "@/lib/api.rides";
+import { type RideListItem } from "@/lib/types.rides";
 import { format, addDays, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 
@@ -43,43 +29,13 @@ function formatTimeLabel(isoStr: string | null | undefined): string {
   return format(d, "HH:mm");
 }
 
-function StatusBadge({ status }: { status: RideStatus }) {
-  let style =
-    "bg-gray-100 text-gray-700 border-gray-300 px-2 py-1 rounded text-xs";
-  let label = "";
-
-  if (status === "pending") {
-    style =
-      "bg-yellow-100 text-yellow-700 border-yellow-300 px-2 py-1 rounded text-xs";
-    label = "受付済み";
-  } else if (status === "completed") {
-    style =
-      "bg-green-100 text-green-700 border-green-300 px-2 py-1 rounded text-xs";
-    label = "終了";
-  } else if (status === "canceled") {
-    style =
-      "bg-red-100 text-red-700 border-red-300 px-2 py-1 rounded text-xs";
-    label = "キャンセル";
-  } else if (status === "accepted") {
-    style =
-      "bg-blue-100 text-blue-700 border-blue-300 px-2 py-1 rounded text-xs";
-    label = "配車済み";
-  }
-
-  return <span className={style}>{label}</span>;
-}
-
 export default function RidesPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     toDateString(new Date()),
   );
   const [rides, setRides] = useState<RideListItem[]>([]);
-  const [vehicles, setVehicles] = useState<RideVehicle[]>([]);
-  const [drivers, setDrivers] = useState<RideDriver[]>([]);
   const [loading, setLoading] = useState(false);
   const ridesKeyRef = useRef<string>("");
-
-  const times = generateTimes(); // "HH:mm" の配列
 
   const buildRidesKey = (list: RideListItem[]) =>
     list
@@ -87,13 +43,10 @@ export default function RidesPage() {
         (r) =>
           [
             r.id,
-            r.status,
             r.pickup_city ?? "",
-            r.car_number ?? "",
-            r.driver_id ?? "",
-            r.boarding_time ?? "",
-            r.arrival_time ?? "",
-            r.note ?? "",
+            r.shop_name ?? "",
+            r.cast_name ?? "",
+            r.cast_management_number ?? "",
             r.created_at ?? "",
             r.request_date ?? "",
           ].join("|"),
@@ -123,22 +76,6 @@ export default function RidesPage() {
   }, [load]);
 
   useEffect(() => {
-    const loadMeta = async () => {
-      try {
-        const [vehiclesRes, driversRes] = await Promise.all([
-          listRideVehicles(),
-          listRideDrivers(),
-        ]);
-        setVehicles(vehiclesRes);
-        setDrivers(driversRes);
-      } catch {
-        // silently ignore; dropdowns can still be used manually
-      }
-    };
-    void loadMeta();
-  }, []);
-
-  useEffect(() => {
     const timer = window.setInterval(() => {
       void load({ silent: true });
     }, 5000);
@@ -161,60 +98,6 @@ export default function RidesPage() {
     const d = addDays(parseISO(selectedDate), 1);
     setSelectedDate(toDateString(d));
   };
-
-  // ----- PATCH: 各項目変更時 -----
-  async function patchField<K extends keyof UpdateRidePayload>(
-    id: string,
-    field: K,
-    value: UpdateRidePayload[K],
-  ) {
-    const payload: UpdateRidePayload = {
-      [field]: value,
-    } as UpdateRidePayload;
-
-    await updateRide(id, payload);
-    await load();
-  }
-
-  async function handleCarNumberChange(
-    id: string,
-    e: ChangeEvent<HTMLSelectElement>,
-  ) {
-    const v = e.target.value || null;
-    await patchField(id, "carNumber", v);
-  }
-
-  async function handleBoardingChange(
-    id: string,
-    e: ChangeEvent<HTMLSelectElement>,
-  ) {
-    const v = e.target.value || null;
-    await patchField(id, "boardingTime", v);
-  }
-
-  async function handleArrivalChange(
-    id: string,
-    e: ChangeEvent<HTMLSelectElement>,
-  ) {
-    const v = e.target.value || null;
-    await patchField(id, "arrivalTime", v);
-  }
-
-  async function handleDriverChange(
-    id: string,
-    e: ChangeEvent<HTMLSelectElement>,
-  ) {
-    const v = e.target.value || null;
-    await patchField(id, "driverId", v);
-  }
-
-  async function handleStatusChange(
-    id: string,
-    e: ChangeEvent<HTMLSelectElement>,
-  ) {
-    const v = e.target.value as RideStatus;
-    await patchField(id, "status", v);
-  }
 
   return (
     <AppShell title="送迎管理">
@@ -258,19 +141,14 @@ export default function RidesPage() {
                 <th className="px-3 py-2 text-left">名前</th>
                 <th className="px-3 py-2 text-left">ID</th>
                 <th className="px-3 py-2 text-left">場所</th>
-                <th className="px-3 py-2 text-left">車番</th>
-                <th className="px-3 py-2 text-left">運転手</th>
                 <th className="px-3 py-2 text-left">受付時間</th>
-                <th className="px-3 py-2 text-left">乗車時間</th>
-                <th className="px-3 py-2 text-left">到着時間</th>
-                <th className="px-3 py-2 text-left">ステータス</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={4}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     読み込み中…
@@ -281,7 +159,7 @@ export default function RidesPage() {
               {!loading && rides.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={4}
                     className="px-3 py-4 text-center text-gray-500"
                   >
                     この日の送迎情報はありません。
@@ -305,91 +183,7 @@ export default function RidesPage() {
                       </td>
                       <td className="px-3 py-2">{location}</td>
                       <td className="px-3 py-2">
-                        <select
-                          className="border rounded px-2 py-1 text-xs"
-                          value={ride.car_number ?? ""}
-                          onChange={(e) =>
-                            handleCarNumberChange(ride.id, e)
-                          }
-                        >
-                          <option value="">未設定</option>
-                          {vehicles.map((v) => (
-                            <option
-                              key={v.id}
-                              value={String(v.carNumber)}
-                            >
-                              {v.carNumber}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="border rounded px-2 py-1 text-xs"
-                          value={ride.driver_id ?? ""}
-                          onChange={(e) =>
-                            handleDriverChange(ride.id, e)
-                          }
-                        >
-                          <option value="">未設定</option>
-                          {drivers.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
                         {formatTimeLabel(ride.created_at)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="border rounded px-2 py-1 text-xs"
-                          value={ride.boarding_time ?? ""}
-                          onChange={(e) =>
-                            handleBoardingChange(ride.id, e)
-                          }
-                        >
-                          <option value="">未設定</option>
-                          {times.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="border rounded px-2 py-1 text-xs"
-                          value={ride.arrival_time ?? ""}
-                          onChange={(e) =>
-                            handleArrivalChange(ride.id, e)
-                          }
-                        >
-                          <option value="">未設定</option>
-                          {times.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={ride.status} />
-                          <select
-                            className="border rounded px-2 py-1 text-xs"
-                            value={ride.status}
-                            onChange={(e) =>
-                              handleStatusChange(ride.id, e)
-                            }
-                          >
-                            <option value="pending">受付済み</option>
-                            <option value="accepted">配車済み</option>
-                            <option value="completed">終了</option>
-                            <option value="canceled">キャンセル</option>
-                          </select>
-                        </div>
                       </td>
                     </tr>
                   );

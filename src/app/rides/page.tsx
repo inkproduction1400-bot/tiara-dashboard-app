@@ -133,63 +133,64 @@ export default function RidesPage() {
           <div className="ml-4 text-sm">{formatDateLabel(selectedDate)}</div>
         </div>
 
-        {/* テーブル */}
-        <div className="overflow-x-auto rounded border bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left">名前</th>
-                <th className="px-3 py-2 text-left">ID</th>
-                <th className="px-3 py-2 text-left">場所</th>
-                <th className="px-3 py-2 text-left">受付時間</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-4 text-center text-gray-500"
+        <div className="rounded border bg-white p-3">
+          {loading && (
+            <div className="px-3 py-4 text-center text-sm text-gray-500">
+              読み込み中…
+            </div>
+          )}
+
+          {!loading && rides.length === 0 && (
+            <div className="px-3 py-4 text-center text-sm text-gray-500">
+              この日の送迎情報はありません。
+            </div>
+          )}
+
+          {!loading && rides.length > 0 && (
+            <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+              {rides.map((ride) => {
+                const location = ride.pickup_city ?? ride.shop_name ?? "-";
+
+                return (
+                  <div
+                    key={ride.id}
+                    className="grid grid-cols-[1.1fr_0.8fr_1.8fr_0.8fr] items-center gap-2 rounded border border-gray-200 bg-white px-3 py-2 text-sm"
                   >
-                    読み込み中…
-                  </td>
-                </tr>
-              )}
-
-              {!loading && rides.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-4 text-center text-gray-500"
-                  >
-                    この日の送迎情報はありません。
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                rides.map((ride) => {
-                  // 場所は pickup_city を優先し、なければ shop 名
-                  const location =
-                    ride.pickup_city ?? ride.shop_name ?? "-";
-
-                  return (
-                    <tr key={ride.id} className="border-t">
-                      <td className="px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold text-gray-400">
+                        名前
+                      </div>
+                      <div className="truncate font-semibold text-gray-900">
                         {ride.cast_name ?? "未設定"}
-                      </td>
-                      <td className="px-3 py-2">
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold text-gray-400">
+                        ID
+                      </div>
+                      <div className="truncate text-gray-800">
                         {ride.cast_management_number ?? "-"}
-                      </td>
-                      <td className="px-3 py-2">{location}</td>
-                      <td className="px-3 py-2">
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold text-gray-400">
+                        場所
+                      </div>
+                      <div className="truncate text-gray-800">{location}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold text-gray-400">
+                        受付
+                      </div>
+                      <div className="truncate text-gray-800">
                         {formatTimeLabel(ride.created_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </AppShell>

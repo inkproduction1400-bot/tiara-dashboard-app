@@ -53,7 +53,7 @@ export const iconLabels: Record<IconName, string> = {
   Calendar: 'スケジュール',
   Building2: '店舗管理',
   Box: '備品管理',
-  Car: '送迎管理',
+  Car: '送迎一覧',
   MessageSquare: 'チャット',
   Phone: 'SOS',
   BadgeCheck: '申請・承認',

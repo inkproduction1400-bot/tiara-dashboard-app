@@ -629,7 +629,7 @@ export default function Page() {
             <section className="rounded-xl border border-gray-200 bg-white p-4">
               <h3 className="text-sm font-semibold">送迎車の登録</h3>
               <p className="text-[11px] text-muted mt-1">
-                送迎管理ページの車番ドロップダウンに表示される情報を登録します。
+                送迎一覧で利用する送迎車情報を登録します。
               </p>
 
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -858,7 +858,7 @@ export default function Page() {
             <section className="rounded-xl border border-gray-200 bg-white p-4">
               <h3 className="text-sm font-semibold">運転手登録</h3>
               <p className="text-[11px] text-muted mt-1">
-                送迎管理ページの運転手名ドロップダウンに表示される情報を登録します。
+                送迎一覧で利用する運転手情報を登録します。
               </p>
 
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">

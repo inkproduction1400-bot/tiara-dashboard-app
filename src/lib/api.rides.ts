@@ -26,7 +26,7 @@ export async function ListRides(
     qs.set("pickup_city", params.pickup_city);
   }
   if (params.date) {
-    qs.set("date", params.date);
+    qs.set("received_date", params.date);
   }
   if (params.from) {
     qs.set("from", params.from);

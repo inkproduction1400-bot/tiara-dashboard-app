@@ -100,11 +100,11 @@ export default function RidesPage() {
   };
 
   return (
-    <AppShell title="送迎管理">
+    <AppShell title="送迎一覧">
       <div className="px-6 py-6 space-y-6">
         {/* ヘッダー：日付ナビ */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">送迎管理</h1>
+          <h1 className="text-2xl font-bold">送迎一覧</h1>
         </div>
 
         <div className="flex items-center gap-3">

@@ -76,7 +76,7 @@ type CastGenre = "club" | "cabaret" | "snack" | "gb";
 // 店舗ジャンル（NG登録モーダルの絞り込み用）
 type ShopGenre = "club" | "cabaret" | "snack" | "gb";
 type YesNoFilter = "" | "yes" | "no";
-type CastNominationFilter = "" | "exclusive" | "nominated" | "free";
+type NominationFilter = "" | "exclusive" | "nominated" | "free";
 type ContactMethodFilter = "" | "line" | "sms" | "tel";
 type WageFilter =
   | ""
@@ -1260,7 +1260,7 @@ export default function Page() {
   const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
   const [castWageFilter, setCastWageFilter] = useState<WageFilter>("");
   const [castNominationFilter, setCastNominationFilter] =
-    useState<CastNominationFilter>("");
+    useState<NominationFilter>("");
 
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -1463,12 +1463,8 @@ export default function Page() {
   const [orderShopOpen, setOrderShopOpen] = useState(false);
   const [orderShopActiveIndex, setOrderShopActiveIndex] = useState(0);
   const lastEditingShopIdRef = useRef<string>("");
-  const [shopFilterExclusive, setShopFilterExclusive] = useState<YesNoFilter>(
-    "",
-  );
-  const [shopFilterNominated, setShopFilterNominated] = useState<YesNoFilter>(
-    "",
-  );
+  const [shopNominationFilter, setShopNominationFilter] =
+    useState<NominationFilter>("");
   const [shopFilterWage, setShopFilterWage] = useState<WageFilter>("");
   const [shopFilterIdReq, setShopFilterIdReq] = useState<string>("");
   const [shopFilterGenre, setShopFilterGenre] = useState<ShopGenre | "">("");
@@ -2753,15 +2749,14 @@ export default function Page() {
 
   const filteredShops = useMemo(() => {
     let list = [...searchedShops];
-    if (shopFilterExclusive) {
-      list = list.filter((s) =>
-        shopFilterExclusive === "yes" ? hasExclusive(s) : !hasExclusive(s),
-      );
-    }
-    if (shopFilterNominated) {
-      list = list.filter((s) =>
-        shopFilterNominated === "yes" ? hasNominated(s) : !hasNominated(s),
-      );
+    if (shopNominationFilter) {
+      list = list.filter((s) => {
+        if (shopNominationFilter === "exclusive") return hasExclusive(s);
+        if (shopNominationFilter === "nominated") {
+          return !hasExclusive(s) && hasNominated(s);
+        }
+        return !hasExclusive(s) && !hasNominated(s);
+      });
     }
     if (shopFilterWage) {
       const w = Number(shopFilterWage);
@@ -2781,8 +2776,7 @@ export default function Page() {
     return list;
   }, [
     searchedShops,
-    shopFilterExclusive,
-    shopFilterNominated,
+    shopNominationFilter,
     shopFilterWage,
     shopFilterIdReq,
     shopFilterGenre,
@@ -4851,25 +4845,15 @@ export default function Page() {
                 </div>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  value={shopFilterExclusive}
+                  value={shopNominationFilter}
                   onChange={(e) =>
-                    setShopFilterExclusive(e.target.value as YesNoFilter)
-                  }
-                >
-                  <option value="">専属</option>
-                  <option value="yes">専属：あり</option>
-                  <option value="no">専属：なし</option>
-                </select>
-                <select
-                  className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
-                  value={shopFilterNominated}
-                  onChange={(e) =>
-                    setShopFilterNominated(e.target.value as YesNoFilter)
+                    setShopNominationFilter(e.target.value as NominationFilter)
                   }
                 >
                   <option value="">指名</option>
-                  <option value="yes">指名：あり</option>
-                  <option value="no">指名：なし</option>
+                  <option value="exclusive">専属あり</option>
+                  <option value="nominated">指名あり</option>
+                  <option value="free">フリー</option>
                 </select>
                 <select
                   className="tiara-input rounded-none h-8 !w-[120px] !py-1 text-[10px] leading-tight flex-none"
@@ -4936,8 +4920,7 @@ export default function Page() {
                   type="button"
                   className="border border-slate-300 bg-white px-3 h-8 text-xs flex-none"
                   onClick={() => {
-                    setShopFilterExclusive("");
-                    setShopFilterNominated("");
+                    setShopNominationFilter("");
                     setShopFilterWage("");
                     setShopFilterIdReq("");
                     setShopFilterGenre("");
@@ -5263,7 +5246,7 @@ export default function Page() {
                     value={castNominationFilter}
                     onChange={(e) =>
                       setCastNominationFilter(
-                        e.target.value as CastNominationFilter,
+                        e.target.value as NominationFilter,
                       )
                     }
                   >

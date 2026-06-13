@@ -5252,7 +5252,7 @@ export default function Page() {
                     補助フィルター
                   </span>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[100px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[100px] text-[10px] flex-none bg-white"
                     value={castWageFilter}
                     onChange={(e) =>
                       setCastWageFilter(e.target.value as WageFilter)
@@ -5266,7 +5266,7 @@ export default function Page() {
                     ))}
                   </select>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[105px] text-[10px] flex-none bg-white"
                     value={castExclusiveFilter}
                     onChange={(e) =>
                       setCastExclusiveFilter(e.target.value as YesNoFilter)
@@ -5277,7 +5277,7 @@ export default function Page() {
                     <option value="no">専属なし</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[95px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[95px] text-[10px] flex-none bg-white"
                     value={castNominatedFilter}
                     onChange={(e) =>
                       setCastNominatedFilter(e.target.value as YesNoFilter)
@@ -5288,7 +5288,7 @@ export default function Page() {
                     <option value="no">指名なし</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[105px] text-[10px] flex-none bg-white"
                     value={drinkLevelFilter}
                     onChange={(e) =>
                       setDrinkLevelFilter(e.target.value as DrinkLevelFilter)
@@ -5301,7 +5301,7 @@ export default function Page() {
                     <option value="ng">NG</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[105px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[105px] text-[10px] flex-none bg-white"
                     value={castGenreFilter}
                     onChange={(e) =>
                       setCastGenreFilter(
@@ -5316,7 +5316,7 @@ export default function Page() {
                     <option value="gb">ガルバ</option>
                   </select>
                   <select
-                    className="tiara-input rounded-none h-8 !w-[115px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[115px] text-[10px] flex-none bg-white"
                     value={ageRangeFilter}
                     onChange={(e) =>
                       setAgeRangeFilter(e.target.value as AgeRangeFilter)
@@ -5333,7 +5333,7 @@ export default function Page() {
                   </select>
                   {castListMode === "request" && (
                     <select
-                      className="tiara-input rounded-none h-8 !w-[125px] text-[10px] leading-tight flex-none bg-white"
+                      className="tiara-input matching-filter-select rounded-none h-8 !w-[125px] text-[10px] flex-none bg-white"
                       value={担当者}
                       onChange={(e) => set担当者(e.target.value)}
                     >
@@ -5347,7 +5347,7 @@ export default function Page() {
                     </select>
                   )}
                   <select
-                    className="tiara-input rounded-none h-8 !w-[120px] text-[10px] leading-tight flex-none bg-white"
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[120px] text-[10px] flex-none bg-white"
                     value={sortKey}
                     onChange={(e) => setSortKey(e.target.value as SortKey)}
                   >
@@ -8490,6 +8490,14 @@ export default function Page() {
       <style jsx>{`
         :global(.tiara-input) {
           border-radius: 0 !important;
+        }
+        :global(.matching-filter-select) {
+          height: 32px !important;
+          min-height: 32px !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+          line-height: 30px !important;
+          vertical-align: middle;
         }
         .support-mode-overlay {
           position: absolute;

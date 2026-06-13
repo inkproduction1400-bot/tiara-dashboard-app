@@ -2941,8 +2941,8 @@ export default function Page() {
       if (selectedShopId) {
         return {
           target: "cast-tab",
-          title: "キャスト一覧へ戻る",
-          body: "営業先店舗を選択しました。キャスト一覧に戻り、店舗から聞いたオーダー条件を入力します。",
+          title: "メインへ戻る",
+          body: "営業先店舗を選択しました。メインに戻り、店舗から聞いたオーダー条件を入力します。",
         };
       }
       return {
@@ -4838,7 +4838,7 @@ export default function Page() {
                     }
                     onClick={() => setPanelTab("casts")}
                   >
-                    キャスト一覧
+                    メイン
                   </button>
                   <button
                     type="button"
@@ -5051,7 +5051,7 @@ export default function Page() {
                       }
                       onClick={() => setPanelTab("casts")}
                     >
-                      キャスト一覧
+                      メイン
                     </button>
                     <button
                       type="button"
@@ -5066,12 +5066,6 @@ export default function Page() {
                       店舗一覧
                     </button>
                   </div>
-                  <input
-                    className="tiara-input rounded-none h-8 !w-[170px] text-[10px] leading-tight flex-none"
-                    placeholder="管理番号・名前・旧ID"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                  />
                   <div className="inline-flex h-8 overflow-hidden border border-slate-900 bg-white text-[10px] font-semibold flex-none">
                     <button
                       type="button"
@@ -5105,47 +5099,6 @@ export default function Page() {
                       出勤依頼
                     </button>
                   </div>
-                  {castListMode === "proposal" ? (
-                    <select
-                      className="h-8 w-[130px] flex-none border-2 border-sky-600 bg-sky-50 px-2 text-[10px] font-semibold text-sky-900"
-                      value={dispatchStatusFilter}
-                      onChange={(e) =>
-                        setDispatchStatusFilter(
-                          e.target.value as DispatchStatusFilter,
-                        )
-                      }
-                    >
-                      <option value="">本日出勤すべて</option>
-                      <option value="unassigned">未割当のみ</option>
-                      <option value="matched">マッチ済み</option>
-                    </select>
-                  ) : (
-                    <div
-                      className={
-                        "relative flex-none overflow-visible " +
-                        (tutorialTarget === "request-status-filter"
-                          ? "support-focus"
-                          : "")
-                      }
-                    >
-                      <select
-                        className="h-8 w-[130px] border-2 border-amber-500 bg-amber-50 px-2 text-[10px] font-semibold text-amber-900"
-                        value={attendanceRequestFilter}
-                        onChange={(e) =>
-                          setAttendanceRequestFilter(
-                            e.target.value as AttendanceRequestFilter,
-                          )
-                        }
-                      >
-                        <option value="">依頼状態すべて</option>
-                        <option value="none">未依頼</option>
-                        <option value="requested">依頼済み</option>
-                        <option value="ok">出勤OK</option>
-                        <option value="ng">出勤NG</option>
-                        <option value="no_show">当日欠勤</option>
-                      </select>
-                    </div>
-                  )}
                   <button
                     type="button"
                     className={
@@ -5242,6 +5195,47 @@ export default function Page() {
                   <span className="mr-1 text-[10px] font-semibold text-slate-500">
                     補助フィルター
                   </span>
+                  {castListMode === "proposal" ? (
+                    <select
+                      className="h-8 w-[130px] flex-none border-2 border-sky-600 bg-sky-50 px-2 text-[10px] font-semibold text-sky-900"
+                      value={dispatchStatusFilter}
+                      onChange={(e) =>
+                        setDispatchStatusFilter(
+                          e.target.value as DispatchStatusFilter,
+                        )
+                      }
+                    >
+                      <option value="">本日出勤すべて</option>
+                      <option value="unassigned">未割当のみ</option>
+                      <option value="matched">マッチ済み</option>
+                    </select>
+                  ) : (
+                    <div
+                      className={
+                        "relative flex-none overflow-visible " +
+                        (tutorialTarget === "request-status-filter"
+                          ? "support-focus"
+                          : "")
+                      }
+                    >
+                      <select
+                        className="h-8 w-[130px] border-2 border-amber-500 bg-amber-50 px-2 text-[10px] font-semibold text-amber-900"
+                        value={attendanceRequestFilter}
+                        onChange={(e) =>
+                          setAttendanceRequestFilter(
+                            e.target.value as AttendanceRequestFilter,
+                          )
+                        }
+                      >
+                        <option value="">依頼状態すべて</option>
+                        <option value="none">未依頼</option>
+                        <option value="requested">依頼済み</option>
+                        <option value="ok">出勤OK</option>
+                        <option value="ng">出勤NG</option>
+                        <option value="no_show">当日欠勤</option>
+                      </select>
+                    </div>
+                  )}
                   <select
                     className="tiara-input matching-filter-select rounded-none h-8 !w-[100px] text-[10px] flex-none bg-white"
                     value={castWageFilter}
@@ -5339,6 +5333,12 @@ export default function Page() {
                     <option value="ageAsc">年齢が若い順</option>
                     <option value="ageDesc">年齢が高い順</option>
                   </select>
+                  <input
+                    className="tiara-input rounded-none h-8 !w-[170px] text-[10px] leading-tight flex-none bg-white"
+                    placeholder="管理番号・名前・旧ID"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                  />
                 </div>
 
                 {castListMode === "proposal" && selectedShop ? (

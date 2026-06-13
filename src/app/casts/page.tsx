@@ -810,92 +810,53 @@ export default function Page() {
           </div>
         </header>
 
-        {/* フィルタ行 */}
-        <div className="mt-3 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)] gap-3">
-          {/* 左：キーワード検索 */}
-          <div className="flex flex-col gap-2">
-            <input
-              className="tiara-input"
-              placeholder="管理番号・名前・旧IDで検索"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-
-          {/* 右：担当者＆並び替え */}
-          <div className="flex flex-col md:flex-row gap-2 md:items-center justify-end">
-            {/* 担当者ドロップダウン */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted">担当者</span>
-              <select
-                className="tiara-input min-w-[120px]"
-                value={staffFilter}
-                onChange={(e) => setStaffFilter(e.target.value)}
-              >
-                <option value="">（すべて）</option>
-                {staffOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 並び替え：チェックボタン風（実際はラジオ的な挙動） */}
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "kana"}
-                  onChange={() => setSortMode("kana")}
-                />
-                50音順
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "legacy"}
-                  onChange={() => setSortMode("legacy")}
-                />
-                旧ID昇順
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "legacyDesc"}
-                  onChange={() => setSortMode("legacyDesc")}
-                />
-                旧ID降順
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "management"}
-                  onChange={() => setSortMode("management")}
-                />
-                管理番号昇順
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={sortMode === "managementDesc"}
-                  onChange={() => setSortMode("managementDesc")}
-                />
-                管理番号降順
-              </label>
-              <button
-                className="rounded-xl border border-gray-300 bg-gray-50 text-ink px-3 py-2 text-xs"
-                onClick={() => {
-                  setQ("");
-                  setStaffFilter("");
-                  setSortMode("kana");
-                  setOffset(0);
-                }}
-              >
-                クリア
-              </button>
-            </div>
-          </div>
+        {/* フィルタ行：マッチングページの補助フィルターと同じ密度に統一 */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1">
+          <span className="mr-1 text-[10px] font-semibold text-slate-500">
+            補助フィルター
+          </span>
+          <select
+            className="tiara-input rounded-none h-8 !w-[125px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={staffFilter}
+            onChange={(e) => setStaffFilter(e.target.value)}
+            title="担当者"
+          >
+            <option value="">担当者：すべて</option>
+            {staffOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="tiara-input rounded-none h-8 !w-[135px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            title="並び替え"
+          >
+            <option value="kana">並び替え：50音順</option>
+            <option value="legacy">旧ID昇順</option>
+            <option value="legacyDesc">旧ID降順</option>
+            <option value="management">管理番号昇順</option>
+            <option value="managementDesc">管理番号降順</option>
+          </select>
+          <input
+            className="tiara-input rounded-none h-8 !w-[190px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            placeholder="管理番号・名前・旧ID"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button
+            className="h-8 flex-none border border-slate-300 bg-white px-3 text-[10px] text-slate-700 hover:bg-slate-100"
+            onClick={() => {
+              setQ("");
+              setStaffFilter("");
+              setSortMode("kana");
+              setOffset(0);
+            }}
+          >
+            クリア
+          </button>
         </div>
 
         {/* 一覧（2列＋ページング） */}

@@ -26,9 +26,10 @@ import {
 import { listStaffs, type StaffUser } from "@/lib/api.staffs";
 
 type PerPage = number | "all";
-type YesNoFilter = "" | "yes" | "no";
 type ContactMethodFilter = "" | "line" | "sms" | "tel";
 type WageFilter = "" | number;
+type NominationFilter = "" | "exclusive" | "nominated" | "free";
+type ShopSortKey = "kana" | "numberAsc" | "numberDesc";
 
 // フロント側で削除フラグ・新規フラグを持たせるための拡張型（今回は表示のみだが型はそのまま）
 type FixedRow = ShopFixedCastItem & {
@@ -206,12 +207,12 @@ export default function ShopsPage() {
 
   // ★ ジャンルフィルタ & 並び替えモード
   const [genreFilter, setGenreFilter] = useState<ShopGenre | "">("");
-  const [sortMode, setSortMode] =
-    useState<"kana" | "number" | "favorite">("kana");
+  const [shopSortKey, setShopSortKey] = useState<ShopSortKey>("numberAsc");
+  const [shopFavoriteFirst, setShopFavoriteFirst] = useState(false);
 
   // ★ 追加：Excelレイアウトに合わせたフィルタ（一覧）
-  const [exclusiveFilter, setExclusiveFilter] = useState<YesNoFilter>(""); // 専属（あり/なし）
-  const [nominatedFilter, setNominatedFilter] = useState<YesNoFilter>(""); // 指名（あり/なし）
+  const [nominationFilter, setNominationFilter] =
+    useState<NominationFilter>(""); // 専属指名 / 指名 / フリー
   const [wageFilter, setWageFilter] = useState<WageFilter>(""); // 2500..6500
   const [contactFilter, setContactFilter] =
     useState<ContactMethodFilter>(""); // LINE/SMS/TEL
@@ -259,19 +260,14 @@ export default function ShopsPage() {
       arr = arr.filter((item) => item.genre === genreFilter);
     }
 
-    // ★ 専属（あり/なし）
-    if (exclusiveFilter) {
+    // ★ 指名ステータス（マッチングページの店舗一覧と同じ区分）
+    if (nominationFilter) {
       arr = arr.filter((item) => {
-        const v = hasExclusive(item);
-        return exclusiveFilter === "yes" ? v : !v;
-      });
-    }
-
-    // ★ 指名（あり/なし）
-    if (nominatedFilter) {
-      arr = arr.filter((item) => {
-        const v = hasNominated(item);
-        return nominatedFilter === "yes" ? v : !v;
+        const exclusive = hasExclusive(item);
+        const nominated = hasNominated(item);
+        if (nominationFilter === "exclusive") return exclusive;
+        if (nominationFilter === "nominated") return !exclusive && nominated;
+        return !exclusive && !nominated;
       });
     }
 
@@ -293,20 +289,21 @@ export default function ShopsPage() {
     // 並び替え
     const sorted = [...arr];
     sorted.sort((a, b) => {
-      if (sortMode === "kana") {
+      if (shopFavoriteFirst) {
+        const ad = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bd = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        const diff = bd - ad;
+        if (diff !== 0) return diff;
+      }
+      if (shopSortKey === "kana") {
         const ak = (a.nameKana ?? (a as any).kana ?? a.name ?? "").toString();
         const bk = (b.nameKana ?? (b as any).kana ?? b.name ?? "").toString();
         return ak.localeCompare(bk, "ja");
       }
-      if (sortMode === "number") {
-        const an = (a.shopNumber ?? "").padStart(4, "0");
-        const bn = (b.shopNumber ?? "").padStart(4, "0");
-        return an.localeCompare(bn, "ja");
-      }
-      // "よく使う店舗順" → 現状は updatedAt の新しい順（疑似）
-      const ad = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const bd = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-      return bd - ad;
+      const an = (a.shopNumber ?? "").padStart(4, "0");
+      const bn = (b.shopNumber ?? "").padStart(4, "0");
+      const diff = an.localeCompare(bn, "ja");
+      return shopSortKey === "numberDesc" ? -diff : diff;
     });
 
     return sorted;
@@ -314,9 +311,9 @@ export default function ShopsPage() {
     items,
     shopNumber,
     genreFilter,
-    sortMode,
-    exclusiveFilter,
-    nominatedFilter,
+    shopSortKey,
+    shopFavoriteFirst,
+    nominationFilter,
     wageFilter,
     contactFilter,
   ]);
@@ -356,7 +353,11 @@ export default function ShopsPage() {
       const res = await listShops({
         q: q.trim() || undefined,
         genre: genreFilter ? (genreFilter as ShopGenre) : undefined,
-        orderBy: sortMode,
+        orderBy: shopFavoriteFirst
+          ? "favorite"
+          : shopSortKey === "kana"
+            ? "kana"
+            : "number",
       });
       const nextItems = res.items ?? [];
       setItems(nextItems);
@@ -367,7 +368,7 @@ export default function ShopsPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, genreFilter, sortMode]);
+  }, [q, genreFilter, shopFavoriteFirst, shopSortKey]);
 
   useEffect(() => {
     reload();
@@ -412,7 +413,7 @@ export default function ShopsPage() {
     } finally {
       setDeleting(false);
     }
-  }, [deleteTarget, selectedShop, handleCloseModal]);
+  }, [deleteTarget, selectedShop, handleCloseModal, reload]);
 
   const wageSteps = useMemo(() => {
     const arr: number[] = [];
@@ -422,89 +423,26 @@ export default function ShopsPage() {
 
   return (
     <div className="space-y-2">
-      {/* 検索・フィルタ：1パネルに圧縮 */}
-      <section className="tiara-panel p-3">
+      {/* 検索・フィルタ：マッチングページの店舗一覧と同じ密度に統一 */}
+      <section className="tiara-panel p-2">
         <div className="flex flex-col gap-2">
-          {/* 検索（上段） */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              id="shopSearch"
-              name="q"
-              value={q}
-              onChange={(e) => {
-                setOffset(0);
-                setQ(e.target.value);
-              }}
-              placeholder="店舗名・市区町村・キーワードで検索"
-              className="tiara-input w-full sm:w-[420px]"
-            />
-            <input
-              id="shopNumber"
-              name="shopNumber"
-              value={shopNumber}
-              onChange={(e) => {
-                setOffset(0);
-                setShopNumber(e.target.value);
-              }}
-              placeholder="店舗番号で検索"
-              className="tiara-input w-full sm:w-44"
-            />
-            <div className="flex-1" />
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="h-10 px-3 rounded-full border border-slate-300 bg-white/80 text-[11px] text-slate-700 hover:bg-white"
-                onClick={() => {
-                  setOffset(0);
-                  setQ("");
-                  setShopNumber("");
-                  setExclusiveFilter("");
-                  setNominatedFilter("");
-                  setWageFilter("");
-                  setGenreFilter("");
-                  setContactFilter("");
-                  setSortMode("kana");
-                  setLimit(20);
-                }}
-              >
-                絞り込みリセット
-              </button>
-
-              <Link href="/shops/new" className="tiara-btn h-10">
-                新規店舗登録
-              </Link>
-            </div>
-          </div>
-
-          {/* フィルタ（中段）：詰めるため grid で折返し管理 */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1">
+            <span className="mr-1 text-[10px] font-semibold text-slate-500">
+              補助フィルター
+            </span>
             <select
-              value={exclusiveFilter}
+              value={nominationFilter}
               onChange={(e) => {
                 setOffset(0);
-                setExclusiveFilter((e.target.value || "") as YesNoFilter);
+                setNominationFilter((e.target.value || "") as NominationFilter);
               }}
-              className="tiara-input h-9 text-[11px]"
-              title="専属"
-            >
-              <option value="">専属：すべて</option>
-              <option value="yes">専属：あり</option>
-              <option value="no">専属：なし</option>
-            </select>
-
-            <select
-              value={nominatedFilter}
-              onChange={(e) => {
-                setOffset(0);
-                setNominatedFilter((e.target.value || "") as YesNoFilter);
-              }}
-              className="tiara-input h-9 text-[11px]"
+              className="tiara-input rounded-none h-8 !w-[120px] !py-0 text-[10px] leading-tight flex-none bg-white"
               title="指名"
             >
-              <option value="">指名：すべて</option>
-              <option value="yes">指名：あり</option>
-              <option value="no">指名：なし</option>
+              <option value="">指名</option>
+              <option value="exclusive">専属あり</option>
+              <option value="nominated">指名あり</option>
+              <option value="free">フリー</option>
             </select>
 
             <select
@@ -514,10 +452,10 @@ export default function ShopsPage() {
                 const v = e.target.value;
                 setWageFilter(v ? Number(v) : "");
               }}
-              className="tiara-input h-9 text-[11px]"
+              className="tiara-input rounded-none h-8 !w-[120px] !py-0 text-[10px] leading-tight flex-none bg-white"
               title="時給"
             >
-              <option value="">時給：すべて</option>
+              <option value="">時給</option>
               {wageSteps.map((v) => (
                 <option key={v} value={v}>
                   時給：{v}円
@@ -531,14 +469,14 @@ export default function ShopsPage() {
                 setOffset(0);
                 setGenreFilter((e.target.value || "") as ShopGenre | "");
               }}
-              className="tiara-input h-9 text-[11px]"
+              className="tiara-input rounded-none h-8 !w-[120px] !py-0 text-[10px] leading-tight flex-none bg-white"
               title="ジャンル"
             >
-              <option value="">ジャンル：すべて</option>
-              <option value="club">ジャンル：クラブ</option>
-              <option value="snack">ジャンル：スナック</option>
-              <option value="cabaret">ジャンル：キャバクラ</option>
-              <option value="gb">ジャンル：GB</option>
+              <option value="">ジャンル</option>
+              <option value="club">クラブ</option>
+              <option value="snack">スナック</option>
+              <option value="cabaret">キャバクラ</option>
+              <option value="gb">GB</option>
             </select>
 
             <select
@@ -547,31 +485,85 @@ export default function ShopsPage() {
                 setOffset(0);
                 setContactFilter((e.target.value || "") as ContactMethodFilter);
               }}
-              className="tiara-input h-9 text-[11px]"
+              className="tiara-input rounded-none h-8 !w-[120px] !py-0 text-[10px] leading-tight flex-none bg-white"
               title="連絡方法"
             >
-              <option value="">連絡：すべて</option>
-              <option value="line">連絡：LINE</option>
-              <option value="sms">連絡：SMS</option>
-              <option value="tel">連絡：TEL</option>
+              <option value="">連絡方法</option>
+              <option value="line">LINE</option>
+              <option value="sms">SMS</option>
+              <option value="tel">TEL</option>
             </select>
 
             <select
-              value={sortMode}
+              value={shopSortKey}
               onChange={(e) => {
                 setOffset(0);
-                setSortMode(e.target.value as "kana" | "number" | "favorite");
+                setShopSortKey(e.target.value as ShopSortKey);
               }}
-              className="tiara-input h-9 text-[11px]"
+              className="tiara-input rounded-none h-8 !w-[145px] !py-0 text-[10px] leading-tight flex-none bg-white"
               title="並び替え"
             >
-              <option value="kana">並び：50音順</option>
-              <option value="number">並び：店舗番号順</option>
-              <option value="favorite">並び：よく使う店舗順</option>
+              <option value="numberAsc">並び順：番号若い順</option>
+              <option value="numberDesc">並び順：番号古い順</option>
+              <option value="kana">並び順：50音順</option>
             </select>
+            <label className="inline-flex h-8 flex-none items-center justify-center gap-1 border border-slate-300 bg-white px-2 text-[10px] text-slate-700">
+              <input
+                type="checkbox"
+                checked={shopFavoriteFirst}
+                onChange={(e) => {
+                  setOffset(0);
+                  setShopFavoriteFirst(e.target.checked);
+                }}
+              />
+              お得意様優先
+            </label>
+            <input
+              id="shopSearch"
+              name="q"
+              value={q}
+              onChange={(e) => {
+                setOffset(0);
+                setQ(e.target.value);
+              }}
+              placeholder="店舗名・市区町村・キーワード"
+              className="tiara-input rounded-none h-8 !w-[220px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            />
+            <input
+              id="shopNumber"
+              name="shopNumber"
+              value={shopNumber}
+              onChange={(e) => {
+                setOffset(0);
+                setShopNumber(e.target.value);
+              }}
+              placeholder="店舗番号"
+              className="tiara-input rounded-none h-8 !w-[105px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            />
+            <button
+              type="button"
+              className="h-8 flex-none border border-slate-300 bg-white px-3 text-[10px] text-slate-700 hover:bg-slate-100"
+              onClick={() => {
+                setOffset(0);
+                setQ("");
+                setShopNumber("");
+                setNominationFilter("");
+                setWageFilter("");
+                setGenreFilter("");
+                setContactFilter("");
+                setShopSortKey("numberAsc");
+                setShopFavoriteFirst(false);
+                setLimit(20);
+              }}
+            >
+              クリア
+            </button>
+            <div className="flex-1" />
+            <Link href="/shops/new" className="tiara-btn h-8 px-3 text-[11px]">
+              新規店舗登録
+            </Link>
           </div>
 
-          {/* 下段：表示件数＋件数表示（右寄せで詰める） */}
           <div className="flex flex-wrap items-center gap-2">
             <DisplayCountControl
               limit={limit}

@@ -444,7 +444,7 @@ export default function DailyReportPage() {
 
   return (
     <AppShell>
-      <div className="daily-report-print-root h-full flex flex-col gap-4">
+      <div className="daily-report-print-root daily-report-screen h-full flex flex-col gap-4">
         <header className="flex items-center justify-between border border-slate-500 bg-white px-3 py-2">
           <div className="text-lg font-semibold tracking-wide">
             ティアラ　日報
@@ -1054,6 +1054,112 @@ export default function DailyReportPage() {
         )}
       </div>
       <style jsx global>{`
+        @media screen {
+          .daily-report-screen {
+            font-family: inherit;
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.45;
+          }
+
+          .daily-report-screen header,
+          .daily-report-screen section,
+          .daily-report-screen > div.grid > section > div,
+          .daily-report-screen > section {
+            border-color: #d6def5 !important;
+            background: rgba(255, 255, 255, 0.96) !important;
+            box-shadow:
+              0 8px 22px rgba(16, 30, 54, 0.06),
+              0 1px 0 rgba(255, 255, 255, 0.82) inset;
+          }
+
+          .daily-report-screen .border-slate-500 {
+            border-color: #d6def5 !important;
+          }
+
+          .daily-report-screen header {
+            min-height: 48px;
+          }
+
+          .daily-report-screen header > div:first-child {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0;
+            color: var(--ink);
+          }
+
+          .daily-report-screen header > div:last-child {
+            color: #334155;
+            font-weight: 600;
+          }
+
+          .daily-report-screen section > div:first-child,
+          .daily-report-screen > div.grid > section > div > div:first-child {
+            color: #1f2a44;
+          }
+
+          .daily-report-screen button {
+            border: 1px solid #cbd5e1 !important;
+            background: #ffffff !important;
+            color: #24324b !important;
+            font-weight: 700;
+            min-height: 28px;
+            transition:
+              background-color 0.15s ease,
+              border-color 0.15s ease,
+              color 0.15s ease;
+          }
+
+          .daily-report-screen button:hover:not(:disabled) {
+            border-color: #93b4e8 !important;
+            background: #f3f7ff !important;
+            color: #1d4ed8 !important;
+          }
+
+          .daily-report-screen button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+          }
+
+          .daily-report-screen input,
+          .daily-report-screen textarea {
+            font-family: inherit;
+            color: var(--ink);
+            outline: none;
+          }
+
+          .daily-report-screen input:focus,
+          .daily-report-screen textarea:focus {
+            background: #f8fbff !important;
+            box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.22);
+          }
+
+          .daily-report-screen textarea {
+            border: 0;
+            background: #ffffff;
+          }
+
+          .daily-report-screen .text-sm {
+            font-size: 12px;
+          }
+
+          .daily-report-screen .text-xs {
+            font-size: 11px;
+          }
+
+          .daily-report-screen .text-lg {
+            font-size: 17px;
+          }
+
+          .daily-report-screen .h-7 {
+            min-height: 28px;
+          }
+
+          .daily-report-screen .h-8 {
+            min-height: 32px;
+          }
+        }
+
         @media print {
           @page {
             size: A4 portrait;

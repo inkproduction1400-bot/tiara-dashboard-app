@@ -12,7 +12,8 @@ export type AssignmentRow = {
   startTime?: string;
   endTime?: string;
   hourly?: number;
-  daily?: number;
+  daily?: number | null;
+  actualTime?: string | null;
   fee?: number;
   receiptIssuedFee?: number | null;
   receiptPrintedAt?: string | null;
@@ -38,6 +39,7 @@ export type ReceiptPayload = {
   endTime?: string;
   hourly?: number;
   daily?: number;
+  actualTime?: string;
   fee?: number;
 };
 

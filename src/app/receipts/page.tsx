@@ -5,6 +5,7 @@ import AppShell from "@/components/AppShell";
 import {
   fetchReceiptTargets,
   recordReceiptIssued,
+  updateReceiptDetails,
   updateReceiptFee,
   updateReceiptStatus,
 } from "@/lib/receipts/fetchReceiptTargets";
@@ -62,6 +63,9 @@ const formatAmount = (value?: number) => {
   return value.toLocaleString("ja-JP");
 };
 
+const RECEIPT_TIME_OPTIONS = ["21:00", "21:30", "22:00"] as const;
+const RECEIPT_TIME_DATALIST_ID = "receipt-work-time-options";
+
 const receiptDisplayPriority = (row: AssignmentRow, businessDate: string) => {
   if (row.assignmentStatus === "canceled") return 2;
   const isPastOpen = row.businessDate !== businessDate;
@@ -92,6 +96,9 @@ type ReceiptFormState = {
   endTime: string;
   hourly: string;
   daily: string;
+  actualTime: string;
+  rideRequested: boolean;
+  rideDestination: string;
   fee: string;
 };
 
@@ -110,6 +117,9 @@ const buildFormState = (
   endTime: row.endTime ?? "",
   hourly: row.hourly ? String(row.hourly) : "",
   daily: row.daily ? String(row.daily) : "",
+  actualTime: row.actualTime ?? "",
+  rideRequested: !!row.rideRequested,
+  rideDestination: row.rideDestination ?? "",
   fee: row.fee ? String(row.fee) : "",
 });
 
@@ -125,6 +135,7 @@ const toPayload = (form: ReceiptFormState): ReceiptPayload => ({
   endTime: form.endTime || undefined,
   hourly: parseNumber(form.hourly),
   daily: parseNumber(form.daily),
+  actualTime: form.actualTime || undefined,
   fee: parseNumber(form.fee),
 });
 
@@ -138,6 +149,7 @@ export default function ReceiptsPage() {
   const [activeRow, setActiveRow] = useState<AssignmentRow | null>(null);
   const [printing, setPrinting] = useState(false);
   const [savingFeeKey, setSavingFeeKey] = useState<string | null>(null);
+  const [savingDetailsKey, setSavingDetailsKey] = useState<string | null>(null);
   const feeNumber = useMemo(
     () => (formState ? parseNumber(formState.fee) : undefined),
     [formState?.fee],
@@ -292,6 +304,64 @@ export default function ReceiptsPage() {
     }
   };
 
+  const handleReceiptDetailsChange = async (
+    row: AssignmentRow,
+    patch: {
+      rideRequested?: boolean | null;
+      rideDestination?: string | null;
+      startTime?: string | null;
+      daily?: number | null;
+      actualTime?: string | null;
+    },
+  ) => {
+    if (!row.assignmentId || row.assignmentStatus === "canceled") return false;
+    const key = rowKey(row);
+    const previous = row;
+    const nextPatch = {
+      ...(patch.rideRequested !== undefined
+        ? { rideRequested: patch.rideRequested ?? false }
+        : {}),
+      ...(patch.rideDestination !== undefined
+        ? { rideDestination: patch.rideDestination ?? "" }
+        : {}),
+      ...(patch.startTime !== undefined ? { startTime: patch.startTime ?? "" } : {}),
+      ...(patch.daily !== undefined ? { daily: patch.daily } : {}),
+      ...(patch.actualTime !== undefined ? { actualTime: patch.actualTime ?? "" } : {}),
+      receiptRevisionStatus:
+        row.receiptRevisionStatus === "issued"
+          ? "needs_reissue"
+          : row.receiptRevisionStatus,
+    };
+    setSavingDetailsKey(key);
+    setRows((current) =>
+      current.map((item) =>
+        rowKey(item) === key ? { ...item, ...nextPatch } : item,
+      ),
+    );
+    try {
+      await updateReceiptDetails(row.assignmentId, {
+        rideRequested:
+          patch.rideRequested !== undefined ? patch.rideRequested : undefined,
+        rideDestination:
+          patch.rideDestination !== undefined ? patch.rideDestination : undefined,
+        startTime: patch.startTime !== undefined ? patch.startTime : undefined,
+        daily: patch.daily !== undefined ? patch.daily ?? null : undefined,
+        actualTime:
+          patch.actualTime !== undefined ? patch.actualTime : undefined,
+      });
+      return true;
+    } catch (err) {
+      console.error("[Receipts] receipt details update failed", err);
+      setRows((current) =>
+        current.map((item) => (rowKey(item) === key ? previous : item)),
+      );
+      alert("領収書情報の保存に失敗しました。時間をおいて再度お試しください。");
+      return false;
+    } finally {
+      setSavingDetailsKey(null);
+    }
+  };
+
   const handlePrint = async () => {
     if (!formState || !activeRow?.assignmentId) return;
     const payload = toPayload(formState);
@@ -304,6 +374,9 @@ export default function ReceiptsPage() {
         daily: payload.daily ?? null,
         startTime: payload.startTime ?? null,
         endTime: payload.endTime ?? null,
+        actualTime: formState.actualTime || null,
+        rideRequested: formState.rideRequested,
+        rideDestination: formState.rideDestination || null,
       });
       setRows((current) =>
         current.map((item) =>
@@ -378,6 +451,11 @@ export default function ReceiptsPage() {
   return (
     <AppShell>
       <div className="h-full flex flex-col gap-4">
+        <datalist id={RECEIPT_TIME_DATALIST_ID}>
+          {RECEIPT_TIME_OPTIONS.map((time) => (
+            <option key={time} value={time} />
+          ))}
+        </datalist>
         <header className="flex flex-wrap items-center justify-between border border-slate-500 bg-white px-3 py-2 gap-2">
           <div className="text-lg font-semibold tracking-wide">領収書</div>
           <div className="flex items-center gap-2 text-sm">
@@ -529,6 +607,7 @@ export default function ReceiptsPage() {
                     row.receiptStatus === "collected"
                       ? "collected"
                       : "uncollected";
+                  const detailsDisabled = isCanceled || savingDetailsKey === key;
                   const rowClass =
                     isCanceled
                       ? "bg-rose-50 text-slate-500"
@@ -537,8 +616,6 @@ export default function ReceiptsPage() {
                       : collectionValue === "collected"
                         ? "bg-emerald-50"
                         : "";
-                  const startTime = row.startTime ? `${row.startTime} ～` : "～";
-
                   return (
                     <tr
                       key={key}
@@ -576,10 +653,39 @@ export default function ReceiptsPage() {
                         )}
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[10px] font-semibold">
-                        {row.rideRequested ? "あり" : "なし"}
+                        <select
+                          className="h-6 w-full border border-slate-400 bg-white text-center text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
+                          value={row.rideRequested ? "yes" : "no"}
+                          disabled={detailsDisabled}
+                          onChange={(event) => {
+                            const rideRequested = event.target.value === "yes";
+                            void handleReceiptDetailsChange(row, {
+                              rideRequested,
+                              ...(rideRequested ? {} : { rideDestination: "" }),
+                            });
+                          }}
+                          aria-label={`${row.castName}の送迎有無`}
+                        >
+                          <option value="no">なし</option>
+                          <option value="yes">あり</option>
+                        </select>
                       </td>
                       <td className="break-words border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
-                        {row.rideRequested ? row.rideDestination ?? "" : ""}
+                        <input
+                          key={`${key}:ride:${row.rideDestination ?? ""}`}
+                          type="text"
+                          defaultValue={row.rideDestination ?? ""}
+                          disabled={detailsDisabled}
+                          onBlur={(event) => {
+                            const next = event.target.value.trim();
+                            if ((row.rideDestination ?? "") === next) return;
+                            void handleReceiptDetailsChange(row, {
+                              rideDestination: next,
+                            });
+                          }}
+                          className="h-6 w-full border border-slate-400 bg-white px-1 text-[9px] disabled:bg-slate-100 disabled:text-slate-400"
+                          aria-label={`${row.castName}の送迎先`}
+                        />
                       </td>
                       <td className="break-words border border-slate-700 px-1 py-0.5 font-semibold">
                         {row.shopName}
@@ -588,13 +694,63 @@ export default function ReceiptsPage() {
                         {row.shopAddress ?? ""}
                       </td>
                       <td className="border border-slate-700 px-1 py-0.5 text-center text-[11px]">
-                        {startTime}
+                        <input
+                          key={`${key}:start:${row.startTime ?? ""}`}
+                          type="text"
+                          list={RECEIPT_TIME_DATALIST_ID}
+                          defaultValue={row.startTime ?? ""}
+                          disabled={detailsDisabled}
+                          onBlur={(event) => {
+                            const next = event.target.value.trim();
+                            if ((row.startTime ?? "") === next) return;
+                            void handleReceiptDetailsChange(row, {
+                              startTime: next,
+                            });
+                          }}
+                          className="h-6 w-full border border-slate-400 bg-white px-1 text-center text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
+                          aria-label={`${row.castName}の出勤時間`}
+                        />
                       </td>
                       <td className="border border-slate-700 px-1 py-0.5 text-right text-[11px]">
                         {formatAmount(row.hourly)}
                       </td>
-                      <td className="border border-slate-700 px-0.5 py-0.5 text-right" />
-                      <td className="border border-slate-700 px-0.5 py-0.5 text-center" />
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-right">
+                        <input
+                          key={`${key}:daily:${row.daily ?? ""}`}
+                          type="text"
+                          inputMode="numeric"
+                          defaultValue={formatAmount(row.daily ?? undefined)}
+                          disabled={detailsDisabled}
+                          onBlur={(event) => {
+                            const parsed = parseNumber(event.target.value);
+                            const next = parsed ?? null;
+                            const current = row.daily ?? null;
+                            if (current === next) return;
+                            void handleReceiptDetailsChange(row, {
+                              daily: next,
+                            });
+                          }}
+                          className="h-6 w-full border border-slate-400 bg-white px-1 text-right text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
+                          aria-label={`${row.castName}の日給`}
+                        />
+                      </td>
+                      <td className="border border-slate-700 px-0.5 py-0.5 text-center">
+                        <input
+                          key={`${key}:actual:${row.actualTime ?? ""}`}
+                          type="text"
+                          defaultValue={row.actualTime ?? ""}
+                          disabled={detailsDisabled}
+                          onBlur={(event) => {
+                            const next = event.target.value.trim();
+                            if ((row.actualTime ?? "") === next) return;
+                            void handleReceiptDetailsChange(row, {
+                              actualTime: next,
+                            });
+                          }}
+                          className="h-6 w-full border border-slate-400 bg-white px-1 text-center text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
+                          aria-label={`${row.castName}の実際時間`}
+                        />
+                      </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center">
                         <button
                           type="button"

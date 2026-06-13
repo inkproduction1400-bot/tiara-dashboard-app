@@ -136,7 +136,16 @@ const buildDispatchSlots = (
   rows: DispatchSheetRow[],
   options: { includeCanceledTail: boolean },
 ) => {
+  const rowPriority = (row: DispatchSheetRow) => {
+    if (row.isOrderSlot && row.shopId && !row.castId) return 0;
+    if (row.shopId && row.castId && row.status !== "confirmed") return 1;
+    if (row.castId && !row.shopId) return 2;
+    if (row.status === "confirmed") return 3;
+    return 4;
+  };
   const byDisplayOrder = (a: DispatchSheetRow, b: DispatchSheetRow) => {
+    const priorityDiff = rowPriority(a) - rowPriority(b);
+    if (priorityDiff !== 0) return priorityDiff;
     const aOrder =
       typeof a.displayOrder === "number" && a.displayOrder >= 0
         ? a.displayOrder
@@ -3712,7 +3721,7 @@ export default function Page() {
       return;
     }
     const savedRows =
-      !row.assignmentId || row.status === "canceled"
+      row.status !== "confirmed"
         ? await saveDispatchRow(row)
         : null;
     const latest =

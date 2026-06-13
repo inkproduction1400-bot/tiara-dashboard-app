@@ -39,6 +39,29 @@ export async function updateReceiptFee(
   });
 }
 
+export async function updateReceiptDetails(
+  assignmentId: string,
+  payload: {
+    rideRequested?: boolean | null;
+    rideDestination?: string | null;
+    startTime?: string | null;
+    daily?: number | null;
+    actualTime?: string | null;
+  },
+) {
+  return apiFetch<{
+    assignmentId: string;
+    rideRequested?: boolean | null;
+    rideDestination?: string | null;
+    startTime?: string | null;
+    daily?: number | null;
+    actualTime?: string | null;
+  }>(`/dispatch-sheet/rows/${assignmentId}/receipt-details`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function recordReceiptIssued(
   assignmentId: string,
   payload: {
@@ -46,8 +69,11 @@ export async function recordReceiptIssued(
     fee?: number | null;
     hourly?: number | null;
     daily?: number | null;
+    actualTime?: string | null;
     startTime?: string | null;
     endTime?: string | null;
+    rideRequested?: boolean | null;
+    rideDestination?: string | null;
   },
 ) {
   return apiFetch<{

@@ -3130,7 +3130,7 @@ export default function Page() {
         advices.push({
           tone: "surplus",
           title: "営業できます",
-          body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。店舗一覧で営業先を選択し、${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
+          body: `未割当の出勤OKキャストは全体で${availableCasts.length}名です。特に${wageLabel}・${genreLabel}系が${surplus.count}名いるため、店舗一覧で営業先を選択し、${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
         });
       }
     } else {
@@ -5578,12 +5578,14 @@ export default function Page() {
                         (tutorialTarget ? "support-visible" : "")
                       }
                     >
-                      <div className="flex h-full w-8 flex-none items-center justify-center text-indigo-700">
-                        <Bot className="h-5 w-5" aria-hidden="true" />
+                      <div className="flex h-full w-8 flex-none items-center justify-center">
+                        <div className="matching-advice-bot" aria-hidden="true">
+                          <Bot className="h-5 w-5" />
+                        </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="grid max-h-[48px] gap-0.5 overflow-hidden">
-                          {matchingAdvices.slice(0, 2).map((advice, index) => (
+                        <div className="matching-advice-scroll grid max-h-[56px] gap-0.5 overflow-y-auto pr-1">
+                          {matchingAdvices.map((advice, index) => (
                             <div
                               key={`${advice.tone}-${index}`}
                               className="leading-snug"
@@ -8481,6 +8483,36 @@ export default function Page() {
           padding-bottom: 0 !important;
           line-height: 30px !important;
           vertical-align: middle;
+        }
+        .matching-advice-bot {
+          display: flex;
+          height: 26px;
+          width: 26px;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9999px;
+          background:
+            radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 32%),
+            linear-gradient(145deg, #7c3aed 0%, #2563eb 48%, #06b6d4 100%);
+          color: white;
+          box-shadow:
+            0 6px 12px rgba(37, 99, 235, 0.28),
+            inset 0 1px 0 rgba(255, 255, 255, 0.48);
+        }
+        .matching-advice-bot :global(svg) {
+          filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.25));
+          stroke-width: 2.2;
+        }
+        .matching-advice-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(99, 102, 241, 0.55) transparent;
+        }
+        .matching-advice-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .matching-advice-scroll::-webkit-scrollbar-thumb {
+          border-radius: 9999px;
+          background: rgba(99, 102, 241, 0.55);
         }
         .support-mode-overlay {
           position: absolute;

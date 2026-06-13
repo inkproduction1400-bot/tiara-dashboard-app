@@ -76,6 +76,7 @@ type CastGenre = "club" | "cabaret" | "snack" | "gb";
 // 店舗ジャンル（NG登録モーダルの絞り込み用）
 type ShopGenre = "club" | "cabaret" | "snack" | "gb";
 type YesNoFilter = "" | "yes" | "no";
+type CastNominationFilter = "" | "exclusive" | "nominated" | "free";
 type ContactMethodFilter = "" | "line" | "sms" | "tel";
 type WageFilter =
   | ""
@@ -1258,10 +1259,8 @@ export default function Page() {
   const [castGenreFilter, setCastGenreFilter] = useState<CastGenre | "">("");
   const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
   const [castWageFilter, setCastWageFilter] = useState<WageFilter>("");
-  const [castExclusiveFilter, setCastExclusiveFilter] =
-    useState<YesNoFilter>("");
-  const [castNominatedFilter, setCastNominatedFilter] =
-    useState<YesNoFilter>("");
+  const [castNominationFilter, setCastNominationFilter] =
+    useState<CastNominationFilter>("");
 
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -2163,8 +2162,7 @@ export default function Page() {
     castGenreFilter,
     ageRangeFilter,
     castWageFilter,
-    castExclusiveFilter,
-    castNominatedFilter,
+    castNominationFilter,
   ]);
 
   // NGモーダルが開いた時点で、対象キャストの既存NG店舗を初期選択にする
@@ -2461,16 +2459,14 @@ export default function Page() {
       list = list.filter((c) => bucketWage(c.desiredHourly) === wage);
     }
 
-    if (castExclusiveFilter) {
-      list = list.filter((c) =>
-        castExclusiveFilter === "yes" ? !!c.hasExclusive : !c.hasExclusive,
-      );
-    }
-
-    if (castNominatedFilter) {
-      list = list.filter((c) =>
-        castNominatedFilter === "yes" ? !!c.hasNominated : !c.hasNominated,
-      );
+    if (castNominationFilter) {
+      list = list.filter((c) => {
+        if (castNominationFilter === "exclusive") return !!c.hasExclusive;
+        if (castNominationFilter === "nominated") {
+          return !c.hasExclusive && !!c.hasNominated;
+        }
+        return !c.hasExclusive && !c.hasNominated;
+      });
     }
 
     if (drinkLevelFilter) {
@@ -2626,8 +2622,7 @@ export default function Page() {
     castGenreFilter,
     ageRangeFilter,
     castWageFilter,
-    castExclusiveFilter,
-    castNominatedFilter,
+    castNominationFilter,
     sortKana,
     sortNumberSmallFirst,
     sortNumberLargeFirst,
@@ -2883,8 +2878,7 @@ export default function Page() {
       const hasRequestAuxFilter =
         keyword.trim() ||
         castWageFilter ||
-        castExclusiveFilter ||
-        castNominatedFilter ||
+        castNominationFilter ||
         drinkLevelFilter ||
         castGenreFilter ||
         ageRangeFilter ||
@@ -2984,9 +2978,8 @@ export default function Page() {
     attendanceRequestFilter,
     ageRangeFilter,
     bulkRequestTargets.length,
-    castExclusiveFilter,
     castGenreFilter,
-    castNominatedFilter,
+    castNominationFilter,
     castWageFilter,
     drinkLevelFilter,
     keyword,
@@ -5266,26 +5259,18 @@ export default function Page() {
                     ))}
                   </select>
                   <select
-                    className="tiara-input matching-filter-select rounded-none h-8 !w-[105px] text-[10px] flex-none bg-white"
-                    value={castExclusiveFilter}
+                    className="tiara-input matching-filter-select rounded-none h-8 !w-[115px] text-[10px] flex-none bg-white"
+                    value={castNominationFilter}
                     onChange={(e) =>
-                      setCastExclusiveFilter(e.target.value as YesNoFilter)
-                    }
-                  >
-                    <option value="">専属指名</option>
-                    <option value="yes">専属あり</option>
-                    <option value="no">専属なし</option>
-                  </select>
-                  <select
-                    className="tiara-input matching-filter-select rounded-none h-8 !w-[95px] text-[10px] flex-none bg-white"
-                    value={castNominatedFilter}
-                    onChange={(e) =>
-                      setCastNominatedFilter(e.target.value as YesNoFilter)
+                      setCastNominationFilter(
+                        e.target.value as CastNominationFilter,
+                      )
                     }
                   >
                     <option value="">指名</option>
-                    <option value="yes">指名あり</option>
-                    <option value="no">指名なし</option>
+                    <option value="exclusive">専属指名あり</option>
+                    <option value="nominated">指名あり</option>
+                    <option value="free">フリー</option>
                   </select>
                   <select
                     className="tiara-input matching-filter-select rounded-none h-8 !w-[105px] text-[10px] flex-none bg-white"

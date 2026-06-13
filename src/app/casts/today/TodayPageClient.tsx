@@ -105,6 +105,13 @@ type DispatchStatusFilter = "" | "unassigned" | "matched";
 type CastStatusTab = "today" | "all" | "dormant";
 type CastListMode = "proposal" | "request";
 type AttendanceRequestFilter = "" | "none" | AttendanceRequestStatus;
+type GuidanceTarget =
+  | "shop-tab"
+  | "cast-tab"
+  | "active-shop-order"
+  | "dispatch-tab"
+  | "dispatch-sheet"
+  | null;
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -2836,6 +2843,18 @@ export default function Page() {
     };
   }, [filteredDispatchRows]);
 
+  const guidanceTarget = useMemo<GuidanceTarget>(() => {
+    if (castCardDragging) {
+      return statusTab === "today" ? "dispatch-sheet" : "dispatch-tab";
+    }
+    if (castListMode !== "proposal") return null;
+    if (selectedShopId) {
+      return panelTab === "shops" ? "cast-tab" : "active-shop-order";
+    }
+    if (panelTab === "casts") return "shop-tab";
+    return null;
+  }, [castCardDragging, castListMode, panelTab, selectedShopId, statusTab]);
+
   const matchingAdvices = useMemo<MatchingAdvice[]>(() => {
     const shopById = new Map(effectiveShops.map((shop) => [shop.id, shop]));
     const requestByCastId = new Map(
@@ -2910,7 +2929,23 @@ export default function Page() {
       .filter((group) => group.shortageCount > 0)
       .sort((a, b) => b.shortageCount - a.shortageCount)[0];
 
-    if (shortage) {
+    if (castListMode === "proposal" && selectedShop) {
+      advices.push({
+        tone: "normal",
+        title: "オーダー入力",
+        body: `${selectedShop.name}へ営業連絡し、派遣人数・希望時給・飲酒・ヘアセットなど必要な情報を確認して、稼働中店舗のオーダー情報をセットしてください。`,
+      });
+    }
+
+    if (castListMode === "proposal" && !selectedShop && unfilledOrders.length > 0) {
+      advices.push({
+        tone: "normal",
+        title: "次の操作",
+        body: `オーダー枠が${unfilledOrders.length}名分あります。次の店舗へ営業するか、出勤OKキャストを派遣表へドラッグ&ドロップしてください。`,
+      });
+    }
+
+    if (shortage && advices.length < 2) {
       const wageLabel = shortage.wage ? `${shortage.wage.toLocaleString()}円` : "時給未指定";
       const genreLabel = formatCastGenreShort(shortage.genre);
       const drinkLabel = shortage.drinkLevel
@@ -2957,7 +2992,7 @@ export default function Page() {
         advices.push({
           tone: "surplus",
           title: "営業できます",
-          body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
+          body: `${wageLabel}・${genreLabel}系の出勤OKキャストが${surplus.count}名未割当です。店舗一覧で営業先を選択し、${genreLabel}店舗へ${wageLabel}帯で営業をかけてください。`,
         });
       }
     } else {
@@ -2979,7 +3014,7 @@ export default function Page() {
       advices.push({
         tone: "normal",
         title: "状況確認",
-        body: "大きな不足や余りはありません。未連絡店舗と未割当キャストを確認しながら進めてください。",
+        body: "店舗一覧で営業先店舗を選択し、稼働中店舗のオーダー情報をセットしてください。未割当キャストを確認しながら進めてください。",
       });
     } else if (advices.length === 0) {
       advices.push({
@@ -2997,6 +3032,7 @@ export default function Page() {
     effectiveShops,
     filteredDispatchRows,
     getEffectiveAttendanceStatus,
+    selectedShop,
   ]);
 
   const applyMatchedFromOrders = useCallback((orders: any[]) => {
@@ -4640,7 +4676,12 @@ export default function Page() {
                 <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
                   <button
                     type="button"
-                    className="px-4 h-8 bg-transparent text-gray-700"
+                    className={
+                      "px-4 h-8 bg-transparent text-gray-700 relative overflow-visible " +
+                      (guidanceTarget === "cast-tab"
+                        ? "matching-action-hint"
+                        : "")
+                    }
                     onClick={() => setPanelTab("casts")}
                   >
                     キャスト一覧
@@ -4846,14 +4887,19 @@ export default function Page() {
                   <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
                     <button
                       type="button"
-                      className="px-3 h-8 bg-sky-600 text-white"
+                      className="px-3 h-8 bg-sky-600 text-white relative overflow-visible"
                       onClick={() => setPanelTab("casts")}
                     >
                       キャスト一覧
                     </button>
                     <button
                       type="button"
-                      className="px-3 h-8 border-l border-slate-200 bg-transparent text-gray-700"
+                      className={
+                        "px-3 h-8 border-l border-slate-200 bg-transparent text-gray-700 relative overflow-visible " +
+                        (guidanceTarget === "shop-tab"
+                          ? "matching-action-hint"
+                          : "")
+                      }
                       onClick={() => setPanelTab("shops")}
                     >
                       店舗一覧
@@ -5105,7 +5151,14 @@ export default function Page() {
                 </div>
 
                 {castListMode === "proposal" && selectedShop ? (
-                  <div className="flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-950">
+                  <div
+                    className={
+                      "flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-950 " +
+                      (guidanceTarget === "active-shop-order"
+                        ? "matching-action-hint matching-action-panel-hint"
+                        : "")
+                    }
+                  >
                     <span className="font-semibold">稼働中店舗</span>
                     <span className="max-w-[260px] truncate">
                       {selectedShop.code ? `${selectedShop.code} / ` : ""}
@@ -5233,7 +5286,8 @@ export default function Page() {
                             (active
                               ? "bg-sky-600 text-white border-sky-600"
                               : "bg-white text-slate-700 border-slate-200") +
-                            (tab.id === "today" && castCardDragging
+                            (tab.id === "today" &&
+                            guidanceTarget === "dispatch-tab"
                               ? " dispatch-drop-tab-hint"
                               : "")
                           }
@@ -5361,7 +5415,9 @@ export default function Page() {
                 <div
                   className={
                     "dispatch-sheet-section rounded-none border border-slate-900 bg-white " +
-                    (castCardDragging ? "dispatch-sheet-drop-hint" : "")
+                    (guidanceTarget === "dispatch-sheet"
+                      ? "dispatch-sheet-drop-hint"
+                      : "")
                   }
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 bg-slate-100 px-2 py-1">
@@ -8198,6 +8254,29 @@ export default function Page() {
       <style jsx>{`
         :global(.tiara-input) {
           border-radius: 0 !important;
+        }
+        :global(.matching-action-hint) {
+          position: relative;
+          z-index: 1;
+          border-color: #f59e0b !important;
+          box-shadow:
+            0 0 0 2px rgba(245, 158, 11, 0.42),
+            0 0 0 8px rgba(245, 158, 11, 0.12);
+          animation: dispatchDropPulse 1.25s ease-out infinite;
+        }
+        :global(.matching-action-hint::after) {
+          content: "";
+          position: absolute;
+          inset: -8px;
+          border: 2px solid rgba(245, 158, 11, 0.45);
+          pointer-events: none;
+          animation: dispatchDropRipple 1.25s ease-out infinite;
+        }
+        :global(.matching-action-panel-hint) {
+          overflow: visible;
+        }
+        :global(.matching-action-panel-hint::after) {
+          inset: -10px;
         }
         :global(.dispatch-drop-tab-hint) {
           border-color: #f59e0b !important;

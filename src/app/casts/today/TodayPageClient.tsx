@@ -88,7 +88,7 @@ type WageFilter =
   | "5500"
   | "6000"
   | "6500";
-type ShopSortKey = "number" | "kana" | "favorite";
+type ShopSortKey = "numberAsc" | "numberDesc" | "kana";
 type DispatchCancelType = "cast" | "shop";
 type MatchingAdvice = {
   title: string;
@@ -1395,7 +1395,8 @@ export default function Page() {
   const [ngSelectedShopIds, setNgSelectedShopIds] = useState<string[]>([]);
 
   const [panelTab, setPanelTab] = useState<"casts" | "shops">("casts");
-  const [shopSortKey, setShopSortKey] = useState<ShopSortKey>("number");
+  const [shopSortKey, setShopSortKey] = useState<ShopSortKey>("numberAsc");
+  const [shopFavoriteFirst, setShopFavoriteFirst] = useState(false);
   const [floatPos, setFloatPos] = useState<{ x: number; y: number } | null>(
     null,
   );
@@ -2785,19 +2786,23 @@ export default function Page() {
 
   const sortedTodayShops = useMemo(() => {
     const list = [...filteredShops];
-    if (shopSortKey === "number") {
-      list.sort((a, b) => shopNumberKey(a) - shopNumberKey(b));
-    } else if (shopSortKey === "favorite") {
-      list.sort((a, b) => {
+    const compareBase = (a: Shop, b: Shop) => {
+      if (shopSortKey === "kana") {
+        return shopKanaKey(a).localeCompare(shopKanaKey(b), "ja");
+      }
+      const diff = shopNumberKey(a) - shopNumberKey(b);
+      return shopSortKey === "numberDesc" ? -diff : diff;
+    };
+
+    list.sort((a, b) => {
+      if (shopFavoriteFirst) {
         const rankDiff = shopFavoriteKey(b) - shopFavoriteKey(a);
         if (rankDiff !== 0) return rankDiff;
-        return shopNumberKey(a) - shopNumberKey(b);
-      });
-    } else {
-      list.sort((a, b) => shopKanaKey(a).localeCompare(shopKanaKey(b), "ja"));
-    }
+      }
+      return compareBase(a, b);
+    });
     return list;
-  }, [filteredShops, shopSortKey]);
+  }, [filteredShops, shopFavoriteFirst, shopSortKey]);
 
   const filteredDispatchRows = useMemo(() => {
     if (担当者 === "all") return dispatchRows;
@@ -4908,14 +4913,23 @@ export default function Page() {
                   <option value="tel">TEL</option>
                 </select>
                 <select
-                  className="tiara-input rounded-none h-8 !w-[125px] !py-1 text-[10px] leading-tight flex-none"
+                  className="tiara-input rounded-none h-8 !w-[145px] !py-1 text-[10px] leading-tight flex-none"
                   value={shopSortKey}
                   onChange={(e) => setShopSortKey(e.target.value as ShopSortKey)}
                 >
-                  <option value="number">店舗番号順</option>
-                  <option value="kana">50音順</option>
-                  <option value="favorite">注文実績順</option>
+                  <option value="numberAsc">並び順: 番号若い順</option>
+                  <option value="numberDesc">並び順: 番号古い順</option>
+                  <option value="kana">並び順: 50音順</option>
                 </select>
+                <label className="inline-flex h-8 flex-none items-center gap-1 border border-slate-300 bg-white px-2 text-[10px] text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3"
+                    checked={shopFavoriteFirst}
+                    onChange={(e) => setShopFavoriteFirst(e.target.checked)}
+                  />
+                  お得意様優先
+                </label>
                 <button
                   type="button"
                   className="border border-slate-300 bg-white px-3 h-8 text-xs flex-none"
@@ -4925,7 +4939,8 @@ export default function Page() {
                     setShopFilterIdReq("");
                     setShopFilterGenre("");
                     setShopFilterContact("");
-                    setShopSortKey("number");
+                    setShopSortKey("numberAsc");
+                    setShopFavoriteFirst(false);
                   }}
                 >
                   クリア

@@ -37,6 +37,7 @@ export type CastListItem = {
   legacyStaffId?: number | null; // 旧システムのスタッフID
   ownerStaffName?: string | null;
   genres?: string[] | null;
+  drinkLevel?: string | null;
   birthdate?: string | null;
   age?: number | null;
   /** 一覧で希望時給を表示するため */
@@ -45,6 +46,9 @@ export type CastListItem = {
   castCode?: string | null;
   activityStatus?: string | null;
   lastMatchedAt?: string | null;
+  ngShopCount?: number | null;
+  exclusiveShopId?: string | null;
+  nominatedShopCount?: number | null;
   photoUrl?: string | null;
   photoUrlRaw?: string | null;
 };
@@ -107,6 +111,10 @@ export async function listCastsForPicker(
     castCode: it.castCode ?? null,
     activityStatus: it.activityStatus ?? null,
     lastMatchedAt: it.lastMatchedAt ?? null,
+    drinkLevel: it.drinkLevel ?? null,
+    ngShopCount: it.ngShopCount ?? null,
+    exclusiveShopId: it.exclusiveShopId ?? null,
+    nominatedShopCount: it.nominatedShopCount ?? null,
   });
 
   if (Array.isArray(raw)) {
@@ -514,6 +522,11 @@ export async function listCasts(
     hasExclusiveShop?: boolean;
     hasNominatedShops?: boolean;
     ownerStaffName?: string;
+    desiredHourly?: number;
+    drinkLevel?: string;
+    genre?: string;
+    minAge?: number;
+    maxAge?: number;
     sort?: string;
   } = {},
 ): Promise<CastListResponse> {
@@ -527,6 +540,11 @@ export async function listCasts(
     hasExclusiveShop,
     hasNominatedShops,
     ownerStaffName,
+    desiredHourly,
+    drinkLevel,
+    genre,
+    minAge,
+    maxAge,
     sort,
   } = params;
 
@@ -559,6 +577,21 @@ export async function listCasts(
   if (ownerStaffName) {
     qs.set("ownerStaffName", ownerStaffName);
   }
+  if (typeof desiredHourly === "number" && Number.isFinite(desiredHourly)) {
+    qs.set("desiredHourly", String(desiredHourly));
+  }
+  if (drinkLevel) {
+    qs.set("drinkLevel", drinkLevel);
+  }
+  if (genre) {
+    qs.set("genre", genre);
+  }
+  if (typeof minAge === "number" && Number.isFinite(minAge)) {
+    qs.set("minAge", String(minAge));
+  }
+  if (typeof maxAge === "number" && Number.isFinite(maxAge)) {
+    qs.set("maxAge", String(maxAge));
+  }
   if (sort) {
     qs.set("sort", sort);
   }
@@ -585,12 +618,16 @@ export async function listCasts(
       : Array.isArray(it.background?.genres)
         ? it.background.genres
         : null,
+    drinkLevel: it.drinkLevel ?? it.attributes?.[0]?.drinkLevel ?? null,
     birthdate: it.birthdate ?? null,
     age: it.age ?? null,
     desiredHourly: it.desiredHourly ?? null,
     castCode: it.castCode ?? null,
     activityStatus: it.activityStatus ?? null,
     lastMatchedAt: it.lastMatchedAt ?? null,
+    ngShopCount: it.ngShopCount ?? null,
+    exclusiveShopId: it.exclusiveShopId ?? null,
+    nominatedShopCount: it.nominatedShopCount ?? null,
     photoUrl: normalizeCastPhotoUrl(it.photoUrl ?? null),
     photoUrlRaw: normalizeCastPhotoUrl(it.photoUrlRaw ?? null),
   });

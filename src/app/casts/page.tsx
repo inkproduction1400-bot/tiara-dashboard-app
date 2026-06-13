@@ -245,13 +245,34 @@ type CastRow = {
   furigana: string;
   age: number | null;
   desiredHourly: number | null;
+  genres: string[];
+  drinkLevel: string | null;
   castCode: string;
   ownerStaffName: string;
   legacyStaffId: number | null;
+  exclusiveShopId: string | null;
+  nominatedShopCount: number;
 };
 
-// ★ 並び替えモード：50音順 or 旧スタッフID昇順/降順 or 管理番号昇順/降順
-type SortMode = "kana" | "legacy" | "legacyDesc" | "management" | "managementDesc";
+type WageFilter = "" | number;
+type NominationFilter = "" | "exclusive" | "nominated" | "free";
+type DrinkLevelFilter = "" | "strong" | "normal" | "weak" | "ng";
+type MatchingCastGenre = "" | "club" | "cabaret" | "snack" | "gb";
+type AgeRangeFilter =
+  | ""
+  | "18-19"
+  | "20-24"
+  | "25-29"
+  | "30-34"
+  | "35-39"
+  | "40-49"
+  | "50-";
+
+// ★ マッチングページの補助フィルターに合わせた並び替え
+type SortMode = "default" | "hourlyDesc" | "ageAsc" | "ageDesc";
+const CAST_WAGE_FILTER_OPTIONS = [
+  2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500,
+] as const;
 
 /** ジャンル選択肢（複数選択） */
 const CAST_GENRE_OPTIONS = ["クラブ", "キャバ", "スナック", "ガルバ"] as const;
@@ -356,6 +377,16 @@ function calcAgeFromBirthdate(birthdate?: string | null): number | null {
   return age;
 }
 
+function resolveAgeRange(range: AgeRangeFilter): { minAge?: number; maxAge?: number } {
+  if (!range) return {};
+  if (range === "50-") return { minAge: 50 };
+  const [min, max] = range.split("-").map((v) => Number(v));
+  return {
+    minAge: Number.isFinite(min) ? min : undefined,
+    maxAge: Number.isFinite(max) ? max : undefined,
+  };
+}
+
 export default function Page() {
 
   // ===== 新規キャスト作成 =====
@@ -363,7 +394,15 @@ export default function Page() {
 
   const [q, setQ] = useState("");
   const [staffFilter, setStaffFilter] = useState<string>("");
-  const [sortMode, setSortMode] = useState<SortMode>("kana");
+  const [castWageFilter, setCastWageFilter] = useState<WageFilter>("");
+  const [castNominationFilter, setCastNominationFilter] =
+    useState<NominationFilter>("");
+  const [drinkLevelFilter, setDrinkLevelFilter] =
+    useState<DrinkLevelFilter>("");
+  const [castGenreFilter, setCastGenreFilter] =
+    useState<MatchingCastGenre>("");
+  const [ageRangeFilter, setAgeRangeFilter] = useState<AgeRangeFilter>("");
+  const [sortMode, setSortMode] = useState<SortMode>("default");
 
   const [baseRows, setBaseRows] = useState<CastRow[]>([]);
   const [staffAccounts, setStaffAccounts] = useState<StaffUser[]>([]);
@@ -384,9 +423,13 @@ export default function Page() {
     furigana: "",
     age: null,
     desiredHourly: null,
+    genres: [],
+    drinkLevel: null,
     castCode: "",
     ownerStaffName: "",
     legacyStaffId: null,
+    exclusiveShopId: null,
+    nominatedShopCount: 0,
   };
 
   // 削除モーダル用
@@ -422,7 +465,16 @@ export default function Page() {
   // フィルタ変更時は先頭ページに戻す
   useEffect(() => {
     setOffset(0);
-  }, [debouncedQ, staffFilter, sortMode]);
+  }, [
+    debouncedQ,
+    staffFilter,
+    castWageFilter,
+    castNominationFilter,
+    drinkLevelFilter,
+    castGenreFilter,
+    ageRangeFilter,
+    sortMode,
+  ]);
 
   // 一覧取得：検索・担当者・並び替え・ページ送りをサーバー側に委譲
   useEffect(() => {
@@ -433,12 +485,33 @@ export default function Page() {
       setLoadError(null);
 
       try {
+        const ageRange = resolveAgeRange(ageRangeFilter);
+        const hasExclusiveShop =
+          castNominationFilter === "exclusive"
+            ? true
+            : castNominationFilter === "nominated" || castNominationFilter === "free"
+              ? false
+              : undefined;
+        const hasNominatedShops =
+          castNominationFilter === "nominated"
+            ? true
+            : castNominationFilter === "free"
+              ? false
+              : undefined;
         const res = await listCasts({
           q: debouncedQ || undefined,
           limit,
           offset,
           ownerStaffName: staffFilter || undefined,
-          sort: sortMode,
+          desiredHourly:
+            typeof castWageFilter === "number" ? castWageFilter : undefined,
+          hasExclusiveShop,
+          hasNominatedShops,
+          drinkLevel: drinkLevelFilter || undefined,
+          genre: castGenreFilter || undefined,
+          minAge: ageRange.minAge,
+          maxAge: ageRange.maxAge,
+          sort: sortMode === "default" ? undefined : sortMode,
         });
 
         if (canceled) return;
@@ -468,6 +541,8 @@ export default function Page() {
             age: ageFromBirth,
             // 希望時給は preferences.desiredHourly を API が flatten していない前提なので any でケア
             desiredHourly: (c as any).desiredHourly ?? null,
+            genres: Array.isArray((c as any).genres) ? (c as any).genres : [],
+            drinkLevel: (c as any).drinkLevel ?? null,
             // API からのキャストID（例: A001 など）。castCode / cast_code 両方ケア
             castCode: (c as any).castCode ?? (c as any).cast_code ?? "-",
             ownerStaffName:
@@ -475,6 +550,8 @@ export default function Page() {
                 ? ownerStaffNameRaw
                 : "-",
             legacyStaffId: (c as any).legacyStaffId ?? null,
+            exclusiveShopId: (c as any).exclusiveShopId ?? null,
+            nominatedShopCount: Number((c as any).nominatedShopCount ?? 0),
           };
         });
 
@@ -499,7 +576,18 @@ export default function Page() {
     return () => {
       canceled = true;
     };
-  }, [debouncedQ, staffFilter, sortMode, limit, offset]);
+  }, [
+    debouncedQ,
+    staffFilter,
+    castWageFilter,
+    castNominationFilter,
+    drinkLevelFilter,
+    castGenreFilter,
+    ageRangeFilter,
+    sortMode,
+    limit,
+    offset,
+  ]);
 
   // 担当者ドロップダウン用の一覧
   const staffOptions = useMemo(() => {
@@ -816,6 +904,78 @@ export default function Page() {
             補助フィルター
           </span>
           <select
+            className="tiara-input rounded-none h-8 !w-[100px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={castWageFilter === "" ? "" : String(castWageFilter)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCastWageFilter(v ? Number(v) : "");
+            }}
+            title="時給"
+          >
+            <option value="">時給</option>
+            {CAST_WAGE_FILTER_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {v}円帯
+              </option>
+            ))}
+          </select>
+          <select
+            className="tiara-input rounded-none h-8 !w-[115px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={castNominationFilter}
+            onChange={(e) =>
+              setCastNominationFilter(e.target.value as NominationFilter)
+            }
+            title="指名"
+          >
+            <option value="">指名</option>
+            <option value="exclusive">専属指名あり</option>
+            <option value="nominated">指名あり</option>
+            <option value="free">フリー</option>
+          </select>
+          <select
+            className="tiara-input rounded-none h-8 !w-[105px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={drinkLevelFilter}
+            onChange={(e) =>
+              setDrinkLevelFilter(e.target.value as DrinkLevelFilter)
+            }
+            title="飲酒"
+          >
+            <option value="">飲酒</option>
+            <option value="strong">強い</option>
+            <option value="normal">普通</option>
+            <option value="weak">弱い</option>
+            <option value="ng">NG</option>
+          </select>
+          <select
+            className="tiara-input rounded-none h-8 !w-[105px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={castGenreFilter}
+            onChange={(e) =>
+              setCastGenreFilter((e.target.value || "") as MatchingCastGenre)
+            }
+            title="ジャンル"
+          >
+            <option value="">ジャンル</option>
+            <option value="club">クラブ</option>
+            <option value="cabaret">キャバ</option>
+            <option value="snack">スナック</option>
+            <option value="gb">ガルバ</option>
+          </select>
+          <select
+            className="tiara-input rounded-none h-8 !w-[115px] !py-0 text-[10px] leading-tight flex-none bg-white"
+            value={ageRangeFilter}
+            onChange={(e) => setAgeRangeFilter(e.target.value as AgeRangeFilter)}
+            title="年齢レンジ"
+          >
+            <option value="">年齢レンジ</option>
+            <option value="18-19">18〜19歳</option>
+            <option value="20-24">20〜24歳</option>
+            <option value="25-29">25〜29歳</option>
+            <option value="30-34">30〜34歳</option>
+            <option value="35-39">35〜39歳</option>
+            <option value="40-49">40〜49歳</option>
+            <option value="50-">50歳以上</option>
+          </select>
+          <select
             className="tiara-input rounded-none h-8 !w-[125px] !py-0 text-[10px] leading-tight flex-none bg-white"
             value={staffFilter}
             onChange={(e) => setStaffFilter(e.target.value)}
@@ -834,11 +994,10 @@ export default function Page() {
             onChange={(e) => setSortMode(e.target.value as SortMode)}
             title="並び替え"
           >
-            <option value="kana">並び替え：50音順</option>
-            <option value="legacy">旧ID昇順</option>
-            <option value="legacyDesc">旧ID降順</option>
-            <option value="management">管理番号昇順</option>
-            <option value="managementDesc">管理番号降順</option>
+            <option value="default">並び替え</option>
+            <option value="hourlyDesc">時給が高い順</option>
+            <option value="ageAsc">年齢が若い順</option>
+            <option value="ageDesc">年齢が高い順</option>
           </select>
           <input
             className="tiara-input rounded-none h-8 !w-[190px] !py-0 text-[10px] leading-tight flex-none bg-white"
@@ -851,7 +1010,12 @@ export default function Page() {
             onClick={() => {
               setQ("");
               setStaffFilter("");
-              setSortMode("kana");
+              setCastWageFilter("");
+              setCastNominationFilter("");
+              setDrinkLevelFilter("");
+              setCastGenreFilter("");
+              setAgeRangeFilter("");
+              setSortMode("default");
               setOffset(0);
             }}
           >

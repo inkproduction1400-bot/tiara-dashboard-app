@@ -4772,7 +4772,7 @@ export default function Page() {
           {panelTab === "shops" ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
+                <div className="inline-flex bg-white border border-slate-200 overflow-visible text-xs shadow-sm flex-none">
                   <button
                     type="button"
                     className={
@@ -4988,7 +4988,7 @@ export default function Page() {
               {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
               <div className="flex flex-col gap-1.5 text-xs">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                  <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
+                  <div className="inline-flex bg-white border border-slate-200 overflow-visible text-xs shadow-sm flex-none">
                     <button
                       type="button"
                       className={
@@ -5163,11 +5163,12 @@ export default function Page() {
                   className={
                     "flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1 " +
                     (tutorialTarget === "proposal-filters" ||
-                    tutorialTarget === "active-shop-order" ||
-                    tutorialTarget === "request-filters" ||
-                    tutorialTarget === "dispatch-tab"
+                    tutorialTarget === "request-filters"
                       ? "support-focus"
-                      : "")
+                      : tutorialTarget === "active-shop-order" ||
+                          tutorialTarget === "dispatch-tab"
+                        ? "support-visible"
+                        : "")
                   }
                 >
                   <span className="mr-1 text-[10px] font-semibold text-slate-500">
@@ -5492,7 +5493,7 @@ export default function Page() {
                         tutorialTarget === "active-shop-order" ||
                         tutorialTarget === "dispatch-tab" ||
                         tutorialTarget === "request-filters"
-                          ? "support-focus"
+                          ? "support-visible"
                           : "")
                       }
                     >
@@ -5510,7 +5511,7 @@ export default function Page() {
                     <div
                       className={
                         "flex min-w-0 flex-1 items-center gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950 " +
-                        (tutorialTarget ? "support-focus" : "")
+                        (tutorialTarget ? "support-visible" : "")
                       }
                     >
                       <div className="flex h-full w-8 flex-none items-center justify-center text-indigo-700">
@@ -6166,7 +6167,7 @@ export default function Page() {
                   (tutorialTarget === "active-shop-order" ||
                   tutorialTarget === "dispatch-tab" ||
                   tutorialTarget === "request-filters"
-                    ? "support-focus"
+                    ? "support-visible"
                     : "")
                 }
                 style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
@@ -8417,14 +8418,20 @@ export default function Page() {
         }
         .support-callout {
           position: absolute;
-          right: 12px;
-          top: 48px;
+          left: 12px;
+          top: 132px;
           z-index: 40;
-          max-width: 360px;
+          max-width: 430px;
           border: 2px solid #f59e0b;
           background: #fff7ed;
           padding: 8px 10px;
           box-shadow: 0 12px 24px rgba(15, 23, 42, 0.22);
+        }
+        :global(.support-visible) {
+          position: relative;
+          z-index: 30 !important;
+          filter: none !important;
+          opacity: 1 !important;
         }
         :global(.support-focus) {
           position: relative;

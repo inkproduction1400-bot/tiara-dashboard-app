@@ -105,13 +105,22 @@ type DispatchStatusFilter = "" | "unassigned" | "matched";
 type CastStatusTab = "today" | "all" | "dormant";
 type CastListMode = "proposal" | "request";
 type AttendanceRequestFilter = "" | "none" | AttendanceRequestStatus;
-type GuidanceTarget =
+type TutorialTarget =
   | "shop-tab"
+  | "shop-list"
   | "cast-tab"
   | "active-shop-order"
+  | "proposal-filters"
+  | "request-mode"
+  | "request-filters"
   | "dispatch-tab"
   | "dispatch-sheet"
   | null;
+type TutorialMessage = {
+  title: string;
+  body: string;
+  target: TutorialTarget;
+};
 
 const normalizeDispatchTimeForSave = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -1218,6 +1227,7 @@ export default function Page() {
   const [statusTab, setStatusTab] = useState<CastStatusTab>("all");
   const [castListMode, setCastListMode] =
     useState<CastListMode>("proposal");
+  const [supportMode, setSupportMode] = useState(false);
 
   // 既存ソート（年齢・時給など）
   const [sortKey, setSortKey] = useState<SortKey>("default");
@@ -2843,17 +2853,90 @@ export default function Page() {
     };
   }, [filteredDispatchRows]);
 
-  const guidanceTarget = useMemo<GuidanceTarget>(() => {
+  const unfilledOrderCount = useMemo(
+    () =>
+      filteredDispatchRows.filter(
+        (row) =>
+          row.status !== "canceled" &&
+          Boolean(row.shopId) &&
+          !row.castId,
+      ).length,
+    [filteredDispatchRows],
+  );
+
+  const tutorialMessage = useMemo<TutorialMessage | null>(() => {
+    if (!supportMode) return null;
     if (castCardDragging) {
-      return statusTab === "today" ? "dispatch-sheet" : "dispatch-tab";
+      return statusTab === "today"
+        ? {
+            target: "dispatch-sheet",
+            title: "派遣表へ配置",
+            body: "空いているオーダー枠、または空欄にキャストカードをドロップしてください。",
+          }
+        : {
+            target: "dispatch-tab",
+            title: "派遣表へ移動",
+            body: "キャストカードを持ったまま、派遣表タブへ移動してください。",
+          };
     }
-    if (castListMode !== "proposal") return null;
+    if (castListMode === "request") {
+      if (statusTab !== "all") {
+        return {
+          target: "request-filters",
+          title: "全キャストで依頼対象を探す",
+          body: "出勤依頼は全キャスト側で、依頼状態・時給・ジャンル・飲酒・担当者などを絞って進めます。",
+        };
+      }
+      return {
+        target: "request-filters",
+        title: "出勤依頼を送る",
+        body: "未依頼・依頼済み・出勤OK/NGを切り替え、補助フィルターで対象を絞って個別送信または一括送信してください。",
+      };
+    }
+    if (panelTab === "shops") {
+      if (selectedShopId) {
+        return {
+          target: "cast-tab",
+          title: "キャスト一覧へ戻る",
+          body: "営業先店舗を選択しました。キャスト一覧に戻り、店舗から聞いたオーダー条件を入力します。",
+        };
+      }
+      return {
+        target: "shop-list",
+        title: "営業先店舗を選ぶ",
+        body: "店舗一覧から営業連絡する店舗を選択してください。完了済み店舗は確認ダイアログ後に再編集できます。",
+      };
+    }
     if (selectedShopId) {
-      return panelTab === "shops" ? "cast-tab" : "active-shop-order";
+      return {
+        target: "active-shop-order",
+        title: "オーダー情報をセット",
+        body: "稼働中店舗へ営業連絡し、人数・希望時給・飲酒・ヘアセットを確認してセットします。提案時は下の補助フィルターとキャストカードも確認してください。",
+      };
     }
-    if (panelTab === "casts") return "shop-tab";
-    return null;
-  }, [castCardDragging, castListMode, panelTab, selectedShopId, statusTab]);
+    if (unfilledOrderCount > 0) {
+      return {
+        target: "dispatch-tab",
+        title: "キャストを当て込む",
+        body: "取得済みオーダーがあります。補助フィルターで条件に合うキャストを探し、キャストカードを派遣表へドラッグしてください。",
+      };
+    }
+    return {
+      target: "shop-tab",
+      title: "店舗へ営業する",
+      body: "まずアドバイス欄と時給別の出勤状況を確認し、店舗一覧から営業先店舗を選択してください。",
+    };
+  }, [
+    castCardDragging,
+    castListMode,
+    panelTab,
+    selectedShopId,
+    statusTab,
+    supportMode,
+    unfilledOrderCount,
+  ]);
+
+  const tutorialTarget = tutorialMessage?.target ?? null;
 
   const matchingAdvices = useMemo<MatchingAdvice[]>(() => {
     const shopById = new Map(effectiveShops.map((shop) => [shop.id, shop]));
@@ -4667,9 +4750,25 @@ export default function Page() {
     <AppShell>
       <div className="casts-today h-full flex flex-col gap-3">
         <section
-          className="tiara-panel rounded-none p-2 flex flex-col gap-2 relative"
+          className={
+            "tiara-panel rounded-none p-2 flex flex-col gap-2 relative " +
+            (supportMode ? "support-mode-active" : "")
+          }
           style={{ borderRadius: 0 }}
         >
+          {supportMode && (
+            <div className="support-mode-overlay" aria-hidden="true" />
+          )}
+          {tutorialMessage && (
+            <div className="support-callout">
+              <div className="text-[11px] font-bold text-amber-900">
+                {tutorialMessage.title}
+              </div>
+              <div className="mt-0.5 text-[10px] leading-snug text-slate-800">
+                {tutorialMessage.body}
+              </div>
+            </div>
+          )}
           {panelTab === "shops" ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -4678,8 +4777,8 @@ export default function Page() {
                     type="button"
                     className={
                       "px-4 h-8 bg-transparent text-gray-700 relative overflow-visible " +
-                      (guidanceTarget === "cast-tab"
-                        ? "matching-action-hint"
+                      (tutorialTarget === "cast-tab"
+                        ? "support-focus"
                         : "")
                     }
                     onClick={() => setPanelTab("casts")}
@@ -4797,7 +4896,12 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="border border-slate-200 bg-white text-xs overflow-auto">
+              <div
+                className={
+                  "border border-slate-200 bg-white text-xs overflow-auto " +
+                  (tutorialTarget === "shop-list" ? "support-focus" : "")
+                }
+              >
                 <table className="min-w-[1150px] w-full border-collapse">
                   <thead className="bg-slate-100">
                     <tr>
@@ -4887,7 +4991,10 @@ export default function Page() {
                   <div className="inline-flex bg-white border border-slate-200 overflow-hidden text-xs shadow-sm flex-none">
                     <button
                       type="button"
-                      className="px-3 h-8 bg-sky-600 text-white relative overflow-visible"
+                      className={
+                        "px-3 h-8 bg-sky-600 text-white relative overflow-visible " +
+                        (tutorialTarget === "cast-tab" ? "support-focus" : "")
+                      }
                       onClick={() => setPanelTab("casts")}
                     >
                       キャスト一覧
@@ -4896,8 +5003,8 @@ export default function Page() {
                       type="button"
                       className={
                         "px-3 h-8 border-l border-slate-200 bg-transparent text-gray-700 relative overflow-visible " +
-                        (guidanceTarget === "shop-tab"
-                          ? "matching-action-hint"
+                        (tutorialTarget === "shop-tab"
+                          ? "support-focus"
                           : "")
                       }
                       onClick={() => setPanelTab("shops")}
@@ -4976,6 +5083,19 @@ export default function Page() {
                       <option value="no_show">当日欠勤</option>
                     </select>
                   )}
+                  <button
+                    type="button"
+                    className={
+                      "h-8 flex-none border px-3 text-[10px] font-semibold " +
+                      (supportMode
+                        ? "border-amber-600 bg-amber-500 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")
+                    }
+                    onClick={() => setSupportMode((prev) => !prev)}
+                    title="マッチング作業の流れを画面上で案内します"
+                  >
+                    サポートモード {supportMode ? "ON" : "OFF"}
+                  </button>
                   {castListMode === "request" && statusTab === "all" && (
                     <button
                       type="button"
@@ -5039,7 +5159,17 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1">
+                <div
+                  className={
+                    "flex flex-wrap items-center gap-1.5 border border-slate-200 bg-slate-50 px-2 py-1 " +
+                    (tutorialTarget === "proposal-filters" ||
+                    tutorialTarget === "active-shop-order" ||
+                    tutorialTarget === "request-filters" ||
+                    tutorialTarget === "dispatch-tab"
+                      ? "support-focus"
+                      : "")
+                  }
+                >
                   <span className="mr-1 text-[10px] font-semibold text-slate-500">
                     補助フィルター
                   </span>
@@ -5154,8 +5284,8 @@ export default function Page() {
                   <div
                     className={
                       "flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-950 " +
-                      (guidanceTarget === "active-shop-order"
-                        ? "matching-action-hint matching-action-panel-hint"
+                      (tutorialTarget === "active-shop-order"
+                        ? "support-focus"
                         : "")
                     }
                   >
@@ -5287,8 +5417,8 @@ export default function Page() {
                               ? "bg-sky-600 text-white border-sky-600"
                               : "bg-white text-slate-700 border-slate-200") +
                             (tab.id === "today" &&
-                            guidanceTarget === "dispatch-tab"
-                              ? " dispatch-drop-tab-hint"
+                            tutorialTarget === "dispatch-tab"
+                              ? " support-focus"
                               : "")
                           }
                           onClick={() =>
@@ -5355,7 +5485,17 @@ export default function Page() {
                         <span className="ml-2">{orderSummary.headcount} 人</span>
                       </div>
                     </div>
-                    <div className="flex-none border border-slate-200 bg-white px-1.5 py-0.5">
+                    <div
+                      className={
+                        "flex-none border border-slate-200 bg-white px-1.5 py-0.5 " +
+                        (tutorialTarget === "shop-tab" ||
+                        tutorialTarget === "active-shop-order" ||
+                        tutorialTarget === "dispatch-tab" ||
+                        tutorialTarget === "request-filters"
+                          ? "support-focus"
+                          : "")
+                      }
+                    >
                       <div className="mb-0.5 font-semibold leading-none">
                         時給別（本日出勤予定）
                       </div>
@@ -5367,7 +5507,12 @@ export default function Page() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950">
+                    <div
+                      className={
+                        "flex min-w-0 flex-1 items-center gap-2 overflow-hidden border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] text-indigo-950 " +
+                        (tutorialTarget ? "support-focus" : "")
+                      }
+                    >
                       <div className="flex h-full w-8 flex-none items-center justify-center text-indigo-700">
                         <Bot className="h-5 w-5" aria-hidden="true" />
                       </div>
@@ -5415,8 +5560,8 @@ export default function Page() {
                 <div
                   className={
                     "dispatch-sheet-section rounded-none border border-slate-900 bg-white " +
-                    (guidanceTarget === "dispatch-sheet"
-                      ? "dispatch-sheet-drop-hint"
+                    (tutorialTarget === "dispatch-sheet"
+                      ? "support-focus"
                       : "")
                   }
                 >
@@ -6016,7 +6161,14 @@ export default function Page() {
                 </div>
               ) : (
               <div
-                className="grid gap-3"
+                className={
+                  "grid gap-3 " +
+                  (tutorialTarget === "active-shop-order" ||
+                  tutorialTarget === "dispatch-tab" ||
+                  tutorialTarget === "request-filters"
+                    ? "support-focus"
+                    : "")
+                }
                 style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}
               >
               {!loading &&
@@ -8255,80 +8407,67 @@ export default function Page() {
         :global(.tiara-input) {
           border-radius: 0 !important;
         }
-        :global(.matching-action-hint) {
+        .support-mode-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 10;
+          pointer-events: none;
+          background: rgba(15, 23, 42, 0.46);
+          backdrop-filter: grayscale(0.8);
+        }
+        .support-callout {
+          position: absolute;
+          right: 12px;
+          top: 48px;
+          z-index: 40;
+          max-width: 360px;
+          border: 2px solid #f59e0b;
+          background: #fff7ed;
+          padding: 8px 10px;
+          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.22);
+        }
+        :global(.support-focus) {
           position: relative;
-          z-index: 1;
-          border-color: #f59e0b !important;
-          box-shadow:
-            0 0 0 2px rgba(245, 158, 11, 0.42),
-            0 0 0 8px rgba(245, 158, 11, 0.12);
-          animation: dispatchDropPulse 1.25s ease-out infinite;
+          z-index: 30 !important;
+          filter: none !important;
+          opacity: 1 !important;
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.9) !important;
         }
-        :global(.matching-action-hint::after) {
+        :global(.support-focus::after) {
+          content: "ここを操作";
+          position: absolute;
+          top: -27px;
+          left: 8px;
+          z-index: 41;
+          white-space: nowrap;
+          border: 1px solid #f59e0b;
+          background: #f59e0b;
+          color: white;
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1;
+          padding: 5px 7px;
+          pointer-events: none;
+          animation: supportNudge 0.9s ease-in-out infinite alternate;
+        }
+        :global(.support-focus::before) {
           content: "";
           position: absolute;
-          inset: -8px;
-          border: 2px solid rgba(245, 158, 11, 0.45);
+          top: -6px;
+          left: 18px;
+          z-index: 41;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 7px solid #f59e0b;
           pointer-events: none;
-          animation: dispatchDropRipple 1.25s ease-out infinite;
+          animation: supportNudge 0.9s ease-in-out infinite alternate;
         }
-        :global(.matching-action-panel-hint) {
-          overflow: visible;
-        }
-        :global(.matching-action-panel-hint::after) {
-          inset: -10px;
-        }
-        :global(.dispatch-drop-tab-hint) {
-          border-color: #f59e0b !important;
-          box-shadow:
-            0 0 0 2px rgba(245, 158, 11, 0.35),
-            0 0 0 8px rgba(245, 158, 11, 0.12);
-          animation: dispatchDropPulse 1.25s ease-out infinite;
-        }
-        :global(.dispatch-drop-tab-hint::after) {
-          content: "";
-          position: absolute;
-          inset: -8px;
-          border: 2px solid rgba(245, 158, 11, 0.45);
-          pointer-events: none;
-          animation: dispatchDropRipple 1.25s ease-out infinite;
-        }
-        :global(.dispatch-sheet-drop-hint) {
-          position: relative;
-          box-shadow:
-            0 0 0 2px rgba(245, 158, 11, 0.45),
-            0 0 0 10px rgba(245, 158, 11, 0.1);
-          animation: dispatchDropPulse 1.25s ease-out infinite;
-        }
-        :global(.dispatch-sheet-drop-hint::after) {
-          content: "";
-          position: absolute;
-          inset: -10px;
-          border: 2px solid rgba(245, 158, 11, 0.45);
-          pointer-events: none;
-          animation: dispatchDropRipple 1.25s ease-out infinite;
-        }
-        @keyframes dispatchDropPulse {
-          0%,
-          100% {
-            box-shadow:
-              0 0 0 2px rgba(245, 158, 11, 0.42),
-              0 0 0 8px rgba(245, 158, 11, 0.1);
+        @keyframes supportNudge {
+          from {
+            transform: translateY(0);
           }
-          50% {
-            box-shadow:
-              0 0 0 3px rgba(245, 158, 11, 0.65),
-              0 0 0 14px rgba(245, 158, 11, 0.16);
-          }
-        }
-        @keyframes dispatchDropRipple {
-          0% {
-            opacity: 0.7;
-            transform: scale(0.98);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(1.04);
+          to {
+            transform: translateY(4px);
           }
         }
         @media print {

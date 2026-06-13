@@ -8443,7 +8443,7 @@ export default function Page() {
         :global(.support-focus::after) {
           content: "ここを操作";
           position: absolute;
-          top: -27px;
+          top: calc(100% + 9px);
           left: 8px;
           z-index: 41;
           white-space: nowrap;
@@ -8460,12 +8460,12 @@ export default function Page() {
         :global(.support-focus::before) {
           content: "";
           position: absolute;
-          top: -6px;
+          top: calc(100% + 2px);
           left: 18px;
           z-index: 41;
           border-left: 6px solid transparent;
           border-right: 6px solid transparent;
-          border-top: 7px solid #f59e0b;
+          border-bottom: 7px solid #f59e0b;
           pointer-events: none;
           animation: supportNudge 0.9s ease-in-out infinite alternate;
         }

@@ -112,6 +112,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     let mounted = true;
+    const isRidesPage = pathname === "/rides" || pathname.startsWith("/rides/");
     const getTodayKey = () => {
       const d = new Date();
       const y = d.getFullYear();
@@ -119,15 +120,42 @@ export default function Sidebar() {
       const dd = `${d.getDate()}`.padStart(2, "0");
       return `${y}-${m}-${dd}`;
     };
+    const getRideSeenKey = (dateKey: string) =>
+      `tiara:rides:last_seen:${dateKey}`;
+    const markRidesSeen = (dateKey: string) => {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(
+        getRideSeenKey(dateKey),
+        new Date().toISOString(),
+      );
+    };
+    const getRideSeenAt = (dateKey: string) => {
+      if (typeof window === "undefined") return 0;
+      const raw = window.localStorage.getItem(getRideSeenKey(dateKey));
+      const timestamp = raw ? Date.parse(raw) : 0;
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    };
 
     const fetchPendingRides = async () => {
       try {
+        const dateKey = getTodayKey();
         const list = await ListRides({
           status: "pending" as RideStatus,
-          date: getTodayKey(),
+          date: dateKey,
         });
         if (!mounted) return;
-        setRidePendingCount(list.length);
+        if (isRidesPage) {
+          markRidesSeen(dateKey);
+          setRidePendingCount(0);
+          return;
+        }
+        const seenAt = getRideSeenAt(dateKey);
+        const visibleCount = list.filter((ride) => {
+          const createdAt = Date.parse(ride.created_at ?? "");
+          if (!Number.isFinite(createdAt)) return true;
+          return createdAt > seenAt;
+        }).length;
+        setRidePendingCount(visibleCount);
       } catch {
         if (!mounted) return;
         setRidePendingCount(0);
@@ -140,7 +168,7 @@ export default function Sidebar() {
       mounted = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [pathname]);
 
   const onLogout = async () => {
     try {

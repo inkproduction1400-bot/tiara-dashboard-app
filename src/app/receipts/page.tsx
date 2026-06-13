@@ -654,7 +654,7 @@ export default function ReceiptsPage() {
                       </td>
                       <td className="border border-slate-700 px-0.5 py-0.5 text-center text-[10px] font-semibold">
                         <select
-                          className="h-6 w-full border border-slate-400 bg-white text-center text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
+                          className="receipt-ride-select h-6 w-full border border-slate-400 bg-white text-center text-[10px] disabled:bg-slate-100 disabled:text-slate-400"
                           value={row.rideRequested ? "yes" : "no"}
                           disabled={detailsDisabled}
                           onChange={(event) => {
@@ -669,6 +669,9 @@ export default function ReceiptsPage() {
                           <option value="no">なし</option>
                           <option value="yes">あり</option>
                         </select>
+                        <span className="receipt-ride-print-text text-[10px] font-semibold">
+                          {row.rideRequested ? "あり" : "なし"}
+                        </span>
                       </td>
                       <td className="break-words border border-slate-700 px-0.5 py-0.5 text-center text-[9px]">
                         <input
@@ -1112,13 +1115,26 @@ export default function ReceiptsPage() {
             display: none !important;
           }
 
+          .receipt-ride-select {
+            display: none !important;
+          }
+
           .receipt-collection-print-mark {
+            display: inline !important;
+            visibility: visible !important;
+          }
+
+          .receipt-ride-print-text {
             display: inline !important;
             visibility: visible !important;
           }
         }
 
         .receipt-collection-print-mark {
+          display: none;
+        }
+
+        .receipt-ride-print-text {
           display: none;
         }
       `}</style>

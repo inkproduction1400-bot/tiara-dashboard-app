@@ -4987,7 +4987,7 @@ export default function Page() {
             <>
               {/* キャスト一覧：ソート/フィルタ（シンプル配置） */}
               <div className="flex flex-col gap-1.5 text-xs">
-                <div className="flex items-center gap-1.5 overflow-hidden">
+                <div className="flex items-center gap-1.5 overflow-visible">
                   <div className="inline-flex bg-white border border-slate-200 overflow-visible text-xs shadow-sm flex-none">
                     <button
                       type="button"

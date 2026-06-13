@@ -109,10 +109,14 @@ type TutorialTarget =
   | "shop-tab"
   | "shop-list"
   | "cast-tab"
+  | "all-casts-tab"
   | "active-shop-order"
   | "proposal-filters"
+  | "request-status-filter"
   | "request-mode"
   | "request-filters"
+  | "bulk-request"
+  | "cast-list"
   | "dispatch-tab"
   | "dispatch-sheet"
   | null;
@@ -2866,6 +2870,58 @@ export default function Page() {
 
   const tutorialMessage = useMemo<TutorialMessage | null>(() => {
     if (!supportMode) return null;
+    if (castListMode === "request") {
+      const hasRequestAuxFilter =
+        keyword.trim() ||
+        castWageFilter ||
+        castExclusiveFilter ||
+        castNominatedFilter ||
+        drinkLevelFilter ||
+        castGenreFilter ||
+        ageRangeFilter ||
+        担当者 !== "all" ||
+        sortKey !== "default";
+      if (statusTab !== "all") {
+        return {
+          target: "all-casts-tab",
+          title: "全キャストを開く",
+          body: "出勤依頼は全キャストから対象を探します。まず全キャストタブを開いてください。",
+        };
+      }
+      if (!attendanceRequestFilter) {
+        return {
+          target: "request-status-filter",
+          title: "依頼状態を選ぶ",
+          body: "まず未依頼・依頼済み・出勤OK/NGを切り替えます。依頼を送る場合は未依頼を選んでください。",
+        };
+      }
+      if (!hasRequestAuxFilter) {
+        return {
+          target: "request-filters",
+          title: "不足属性で絞り込む",
+          body: "不足している時給帯・ジャンル・飲酒・年齢・担当者などで絞り込み、依頼対象を絞ってください。",
+        };
+      }
+      if (bulkRequestTargets.length > 0) {
+        return {
+          target: "bulk-request",
+          title: "出勤依頼を送る",
+          body: "条件内の未送信キャストへ一括送信できます。個別確認したい場合はキャストカードを開いてチャット送信してください。",
+        };
+      }
+      if (allFilteredCasts.length > 0) {
+        return {
+          target: "cast-list",
+          title: "個別確認する",
+          body: "この条件の未送信対象はいません。表示中のキャストカードを開き、依頼済み・OK/NGの状況を確認してください。",
+        };
+      }
+      return {
+        target: "request-filters",
+        title: "条件を広げる",
+        body: "条件に合うキャストがいません。時給・ジャンル・飲酒・年齢などの条件を広げて再検索してください。",
+      };
+    }
     if (castCardDragging) {
       return statusTab === "today"
         ? {
@@ -2878,20 +2934,6 @@ export default function Page() {
             title: "派遣表へ移動",
             body: "キャストカードを持ったまま、派遣表タブへ移動してください。",
           };
-    }
-    if (castListMode === "request") {
-      if (statusTab !== "all") {
-        return {
-          target: "request-filters",
-          title: "全キャストで依頼対象を探す",
-          body: "出勤依頼は全キャスト側で、依頼状態・時給・ジャンル・飲酒・担当者などを絞って進めます。",
-        };
-      }
-      return {
-        target: "request-filters",
-        title: "出勤依頼を送る",
-        body: "未依頼・依頼済み・出勤OK/NGを切り替え、補助フィルターで対象を絞って個別送信または一括送信してください。",
-      };
     }
     if (panelTab === "shops") {
       if (selectedShopId) {
@@ -2929,11 +2971,23 @@ export default function Page() {
   }, [
     castCardDragging,
     castListMode,
+    allFilteredCasts.length,
+    attendanceRequestFilter,
+    ageRangeFilter,
+    bulkRequestTargets.length,
+    castExclusiveFilter,
+    castGenreFilter,
+    castNominatedFilter,
+    castWageFilter,
+    drinkLevelFilter,
+    keyword,
     panelTab,
     selectedShopId,
+    sortKey,
     statusTab,
     supportMode,
     unfilledOrderCount,
+    担当者,
   ]);
 
   const tutorialTarget = tutorialMessage?.target ?? null;
@@ -5066,22 +5120,31 @@ export default function Page() {
                       <option value="matched">マッチ済み</option>
                     </select>
                   ) : (
-                    <select
-                      className="h-8 w-[130px] flex-none border-2 border-amber-500 bg-amber-50 px-2 text-[10px] font-semibold text-amber-900"
-                      value={attendanceRequestFilter}
-                      onChange={(e) =>
-                        setAttendanceRequestFilter(
-                          e.target.value as AttendanceRequestFilter,
-                        )
+                    <div
+                      className={
+                        "relative flex-none overflow-visible " +
+                        (tutorialTarget === "request-status-filter"
+                          ? "support-focus"
+                          : "")
                       }
                     >
-                      <option value="">依頼状態すべて</option>
-                      <option value="none">未依頼</option>
-                      <option value="requested">依頼済み</option>
-                      <option value="ok">出勤OK</option>
-                      <option value="ng">出勤NG</option>
-                      <option value="no_show">当日欠勤</option>
-                    </select>
+                      <select
+                        className="h-8 w-[130px] border-2 border-amber-500 bg-amber-50 px-2 text-[10px] font-semibold text-amber-900"
+                        value={attendanceRequestFilter}
+                        onChange={(e) =>
+                          setAttendanceRequestFilter(
+                            e.target.value as AttendanceRequestFilter,
+                          )
+                        }
+                      >
+                        <option value="">依頼状態すべて</option>
+                        <option value="none">未依頼</option>
+                        <option value="requested">依頼済み</option>
+                        <option value="ok">出勤OK</option>
+                        <option value="ng">出勤NG</option>
+                        <option value="no_show">当日欠勤</option>
+                      </select>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -5099,7 +5162,12 @@ export default function Page() {
                   {castListMode === "request" && statusTab === "all" && (
                     <button
                       type="button"
-                      className="h-8 flex-none border-2 border-amber-500 bg-amber-50 px-3 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={
+                        "h-8 flex-none border-2 border-amber-500 bg-amber-50 px-3 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-visible " +
+                        (tutorialTarget === "bulk-request"
+                          ? "support-focus"
+                          : "")
+                      }
                       onClick={openBulkRequestModal}
                       disabled={
                         bulkRequestSending || bulkRequestTargets.length === 0
@@ -5419,6 +5487,10 @@ export default function Page() {
                               : "bg-white text-slate-700 border-slate-200") +
                             (tab.id === "today" &&
                             tutorialTarget === "dispatch-tab"
+                              ? " support-focus"
+                              : "") +
+                            (tab.id === "all" &&
+                            tutorialTarget === "all-casts-tab"
                               ? " support-focus"
                               : "")
                           }
@@ -6164,7 +6236,9 @@ export default function Page() {
               <div
                 className={
                   "grid gap-3 " +
-                  (tutorialTarget === "active-shop-order" ||
+                  (tutorialTarget === "cast-list"
+                    ? "support-focus"
+                    : tutorialTarget === "active-shop-order" ||
                   tutorialTarget === "dispatch-tab" ||
                   tutorialTarget === "request-filters"
                     ? "support-visible"
